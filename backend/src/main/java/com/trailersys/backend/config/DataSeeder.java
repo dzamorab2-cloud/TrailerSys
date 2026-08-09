@@ -16,6 +16,9 @@ import com.trailersys.backend.cliente.EstadoCliente;
 import com.trailersys.backend.conductor.Conductor;
 import com.trailersys.backend.conductor.ConductorRepository;
 import com.trailersys.backend.conductor.EstadoConductor;
+import com.trailersys.backend.seguimiento.SeguimientoEvento;
+import com.trailersys.backend.seguimiento.SeguimientoEventoRepository;
+import com.trailersys.backend.seguimiento.TipoEvento;
 import com.trailersys.backend.usuario.Rol;
 import com.trailersys.backend.usuario.Usuario;
 import com.trailersys.backend.usuario.UsuarioRepository;
@@ -41,11 +44,13 @@ public class DataSeeder implements CommandLineRunner {
     private final ClienteRepository clienteRepository;
     private final CargaRepository cargaRepository;
     private final ViajeRepository viajeRepository;
+    private final SeguimientoEventoRepository seguimientoEventoRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(UsuarioRepository usuarioRepository, VehiculoRepository vehiculoRepository,
                        ConductorRepository conductorRepository, ClienteRepository clienteRepository,
                        CargaRepository cargaRepository, ViajeRepository viajeRepository,
+                       SeguimientoEventoRepository seguimientoEventoRepository,
                        PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.vehiculoRepository = vehiculoRepository;
@@ -53,6 +58,7 @@ public class DataSeeder implements CommandLineRunner {
         this.clienteRepository = clienteRepository;
         this.cargaRepository = cargaRepository;
         this.viajeRepository = viajeRepository;
+        this.seguimientoEventoRepository = seguimientoEventoRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -145,6 +151,22 @@ public class DataSeeder implements CommandLineRunner {
             viajeRepository.save(new Viaje(vehiculo2, conductor2, distribuidoraElRoble, cargaRefrigerados,
                     "Ambato, Ecuador", "Riobamba, Ecuador", LocalDateTime.of(2026, 8, 9, 6, 0),
                     EstadoViaje.EN_CURSO, ""));
+        }
+
+        if (seguimientoEventoRepository.count() == 0) {
+            Viaje viajeEnCurso = viajeRepository.findAll().stream()
+                    .filter(v -> "Ambato, Ecuador".equals(v.getOrigen()) && "Riobamba, Ecuador".equals(v.getDestino()))
+                    .findFirst().orElse(null);
+
+            if (viajeEnCurso != null) {
+                seguimientoEventoRepository.save(new SeguimientoEvento(
+                        viajeEnCurso, viajeEnCurso.getVehiculo(), LocalDateTime.of(2026, 8, 9, 6, 5),
+                        TipoEvento.SALIDA, "Terminal de Ambato", "Salida registrada a tiempo."));
+
+                seguimientoEventoRepository.save(new SeguimientoEvento(
+                        viajeEnCurso, viajeEnCurso.getVehiculo(), LocalDateTime.of(2026, 8, 9, 6, 40),
+                        TipoEvento.PARADA, "Km 15 vía Ambato - Riobamba", "Parada breve por control de carga."));
+            }
         }
     }
 }
