@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/viajes.css" />
   <link rel="stylesheet" href="css/seguimiento.css" />
   <link rel="stylesheet" href="css/reportes.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -84,11 +85,25 @@
               <p>Resumen general de la operación.</p>
             </div>
           </div>
-          <div class="module-placeholder card">
-            <i class="bi bi-speedometer2"></i>
-            <h3>El Dashboard se construye al final</h3>
-            <p>Mostrará indicadores reales una vez estén listos los demás módulos (Fase 11 del plan de desarrollo).</p>
-            <span class="badge badge-neutral phase-tag">Fase 11 · Dashboard</span>
+
+          <div class="stats-row" id="dashboardStats"></div>
+
+          <div class="dashboard-grid">
+            <div class="dashboard-panel card" id="dashboardAlertasPanel">
+              <div class="dashboard-panel-header">
+                <i class="bi bi-bell"></i>
+                <h3>Alertas operativas</h3>
+              </div>
+              <div id="dashboardAlertas"></div>
+            </div>
+
+            <div class="dashboard-panel card" id="dashboardViajesPanel">
+              <div class="dashboard-panel-header">
+                <i class="bi bi-signpost-split"></i>
+                <h3>Próximos viajes</h3>
+              </div>
+              <div id="dashboardViajes"></div>
+            </div>
           </div>
         </section>
 
@@ -1246,6 +1261,7 @@
   <script src="js/mantenimientos.js"></script>
   <script src="js/seguimiento.js"></script>
   <script src="js/reportes.js"></script>
+  <script src="js/dashboard.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>
