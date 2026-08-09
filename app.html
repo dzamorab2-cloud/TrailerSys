@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="css/seguimiento.css" />
   <link rel="stylesheet" href="css/reportes.css" />
   <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/configuracion.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -433,13 +434,47 @@
           <div class="module-header">
             <div>
               <h1>Configuración</h1>
-              <p>Usuarios, roles, catálogos y parámetros generales.</p>
+              <p>Datos de tu cuenta.</p>
             </div>
           </div>
-          <div class="module-placeholder card">
+
+          <div class="card profile-card" id="perfilCard">
+            <div class="person-header">
+              <div class="person-avatar" id="perfilAvatar">—</div>
+              <div class="person-identity">
+                <div class="person-name" id="perfilNombre">—</div>
+                <div class="person-id" id="perfilUsername">—</div>
+              </div>
+            </div>
+            <div class="route-summary-grid profile-detail-grid">
+              <div class="route-stat">
+                <div class="route-stat-label">Rol</div>
+                <div class="route-stat-value" id="perfilRol">—</div>
+              </div>
+              <div class="route-stat">
+                <div class="route-stat-label">Correo</div>
+                <div class="route-stat-value" id="perfilCorreo">—</div>
+              </div>
+              <div class="route-stat">
+                <div class="route-stat-label">ID de usuario</div>
+                <div class="route-stat-value" id="perfilId">—</div>
+              </div>
+              <div class="route-stat">
+                <div class="route-stat-label">Sesión iniciada</div>
+                <div class="route-stat-value" id="perfilSesion">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="module-placeholder card" id="perfilEmptyState" hidden>
+            <i class="bi bi-exclamation-circle"></i>
+            <h3>No se pudo cargar tu perfil</h3>
+            <p id="perfilEmptyText">Ocurrió un error al conectar con el servidor.</p>
+          </div>
+
+          <div class="module-placeholder card profile-future-note">
             <i class="bi bi-gear"></i>
-            <h3>Módulo en construcción</h3>
-            <p>Administración de usuarios, roles y catálogos del sistema.</p>
+            <h3>Administración de usuarios en construcción</h3>
+            <p>Crear, editar y desactivar otros usuarios llegará en una fase futura.</p>
             <span class="badge badge-neutral phase-tag">Backend · Configuración</span>
           </div>
         </section>
@@ -1262,6 +1297,7 @@
   <script src="js/seguimiento.js"></script>
   <script src="js/reportes.js"></script>
   <script src="js/dashboard.js"></script>
+  <script src="js/configuracion.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>
