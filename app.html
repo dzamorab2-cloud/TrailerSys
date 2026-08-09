@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/modal.css" />
   <link rel="stylesheet" href="css/vehiculos.css" />
+  <link rel="stylesheet" href="css/conductores.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -135,12 +136,34 @@
               <h1>Conductores</h1>
               <p>Datos personales, licencia y asignaciones.</p>
             </div>
+            <button class="btn btn-primary" id="btnNuevoConductor" hidden>
+              <i class="bi bi-plus-lg"></i>
+              Nuevo conductor
+            </button>
           </div>
-          <div class="module-placeholder card">
+
+          <div class="toolbar">
+            <div class="toolbar-search">
+              <i class="bi bi-search"></i>
+              <input type="text" id="conductorBuscar" placeholder="Buscar por nombre, identificación o teléfono" />
+            </div>
+            <div class="toolbar-filters">
+              <select id="conductorFiltroEstado" class="select-pill">
+                <option value="">Todos los estados</option>
+                <option value="Disponible">Disponible</option>
+                <option value="En Ruta">En Ruta</option>
+                <option value="Descanso">Descanso</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="results-count" id="conductorResultsCount"></p>
+          <div class="people-grid" id="conductorGrid"></div>
+          <div class="module-placeholder card" id="conductorEmptyState" hidden>
             <i class="bi bi-person-badge"></i>
-            <h3>Módulo en construcción</h3>
-            <p>Registro, consulta, edición y asignación de conductores.</p>
-            <span class="badge badge-neutral phase-tag">Fase 3 · Conductores</span>
+            <h3 id="conductorEmptyTitle">Todavía no hay conductores registrados</h3>
+            <p id="conductorEmptyText">Usa "Nuevo conductor" para registrar el primero.</p>
           </div>
         </section>
 
@@ -387,6 +410,142 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="conductorModalOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="conductorModalTitle">Nuevo conductor</h3>
+        <button type="button" class="modal-close" id="conductorModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <form id="conductorForm" novalidate>
+        <input type="hidden" id="conductorId" />
+
+        <div class="photo-upload">
+          <div class="photo-preview photo-preview-round" id="conductorFotoPreview">
+            <i class="bi bi-person"></i>
+          </div>
+          <div class="photo-upload-actions">
+            <label class="btn btn-ghost" for="conductorFoto">
+              <i class="bi bi-camera"></i>
+              Seleccionar fotografía
+            </label>
+            <input type="file" id="conductorFoto" accept="image/*" />
+            <button type="button" class="btn btn-ghost" id="conductorFotoQuitar" hidden>
+              <i class="bi bi-trash3"></i>
+              Quitar fotografía
+            </button>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field field-span-2" id="fieldConductorNombres">
+            <label for="conductorNombres">Nombres completos</label>
+            <div class="input-wrap">
+              <i class="bi bi-person"></i>
+              <input type="text" id="conductorNombres" placeholder="Nombre y apellido" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldConductorIdentificacion">
+            <label for="conductorIdentificacion">Identificación</label>
+            <div class="input-wrap">
+              <i class="bi bi-person-vcard"></i>
+              <input type="text" id="conductorIdentificacion" placeholder="Cédula o documento" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldConductorTelefono">
+            <label for="conductorTelefono">Teléfono</label>
+            <div class="input-wrap">
+              <i class="bi bi-telephone"></i>
+              <input type="text" id="conductorTelefono" placeholder="09XXXXXXXX" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2" id="fieldConductorCorreo">
+            <label for="conductorCorreo">Correo (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-envelope"></i>
+              <input type="email" id="conductorCorreo" placeholder="correo@ejemplo.com" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldConductorLicenciaNumero">
+            <label for="conductorLicenciaNumero">N.º de licencia</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-checklist"></i>
+              <input type="text" id="conductorLicenciaNumero" placeholder="Número de licencia" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldConductorLicenciaCategoria">
+            <label for="conductorLicenciaCategoria">Categoría</label>
+            <div class="input-wrap">
+              <i class="bi bi-award"></i>
+              <input type="text" id="conductorLicenciaCategoria" placeholder="Ej. Tipo E" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldConductorLicenciaVencimiento">
+            <label for="conductorLicenciaVencimiento">Vencimiento de licencia</label>
+            <div class="input-wrap">
+              <i class="bi bi-calendar-x"></i>
+              <input type="date" id="conductorLicenciaVencimiento" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldConductorEstado">
+            <label for="conductorEstado">Estado</label>
+            <div class="input-wrap">
+              <i class="bi bi-toggle2-on"></i>
+              <select id="conductorEstado">
+                <option value="Disponible">Disponible</option>
+                <option value="En Ruta">En Ruta</option>
+                <option value="Descanso">Descanso</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field field-span-2" id="fieldConductorVehiculo">
+            <label for="conductorVehiculo">Vehículo asignado (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-truck"></i>
+              <select id="conductorVehiculo">
+                <option value="">Sin asignar</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="conductorObservaciones">Observaciones</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="conductorObservaciones" placeholder="Observaciones opcionales" />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="conductorCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i>
+            Guardar conductor
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModalOverlay">
     <div class="modal-dialog" style="max-width: 400px;">
       <div class="modal-header">
@@ -407,6 +566,7 @@
   <script src="js/storage.js"></script>
   <script src="js/ui-helpers.js"></script>
   <script src="js/vehiculos.js"></script>
+  <script src="js/conductores.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>
