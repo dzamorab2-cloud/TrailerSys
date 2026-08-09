@@ -1,5 +1,4 @@
 (function () {
-  const COLLECTION = "viajes";
   const ESTADOS = ["Programado", "En Curso", "Finalizado", "Cancelado"];
   const ESTADO_BADGE = {
     Programado: "badge-info",
@@ -8,40 +7,32 @@
     Cancelado: "badge-danger",
   };
 
-  trailersysSeedIfEmpty(COLLECTION, [
-    {
-      id: "viaje-seed-1",
-      vehiculoId: "vehiculo-seed-1",
-      conductorId: "conductor-seed-1",
-      clienteId: "cliente-seed-1",
-      cargaId: "carga-seed-1",
-      origen: "Guayaquil, Ecuador",
-      destino: "Quito, Ecuador",
-      fechaSalida: "2026-08-10T07:00",
-      estado: "Programado",
-      observaciones: "",
-      ruta: {
-        origenCoords: { lat: -2.1894, lng: -79.8891 },
-        destinoCoords: { lat: -0.2201641, lng: -78.5123274 },
-        distanciaKm: 424.5,
-        duracionMin: 372.6,
-        path: null,
-      },
-    },
-    {
-      id: "viaje-seed-2",
-      vehiculoId: "vehiculo-seed-2",
-      conductorId: "conductor-seed-2",
-      clienteId: "cliente-seed-2",
-      cargaId: "carga-seed-2",
-      origen: "Ambato, Ecuador",
-      destino: "Riobamba, Ecuador",
-      fechaSalida: "2026-08-09T06:00",
-      estado: "En Curso",
-      observaciones: "",
-      ruta: null,
-    },
-  ]);
+  // Convierte la "ruta" del backend (origenLat/origenLng/... + path como
+  // {lat,lng}) a la forma interna que ya usaba este modulo con Leaflet
+  // (origenCoords/destinoCoords + path como [lat,lng]), y viceversa.
+  function fromApiRuta(rutaDto) {
+    if (!rutaDto) return null;
+    return {
+      origenCoords: { lat: rutaDto.origenLat, lng: rutaDto.origenLng },
+      destinoCoords: { lat: rutaDto.destinoLat, lng: rutaDto.destinoLng },
+      distanciaKm: rutaDto.distanciaKm,
+      duracionMin: rutaDto.duracionMin,
+      path: rutaDto.path ? rutaDto.path.map((p) => [p.lat, p.lng]) : null,
+    };
+  }
+
+  function toApiRuta(ruta) {
+    if (!ruta) return null;
+    return {
+      origenLat: ruta.origenCoords.lat,
+      origenLng: ruta.origenCoords.lng,
+      destinoLat: ruta.destinoCoords.lat,
+      destinoLng: ruta.destinoCoords.lng,
+      distanciaKm: ruta.distanciaKm,
+      duracionMin: ruta.duracionMin,
+      path: ruta.path ? ruta.path.map(([lat, lng]) => ({ lat, lng })) : null,
+    };
+  }
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevoViaje");
@@ -86,6 +77,16 @@
   let rutaCalculada = null;
   let leafletMapInstance = null;
   let mapaViajeActualId = null;
+
+  // Cache del ultimo listado de viajes cargado desde la API.
+  let viajesCache = [];
+
+  // Caches de los catalogos relacionados, usados solo para poblar los
+  // selectores del formulario de alta/edicion.
+  let vehiculosCache = [];
+  let conductoresCache = [];
+  let clientesCache = [];
+  let cargasCache = [];
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -132,23 +133,29 @@
       option.textContent = labelFn(item);
       select.appendChild(option);
     });
-    if (items.some((item) => item.id === current)) select.value = current;
+    if (items.some((item) => String(item.id) === current)) select.value = current;
   }
 
-  function refreshRelationOptions() {
-    fillSelect(selectVehiculo, trailersysList("vehiculos"), (v) => `${v.placa} · ${v.marca} ${v.modelo}`, "Selecciona un vehículo");
-    fillSelect(selectConductor, trailersysList("conductores"), (c) => c.nombres, "Selecciona un conductor");
-    fillSelect(selectCliente, trailersysList("clientes"), (c) => c.nombre, "Selecciona un cliente");
-    fillSelect(selectCarga, trailersysList("cargas"), (c) => c.descripcion, "Sin carga asociada");
+  async function refreshCaches() {
+    [vehiculosCache, conductoresCache, clientesCache, cargasCache] = await Promise.all([
+      trailersysApiRequest("GET", "/vehiculos").catch(() => []),
+      trailersysApiRequest("GET", "/conductores").catch(() => []),
+      trailersysApiRequest("GET", "/clientes").catch(() => []),
+      trailersysApiRequest("GET", "/cargas").catch(() => []),
+    ]);
+  }
+
+  async function refreshRelationOptions() {
+    await refreshCaches();
+    fillSelect(selectVehiculo, vehiculosCache, (v) => `${v.placa} · ${v.marca} ${v.modelo}`, "Selecciona un vehículo");
+    fillSelect(selectConductor, conductoresCache, (c) => c.nombres, "Selecciona un conductor");
+    fillSelect(selectCliente, clientesCache, (c) => c.nombre, "Selecciona un cliente");
+    fillSelect(selectCarga, cargasCache, (c) => c.descripcion, "Sin carga asociada");
   }
 
   // --- Tarjetas ---
   function renderCard(viaje, canManage) {
     const badgeClass = ESTADO_BADGE[viaje.estado] || "badge-neutral";
-    const vehiculo = trailersysList("vehiculos").find((v) => v.id === viaje.vehiculoId);
-    const conductor = trailersysList("conductores").find((c) => c.id === viaje.conductorId);
-    const cliente = trailersysList("clientes").find((c) => c.id === viaje.clienteId);
-    const carga = viaje.cargaId ? trailersysList("cargas").find((c) => c.id === viaje.cargaId) : null;
 
     const distanciaLabel = viaje.estado === "Finalizado" ? "recorridos" : "por recorrer";
     const distanciaText = viaje.ruta ? `${viaje.ruta.distanciaKm.toFixed(1)} km ${distanciaLabel}` : "Ruta no calculada";
@@ -171,14 +178,14 @@
           <i class="bi bi-signpost-split"></i>
           <div class="item-banner-title">
             <div class="item-title">${escapeHtml(viaje.origen)} → ${escapeHtml(viaje.destino)}</div>
-            <div class="item-subtitle">${escapeHtml(vehiculo ? vehiculo.placa : "Vehículo no encontrado")} · ${escapeHtml(conductor ? conductor.nombres : "Conductor no encontrado")}</div>
+            <div class="item-subtitle">${escapeHtml(viaje.vehiculoPlaca)} · ${escapeHtml(viaje.conductorNombres)}</div>
           </div>
         </div>
         <div class="item-body">
           <div class="item-meta">
             <span class="badge ${badgeClass}">${escapeHtml(viaje.estado)}</span>
-            <span><i class="bi bi-building"></i>${escapeHtml(cliente ? cliente.nombre : "Cliente no encontrado")}</span>
-            ${carga ? `<span><i class="bi bi-box-seam"></i>${escapeHtml(carga.descripcion)}</span>` : ""}
+            <span><i class="bi bi-building"></i>${escapeHtml(viaje.clienteNombre)}</span>
+            ${viaje.cargaDescripcion ? `<span><i class="bi bi-box-seam"></i>${escapeHtml(viaje.cargaDescripcion)}</span>` : ""}
           </div>
           <div class="item-meta">
             <span><i class="bi bi-signpost"></i>${distanciaText}</span>
@@ -195,19 +202,31 @@
       </article>`;
   }
 
-  function render() {
-    const viajes = trailersysList(COLLECTION);
-
-    const canManage = trailersysCanManage(session, COLLECTION);
+  async function render() {
+    const canManage = trailersysCanManage(session, "viajes");
     btnNuevo.hidden = !canManage;
+
+    let viajes;
+    try {
+      viajes = await trailersysApiRequest("GET", "/viajes");
+    } catch (error) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar los viajes";
+      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    viajes.forEach((viaje) => {
+      viaje.ruta = fromApiRuta(viaje.ruta);
+    });
+    viajesCache = viajes;
 
     const search = inputBuscar.value.trim().toLowerCase();
     const estado = filtroEstado.value;
 
     const filtrados = viajes.filter((viaje) => {
-      const vehiculo = trailersysList("vehiculos").find((v) => v.id === viaje.vehiculoId);
-      const conductor = trailersysList("conductores").find((c) => c.id === viaje.conductorId);
-      const haystack = [viaje.origen, viaje.destino, vehiculo?.placa, conductor?.nombres]
+      const haystack = [viaje.origen, viaje.destino, viaje.vehiculoPlaca, viaje.conductorNombres]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -239,11 +258,11 @@
   }
 
   // --- Modal de alta / edicion ---
-  function openForm(viaje) {
+  async function openForm(viaje) {
     clearFieldErrors();
     form.reset();
     selectEstado.value = "Programado";
-    refreshRelationOptions();
+    await refreshRelationOptions();
 
     if (viaje) {
       modalTitle.textContent = "Editar viaje";
@@ -254,7 +273,7 @@
       selectCarga.value = viaje.cargaId || "";
       inputOrigen.value = viaje.origen;
       inputDestino.value = viaje.destino;
-      inputFechaSalida.value = viaje.fechaSalida;
+      inputFechaSalida.value = viaje.fechaSalida ? viaje.fechaSalida.slice(0, 16) : "";
       selectEstado.value = viaje.estado;
       inputObservaciones.value = viaje.observaciones || "";
       rutaCalculada = viaje.ruta || null;
@@ -287,7 +306,7 @@
 
   selectCarga.addEventListener("change", () => {
     if (!selectCarga.value) return;
-    const carga = trailersysList("cargas").find((c) => c.id === selectCarga.value);
+    const carga = cargasCache.find((c) => String(c.id) === selectCarga.value);
     if (!carga) return;
     inputOrigen.value = carga.origen;
     inputDestino.value = carga.destino;
@@ -369,28 +388,41 @@
     return valid;
   }
 
-  form.addEventListener("submit", (event) => {
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = {
-      vehiculoId: selectVehiculo.value,
-      conductorId: selectConductor.value,
-      clienteId: selectCliente.value,
-      cargaId: selectCarga.value,
+      vehiculoId: selectVehiculo.value ? Number(selectVehiculo.value) : null,
+      conductorId: selectConductor.value ? Number(selectConductor.value) : null,
+      clienteId: selectCliente.value ? Number(selectCliente.value) : null,
+      cargaId: selectCarga.value ? Number(selectCarga.value) : null,
       origen: inputOrigen.value.trim(),
       destino: inputDestino.value.trim(),
       fechaSalida: inputFechaSalida.value,
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],
       observaciones: inputObservaciones.value.trim(),
-      ruta: rutaCalculada,
+      ruta: toApiRuta(rutaCalculada),
     };
 
     if (!validate(data)) return;
 
-    data.id = inputId.value || undefined;
-    trailersysUpsert(COLLECTION, data);
-    closeForm();
-    render();
+    const id = inputId.value || null;
+    submitBtn.disabled = true;
+    try {
+      if (id) {
+        await trailersysApiRequest("PUT", `/viajes/${id}`, data);
+      } else {
+        await trailersysApiRequest("POST", "/viajes", data);
+      }
+      closeForm();
+      await render();
+    } catch (error) {
+      alert(error.message || "No se pudo guardar el viaje.");
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 
   // --- Acciones sobre las tarjetas (editar / eliminar / mapa) ---
@@ -398,7 +430,7 @@
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     const { action, id } = button.dataset;
-    const viaje = trailersysList(COLLECTION).find((v) => v.id === id);
+    const viaje = viajesCache.find((v) => String(v.id) === id);
     if (!viaje) return;
 
     if (action === "editar") {
@@ -410,9 +442,13 @@
         title: "Eliminar viaje",
         text: `¿Seguro que deseas eliminar el viaje de ${viaje.origen} a ${viaje.destino}? Esta acción no se puede deshacer.`,
         acceptLabel: "Eliminar",
-        onAccept: () => {
-          trailersysRemove(COLLECTION, id);
-          render();
+        onAccept: async () => {
+          try {
+            await trailersysApiRequest("DELETE", `/viajes/${id}`);
+            await render();
+          } catch (error) {
+            alert(error.message || "No se pudo eliminar el viaje.");
+          }
         },
       });
     }
@@ -486,11 +522,26 @@
 
     if (mostrarBoton) {
       document.getElementById("viajeMapaCalcularInline").addEventListener("click", async () => {
-        const viaje = trailersysList(COLLECTION).find((v) => v.id === mapaViajeActualId);
+        const viaje = viajesCache.find((v) => String(v.id) === String(mapaViajeActualId));
         if (!viaje) return;
         await calcularYGuardarRuta(viaje);
       });
     }
+  }
+
+  async function persistirRuta(viaje) {
+    await trailersysApiRequest("PUT", `/viajes/${viaje.id}`, {
+      vehiculoId: viaje.vehiculoId,
+      conductorId: viaje.conductorId,
+      clienteId: viaje.clienteId,
+      cargaId: viaje.cargaId || null,
+      origen: viaje.origen,
+      destino: viaje.destino,
+      fechaSalida: viaje.fechaSalida,
+      estado: viaje.estado,
+      observaciones: viaje.observaciones,
+      ruta: toApiRuta(viaje.ruta),
+    });
   }
 
   async function calcularYGuardarRuta(viaje) {
@@ -512,10 +563,17 @@
       duracionMin: ruta.durationMin,
       path: ruta.path,
     };
-    trailersysUpsert(COLLECTION, viaje);
+
+    try {
+      await persistirRuta(viaje);
+    } catch (error) {
+      showMapaPlaceholder(error.message || "No se pudo guardar la ruta calculada.", false);
+      return;
+    }
+
     renderMapaResumen(viaje);
     drawLeafletRoute(viaje);
-    render();
+    await render();
   }
 
   async function ensureMapaRendered(viaje) {
@@ -528,7 +586,11 @@
       const ruta = await trailersysGetRoute(viaje.ruta.origenCoords, viaje.ruta.destinoCoords);
       if (ruta) {
         viaje.ruta.path = ruta.path;
-        trailersysUpsert(COLLECTION, viaje);
+        try {
+          await persistirRuta(viaje);
+        } catch {
+          // La ruta se sigue mostrando en el mapa aunque no se haya podido persistir.
+        }
       }
     }
 
@@ -556,7 +618,7 @@
   });
 
   btnMapaRecalcular.addEventListener("click", async () => {
-    const viaje = trailersysList(COLLECTION).find((v) => v.id === mapaViajeActualId);
+    const viaje = viajesCache.find((v) => String(v.id) === String(mapaViajeActualId));
     if (!viaje) return;
     await calcularYGuardarRuta(viaje);
   });
