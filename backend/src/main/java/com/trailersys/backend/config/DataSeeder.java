@@ -1,6 +1,7 @@
 package com.trailersys.backend.config;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +22,9 @@ import com.trailersys.backend.usuario.UsuarioRepository;
 import com.trailersys.backend.vehiculo.EstadoVehiculo;
 import com.trailersys.backend.vehiculo.Vehiculo;
 import com.trailersys.backend.vehiculo.VehiculoRepository;
+import com.trailersys.backend.viaje.EstadoViaje;
+import com.trailersys.backend.viaje.Viaje;
+import com.trailersys.backend.viaje.ViajeRepository;
 
 /**
  * Crea datos minimos para poder probar la API apenas arranca, igual que
@@ -36,16 +40,19 @@ public class DataSeeder implements CommandLineRunner {
     private final ConductorRepository conductorRepository;
     private final ClienteRepository clienteRepository;
     private final CargaRepository cargaRepository;
+    private final ViajeRepository viajeRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(UsuarioRepository usuarioRepository, VehiculoRepository vehiculoRepository,
                        ConductorRepository conductorRepository, ClienteRepository clienteRepository,
-                       CargaRepository cargaRepository, PasswordEncoder passwordEncoder) {
+                       CargaRepository cargaRepository, ViajeRepository viajeRepository,
+                       PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.vehiculoRepository = vehiculoRepository;
         this.conductorRepository = conductorRepository;
         this.clienteRepository = clienteRepository;
         this.cargaRepository = cargaRepository;
+        this.viajeRepository = viajeRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -108,6 +115,36 @@ public class DataSeeder implements CommandLineRunner {
             cargaRepository.save(new Carga(
                     "Productos refrigerados para distribución", distribuidoraElRoble, "Refrigerados", 1800,
                     "Ambato", "Riobamba", EstadoCarga.EN_TRANSITO, "Requiere cadena de frío."));
+        }
+
+        if (viajeRepository.count() == 0) {
+            Vehiculo vehiculo1 = vehiculoRepository.findByPlacaIgnoreCase("PBA-1234").orElse(null);
+            Vehiculo vehiculo2 = vehiculoRepository.findByPlacaIgnoreCase("PCD-5678").orElse(null);
+            Conductor conductor1 = conductorRepository.findByIdentificacionIgnoreCase("0912345678").orElse(null);
+            Conductor conductor2 = conductorRepository.findByIdentificacionIgnoreCase("0923456789").orElse(null);
+            Cliente comercialAndina = clienteRepository.findByIdentificacionIgnoreCase("0992345678001").orElse(null);
+            Cliente distribuidoraElRoble = clienteRepository.findByIdentificacionIgnoreCase("0911223344").orElse(null);
+            Carga cargaTextiles = cargaRepository.findAll().stream()
+                    .filter(c -> "Lote de telas e insumos textiles".equals(c.getDescripcion()))
+                    .findFirst().orElse(null);
+            Carga cargaRefrigerados = cargaRepository.findAll().stream()
+                    .filter(c -> "Productos refrigerados para distribución".equals(c.getDescripcion()))
+                    .findFirst().orElse(null);
+
+            Viaje viaje1 = new Viaje(vehiculo1, conductor1, comercialAndina, cargaTextiles,
+                    "Guayaquil, Ecuador", "Quito, Ecuador", LocalDateTime.of(2026, 8, 10, 7, 0),
+                    EstadoViaje.PROGRAMADO, "");
+            viaje1.setRutaOrigenLat(-2.1894);
+            viaje1.setRutaOrigenLng(-79.8891);
+            viaje1.setRutaDestinoLat(-0.2201641);
+            viaje1.setRutaDestinoLng(-78.5123274);
+            viaje1.setRutaDistanciaKm(424.5);
+            viaje1.setRutaDuracionMin(372.6);
+            viajeRepository.save(viaje1);
+
+            viajeRepository.save(new Viaje(vehiculo2, conductor2, distribuidoraElRoble, cargaRefrigerados,
+                    "Ambato, Ecuador", "Riobamba, Ecuador", LocalDateTime.of(2026, 8, 9, 6, 0),
+                    EstadoViaje.EN_CURSO, ""));
         }
     }
 }
