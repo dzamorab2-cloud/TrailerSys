@@ -1,0 +1,115 @@
+.route-calc-box {
+  margin: -4px 0 18px;
+  padding: 12px 14px;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.route-calc-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.route-calc-status {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.route-calc-status.status-success {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.route-calc-status.status-error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.route-calc-status.status-loading {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.modal-dialog-wide {
+  max-width: 680px;
+}
+
+.route-map {
+  height: 320px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.route-map-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 20px;
+}
+
+.route-map-placeholder i {
+  font-size: 1.8rem;
+  color: var(--color-primary);
+}
+
+.route-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.route-stat {
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+}
+
+.route-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.route-stat-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.route-modal-footer {
+  justify-content: space-between;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: middle;
+  animation: trailersys-spin 0.7s linear infinite;
+}
+
+@keyframes trailersys-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
