@@ -1,5 +1,4 @@
 (function () {
-  const COLLECTION = "conductores";
   const ESTADOS = ["Disponible", "En Ruta", "Descanso", "Inactivo"];
   const ESTADO_BADGE = {
     Disponible: "badge-success",
@@ -10,40 +9,9 @@
   const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  function todayIso() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  trailersysSeedIfEmpty(COLLECTION, [
-    {
-      id: "conductor-seed-1",
-      nombres: "Luis Herrera",
-      identificacion: "0912345678",
-      telefono: "0991234567",
-      correo: "luis.herrera@trailersys.test",
-      licenciaNumero: "LIC-88213",
-      licenciaCategoria: "Tipo E",
-      licenciaVencimiento: "2027-03-15",
-      estado: "En Ruta",
-      vehiculoId: "vehiculo-seed-1",
-      observaciones: "",
-      foto: "",
-    },
-    {
-      id: "conductor-seed-2",
-      nombres: "Marcia Torres",
-      identificacion: "0923456789",
-      telefono: "0987654321",
-      correo: "",
-      licenciaNumero: "LIC-40071",
-      licenciaCategoria: "Tipo C",
-      licenciaVencimiento: "2024-01-10",
-      estado: "Disponible",
-      vehiculoId: "",
-      observaciones: "Disponible para rutas cortas.",
-      foto: "",
-    },
-  ]);
+  // Cache del ultimo listado cargado desde la API, para que los botones de
+  // editar/eliminar de cada tarjeta no dependan de una segunda peticion.
+  let conductoresCache = [];
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevoConductor");
@@ -125,8 +93,13 @@
     }
   }
 
-  function refreshVehiculoOptions() {
-    const vehiculos = trailersysList("vehiculos");
+  async function refreshVehiculoOptions() {
+    let vehiculos;
+    try {
+      vehiculos = await trailersysApiRequest("GET", "/vehiculos");
+    } catch {
+      vehiculos = [];
+    }
     const current = selectVehiculo.value;
     selectVehiculo.innerHTML = '<option value="">Sin asignar</option>';
     vehiculos.forEach((v) => {
@@ -135,7 +108,7 @@
       option.textContent = `${v.placa} · ${v.marca} ${v.modelo}`;
       selectVehiculo.appendChild(option);
     });
-    if (vehiculos.some((v) => v.id === current)) selectVehiculo.value = current;
+    if (vehiculos.some((v) => String(v.id) === current)) selectVehiculo.value = current;
   }
 
   function renderCard(conductor, canManage) {
@@ -144,14 +117,9 @@
       ? `<img src="${conductor.foto}" alt="Foto de ${escapeHtml(conductor.nombres)}" />`
       : initials(conductor.nombres);
 
-    const vencida = conductor.licenciaVencimiento && conductor.licenciaVencimiento < todayIso();
-    const licenciaBadge = vencida
+    const licenciaBadge = conductor.licenciaVencida
       ? `<span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Licencia vencida</span>`
       : "";
-
-    const vehiculo = conductor.vehiculoId
-      ? trailersysList("vehiculos").find((v) => v.id === conductor.vehiculoId)
-      : null;
 
     const actions = canManage
       ? `<div class="person-actions">
@@ -182,17 +150,28 @@
           ${conductor.correo ? `<span><i class="bi bi-envelope"></i>${escapeHtml(conductor.correo)}</span>` : ""}
           <span><i class="bi bi-card-checklist"></i>${escapeHtml(conductor.licenciaNumero)} · ${escapeHtml(conductor.licenciaCategoria)}</span>
           <span><i class="bi bi-calendar-x"></i>Vence ${escapeHtml(conductor.licenciaVencimiento)}</span>
-          ${vehiculo ? `<span><i class="bi bi-truck"></i>${escapeHtml(vehiculo.placa)} · ${escapeHtml(vehiculo.marca)} ${escapeHtml(vehiculo.modelo)}</span>` : ""}
+          ${conductor.vehiculoPlaca ? `<span><i class="bi bi-truck"></i>${escapeHtml(conductor.vehiculoPlaca)}</span>` : ""}
         </div>
         ${actions}
       </article>`;
   }
 
-  function render() {
-    const conductores = trailersysList(COLLECTION);
-
-    const canManage = trailersysCanManage(session, COLLECTION);
+  async function render() {
+    const canManage = trailersysCanManage(session, "conductores");
     btnNuevo.hidden = !canManage;
+
+    let conductores;
+    try {
+      conductores = await trailersysApiRequest("GET", "/conductores");
+    } catch (error) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar los conductores";
+      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    conductoresCache = conductores;
 
     const search = inputBuscar.value.trim().toLowerCase();
     const estado = filtroEstado.value;
@@ -229,11 +208,11 @@
   }
 
   // --- Modal de alta / edicion ---
-  function openForm(conductor) {
+  async function openForm(conductor) {
     clearFieldErrors();
     form.reset();
     selectEstado.value = "Disponible";
-    refreshVehiculoOptions();
+    await refreshVehiculoOptions();
 
     if (conductor) {
       modalTitle.textContent = "Editar conductor";
@@ -289,7 +268,7 @@
   });
 
   // --- Validacion y guardado ---
-  function validate(data, currentId) {
+  function validate(data) {
     clearFieldErrors();
     let valid = true;
 
@@ -299,16 +278,7 @@
     }
 
     if (!data.nombres) fail("fieldConductorNombres", "El nombre es obligatorio.");
-
-    if (!data.identificacion) {
-      fail("fieldConductorIdentificacion", "La identificación es obligatoria.");
-    } else {
-      const duplicada = trailersysList(COLLECTION).some(
-        (c) => c.id !== currentId && c.identificacion.toLowerCase() === data.identificacion.toLowerCase()
-      );
-      if (duplicada) fail("fieldConductorIdentificacion", "Ya existe un conductor con esta identificación.");
-    }
-
+    if (!data.identificacion) fail("fieldConductorIdentificacion", "La identificación es obligatoria.");
     if (!data.telefono) fail("fieldConductorTelefono", "El teléfono es obligatorio.");
 
     if (data.correo && !EMAIL_REGEX.test(data.correo)) {
@@ -322,7 +292,9 @@
     return valid;
   }
 
-  form.addEventListener("submit", (event) => {
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = {
@@ -334,17 +306,32 @@
       licenciaCategoria: inputLicenciaCategoria.value.trim(),
       licenciaVencimiento: inputLicenciaVencimiento.value,
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],
-      vehiculoId: selectVehiculo.value,
+      vehiculoId: selectVehiculo.value ? Number(selectVehiculo.value) : null,
       observaciones: inputObservaciones.value.trim(),
       foto: fotoActual,
     };
 
-    if (!validate(data, inputId.value || null)) return;
+    if (!validate(data)) return;
 
-    data.id = inputId.value || undefined;
-    trailersysUpsert(COLLECTION, data);
-    closeForm();
-    render();
+    const id = inputId.value || null;
+    submitBtn.disabled = true;
+    try {
+      if (id) {
+        await trailersysApiRequest("PUT", `/conductores/${id}`, data);
+      } else {
+        await trailersysApiRequest("POST", "/conductores", data);
+      }
+      closeForm();
+      await render();
+    } catch (error) {
+      if (/identificaci/i.test(error.message || "")) {
+        setFieldError("fieldConductorIdentificacion", error.message);
+      } else {
+        alert(error.message || "No se pudo guardar el conductor.");
+      }
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 
   // --- Acciones sobre las tarjetas (editar / eliminar) ---
@@ -352,7 +339,7 @@
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     const { action, id } = button.dataset;
-    const conductor = trailersysList(COLLECTION).find((c) => c.id === id);
+    const conductor = conductoresCache.find((c) => String(c.id) === id);
     if (!conductor) return;
 
     if (action === "editar") {
@@ -362,9 +349,13 @@
         title: "Eliminar conductor",
         text: `¿Seguro que deseas eliminar a ${conductor.nombres}? Esta acción no se puede deshacer.`,
         acceptLabel: "Eliminar",
-        onAccept: () => {
-          trailersysRemove(COLLECTION, id);
-          render();
+        onAccept: async () => {
+          try {
+            await trailersysApiRequest("DELETE", `/conductores/${id}`);
+            await render();
+          } catch (error) {
+            alert(error.message || "No se pudo eliminar el conductor.");
+          }
         },
       });
     }
