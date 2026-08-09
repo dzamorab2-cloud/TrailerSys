@@ -8,7 +8,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -49,8 +48,13 @@ public class Conductor {
     @Column(nullable = false, length = 20)
     private EstadoConductor estado;
 
-    /** Vehiculo asignado, opcional (igual que "Sin asignar" en el frontend). */
-    @ManyToOne(fetch = FetchType.LAZY)
+    /**
+     * Vehiculo asignado, opcional (igual que "Sin asignar" en el frontend).
+     * EAGER a proposito: ConductorResponse siempre necesita vehiculoPlaca, y
+     * el mapeo a DTO ocurre en el controller, fuera de la transaccion de
+     * lectura, donde un proxy LAZY ya lanzaria LazyInitializationException.
+     */
+    @ManyToOne
     @JoinColumn(name = "vehiculo_id")
     private Vehiculo vehiculo;
 

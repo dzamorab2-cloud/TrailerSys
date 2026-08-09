@@ -108,14 +108,17 @@ class CargaControllerTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        boolean encontrada = false;
+        // Ejercita repository.findAll() + mapeo a DTO fuera de la transaccion
+        // de lectura: si Carga.cliente fuera LAZY, cliente.getNombre() aqui
+        // lanzaria LazyInitializationException (ver comentario en Carga.cliente).
+        String clienteNombreEnListado = null;
         for (JsonNode nodo : objectMapper.readTree(listado)) {
             if ("Repuestos automotrices".equals(nodo.get("descripcion").asText())) {
-                encontrada = true;
+                clienteNombreEnListado = nodo.get("clienteNombre").asText();
                 break;
             }
         }
-        assertThat(encontrada).isTrue();
+        assertThat(clienteNombreEnListado).isEqualTo("Cliente Carga Test");
     }
 
     @Test

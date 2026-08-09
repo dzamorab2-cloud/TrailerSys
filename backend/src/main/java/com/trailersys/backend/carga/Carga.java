@@ -6,7 +6,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -25,8 +24,13 @@ public class Carga {
     @Column(nullable = false, length = 255)
     private String descripcion;
 
-    /** A diferencia del vehiculo en Conductor, aqui el cliente es obligatorio. */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    /**
+     * A diferencia del vehiculo en Conductor, aqui el cliente es obligatorio.
+     * EAGER a proposito: CargaResponse siempre necesita clienteNombre, y el
+     * mapeo a DTO ocurre en el controller, fuera de la transaccion de
+     * lectura (ver el mismo comentario en Conductor.vehiculo).
+     */
+    @ManyToOne(optional = false)
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 

@@ -105,6 +105,44 @@ class ConductorControllerTest {
                 .andExpect(jsonPath("$.licenciaVencida").value(false));
     }
 
+    /**
+     * A diferencia del test anterior (que lee vehiculoPlaca de la respuesta
+     * de creacion, donde la entidad se resuelve directo sin proxy), este
+     * ejercita el listado: repository.findAll() + mapeo a DTO fuera de la
+     * transaccion de lectura, que es donde vehiculo.getPlaca() fallaria si
+     * la relacion fuera LAZY (ver comentario en Conductor.vehiculo).
+     */
+    @Test
+    void listadoIncluyeVehiculoPlacaDelConductorAsignado() throws Exception {
+        Long vehiculoId = crearVehiculoDePrueba("CND-LIST");
+
+        String conductor = """
+                {"nombres":"Conductor Listado","identificacion":"CI-LISTVEH","telefono":"0999999999",
+                 "licenciaNumero":"LIC-500","licenciaCategoria":"Tipo E",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible","vehiculoId":%d}
+                """.formatted(vehiculoId);
+
+        mockMvc.perform(post("/api/conductores")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conductor))
+                .andExpect(status().isCreated());
+
+        String listado = mockMvc.perform(get("/api/conductores")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        String placaEncontrada = null;
+        for (JsonNode nodo : objectMapper.readTree(listado)) {
+            if ("CI-LISTVEH".equals(nodo.get("identificacion").asText())) {
+                placaEncontrada = nodo.get("vehiculoPlaca").asText();
+                break;
+            }
+        }
+        assertThat(placaEncontrada).isEqualTo("CND-LIST");
+    }
+
     @Test
     void crearConVehiculoInexistenteDevuelveNoEncontrado() throws Exception {
         String conductor = """
