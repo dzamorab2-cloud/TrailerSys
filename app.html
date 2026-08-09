@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="css/conductores.css" />
   <link rel="stylesheet" href="css/cargas.css" />
   <link rel="stylesheet" href="css/viajes.css" />
+  <link rel="stylesheet" href="css/seguimiento.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -286,11 +287,37 @@
               <p>Estado de vehículos y viajes en curso.</p>
             </div>
           </div>
-          <div class="module-placeholder card">
+
+          <div class="alerts-panel card" id="alertasPanel">
+            <div class="alerts-panel-header">
+              <i class="bi bi-bell"></i>
+              <h3>Alertas operativas</h3>
+            </div>
+            <div id="alertasList"></div>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-search">
+              <i class="bi bi-search"></i>
+              <input type="text" id="seguimientoBuscar" placeholder="Buscar por origen, destino, vehículo o conductor" />
+            </div>
+            <div class="toolbar-filters">
+              <select id="seguimientoFiltroEstado" class="select-pill">
+                <option value="">Todos los estados</option>
+                <option value="Programado">Programado</option>
+                <option value="En Curso">En Curso</option>
+                <option value="Finalizado">Finalizado</option>
+                <option value="Cancelado">Cancelado</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="results-count" id="seguimientoResultsCount"></p>
+          <div class="item-grid" id="seguimientoGrid"></div>
+          <div class="module-placeholder card" id="seguimientoEmptyState" hidden>
             <i class="bi bi-geo-alt"></i>
-            <h3>Módulo en construcción</h3>
-            <p>Estados, eventos y geolocalización si se integra.</p>
-            <span class="badge badge-neutral phase-tag">Fase 7 · Seguimiento</span>
+            <h3 id="seguimientoEmptyTitle">Todavía no hay viajes para seguir</h3>
+            <p id="seguimientoEmptyText">Los viajes registrados en el módulo Viajes aparecerán aquí.</p>
           </div>
         </section>
 
@@ -961,6 +988,80 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="seguimientoModalOverlay">
+    <div class="modal-dialog modal-dialog-wide">
+      <div class="modal-header">
+        <h3 id="seguimientoModalTitle">Seguimiento del viaje</h3>
+        <button type="button" class="modal-close" id="seguimientoModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="route-summary-grid" id="seguimientoResumen"></div>
+
+      <div id="seguimientoMapaContainer" class="route-map"></div>
+
+      <form id="seguimientoEventoForm" class="event-form" novalidate>
+        <div class="form-grid">
+          <div class="field" id="fieldSeguimientoFecha">
+            <label for="seguimientoFecha">Fecha y hora</label>
+            <div class="input-wrap">
+              <i class="bi bi-clock"></i>
+              <input type="datetime-local" id="seguimientoFecha" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field">
+            <label for="seguimientoEvento">Evento</label>
+            <div class="input-wrap">
+              <i class="bi bi-flag"></i>
+              <select id="seguimientoEvento">
+                <option value="Salida">Salida</option>
+                <option value="Parada">Parada</option>
+                <option value="Retraso">Retraso</option>
+                <option value="Incidente">Incidente</option>
+                <option value="Llegada">Llegada</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field field-span-2" id="fieldSeguimientoUbicacion">
+            <label for="seguimientoUbicacion">Ubicación</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt"></i>
+              <input type="text" id="seguimientoUbicacion" placeholder="Ej. Km 45 vía Quito - Guayaquil" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="seguimientoObservacion">Observación (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="seguimientoObservacion" placeholder="Observación opcional" />
+            </div>
+          </div>
+        </div>
+
+        <div class="event-form-footer" id="seguimientoFormFooter">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i>
+            Agregar evento
+          </button>
+        </div>
+      </form>
+
+      <p class="timeline-title">Eventos registrados</p>
+      <div class="events-timeline" id="seguimientoTimeline"></div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="seguimientoCerrarBtn">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModalOverlay">
     <div class="modal-dialog" style="max-width: 400px;">
       <div class="modal-header">
@@ -987,6 +1088,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/map-service.js"></script>
   <script src="js/viajes.js"></script>
+  <script src="js/seguimiento.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>

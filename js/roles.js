@@ -31,7 +31,9 @@ const TRAILERSYS_ROLES = {
   conductor: {
     label: "Conductor",
     modules: ["dashboard", "viajes", "seguimiento"],
-    manage: [],
+    // El conductor no gestiona viajes, pero si puede registrar eventos
+    // de seguimiento de su propia ruta (doc: "actualizar estados segun permisos").
+    manage: ["seguimiento"],
   },
   supervisor: {
     label: "Supervisor / Consulta",
