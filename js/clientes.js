@@ -1,35 +1,13 @@
 (function () {
-  const COLLECTION = "clientes";
   const ESTADO_BADGE = {
     Activo: "badge-success",
     Inactivo: "badge-neutral",
   };
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  trailersysSeedIfEmpty(COLLECTION, [
-    {
-      id: "cliente-seed-1",
-      nombre: "Comercial Andina S.A.",
-      identificacion: "0992345678001",
-      telefono: "042345678",
-      correo: "contacto@comercialandina.test",
-      direccion: "Av. Quito 456, Guayaquil",
-      estado: "Activo",
-      servicios: "Carga seca, Paletizada",
-      observaciones: "Cliente frecuente con envíos semanales.",
-    },
-    {
-      id: "cliente-seed-2",
-      nombre: "Distribuidora El Roble",
-      identificacion: "0911223344",
-      telefono: "0987001122",
-      correo: "",
-      direccion: "Calle Bolívar y Sucre, Ambato",
-      estado: "Inactivo",
-      servicios: "Refrigerados",
-      observaciones: "",
-    },
-  ]);
+  // Cache del ultimo listado cargado desde la API, para que los botones de
+  // editar/eliminar de cada tarjeta no dependan de una segunda peticion.
+  let clientesCache = [];
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevoCliente");
@@ -135,11 +113,22 @@
       </article>`;
   }
 
-  function render() {
-    const clientes = trailersysList(COLLECTION);
-
-    const canManage = trailersysCanManage(session, COLLECTION);
+  async function render() {
+    const canManage = trailersysCanManage(session, "clientes");
     btnNuevo.hidden = !canManage;
+
+    let clientes;
+    try {
+      clientes = await trailersysApiRequest("GET", "/clientes");
+    } catch (error) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar los clientes";
+      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    clientesCache = clientes;
 
     const search = inputBuscar.value.trim().toLowerCase();
     const estado = filtroEstado.value;
@@ -213,7 +202,7 @@
   });
 
   // --- Validacion y guardado ---
-  function validate(data, currentId) {
+  function validate(data) {
     clearFieldErrors();
     let valid = true;
 
@@ -223,16 +212,7 @@
     }
 
     if (!data.nombre) fail("fieldClienteNombre", "El nombre o razón social es obligatorio.");
-
-    if (!data.identificacion) {
-      fail("fieldClienteIdentificacion", "La identificación es obligatoria.");
-    } else {
-      const duplicada = trailersysList(COLLECTION).some(
-        (c) => c.id !== currentId && c.identificacion.toLowerCase() === data.identificacion.toLowerCase()
-      );
-      if (duplicada) fail("fieldClienteIdentificacion", "Ya existe un cliente con esta identificación.");
-    }
-
+    if (!data.identificacion) fail("fieldClienteIdentificacion", "La identificación es obligatoria.");
     if (!data.telefono) fail("fieldClienteTelefono", "El teléfono es obligatorio.");
 
     if (data.correo && !EMAIL_REGEX.test(data.correo)) {
@@ -244,7 +224,9 @@
     return valid;
   }
 
-  form.addEventListener("submit", (event) => {
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = {
@@ -258,12 +240,27 @@
       observaciones: inputObservaciones.value.trim(),
     };
 
-    if (!validate(data, inputId.value || null)) return;
+    if (!validate(data)) return;
 
-    data.id = inputId.value || undefined;
-    trailersysUpsert(COLLECTION, data);
-    closeForm();
-    render();
+    const id = inputId.value || null;
+    submitBtn.disabled = true;
+    try {
+      if (id) {
+        await trailersysApiRequest("PUT", `/clientes/${id}`, data);
+      } else {
+        await trailersysApiRequest("POST", "/clientes", data);
+      }
+      closeForm();
+      await render();
+    } catch (error) {
+      if (/identificaci/i.test(error.message || "")) {
+        setFieldError("fieldClienteIdentificacion", error.message);
+      } else {
+        alert(error.message || "No se pudo guardar el cliente.");
+      }
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 
   // --- Acciones sobre las tarjetas (editar / eliminar) ---
@@ -271,7 +268,7 @@
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     const { action, id } = button.dataset;
-    const cliente = trailersysList(COLLECTION).find((c) => c.id === id);
+    const cliente = clientesCache.find((c) => String(c.id) === id);
     if (!cliente) return;
 
     if (action === "editar") {
@@ -281,9 +278,13 @@
         title: "Eliminar cliente",
         text: `¿Seguro que deseas eliminar a ${cliente.nombre}? Esta acción no se puede deshacer.`,
         acceptLabel: "Eliminar",
-        onAccept: () => {
-          trailersysRemove(COLLECTION, id);
-          render();
+        onAccept: async () => {
+          try {
+            await trailersysApiRequest("DELETE", `/clientes/${id}`);
+            await render();
+          } catch (error) {
+            alert(error.message || "No se pudo eliminar el cliente.");
+          }
         },
       });
     }
