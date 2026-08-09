@@ -1,0 +1,210 @@
+/* Botones */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.btn-ghost:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-darker);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Tarjetas */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Formularios */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrap i {
+  position: absolute;
+  left: 14px;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 12px 14px 12px 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.field select {
+  padding-left: 40px;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%), linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 13px) calc(50% - 3px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--color-surface);
+}
+
+.field.has-error input,
+.field.has-error select {
+  border-color: var(--color-danger);
+}
+
+.field-error {
+  font-size: 0.8rem;
+  color: var(--color-danger);
+  min-height: 1em;
+}
+
+/* Badges de estado */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.badge-success {
+  background: var(--color-success-tint);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background: var(--color-warning-tint);
+  color: var(--color-warning);
+}
+
+.badge-danger {
+  background: var(--color-danger-tint);
+  color: var(--color-danger);
+}
+
+.badge-info {
+  background: var(--color-info-tint);
+  color: var(--color-info);
+}
+
+.badge-neutral {
+  background: var(--color-primary-tint);
+  color: var(--color-primary-darker);
+}
+
+/* Alertas */
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.alert-danger {
+  background: var(--color-danger-tint);
+  color: #a83a37;
+}
+
+/* Estado "en construccion" para modulos pendientes */
+.module-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: 70px 24px;
+  color: var(--color-text-muted);
+}
+
+.module-placeholder i {
+  font-size: 2.6rem;
+  color: var(--color-primary);
+  background: var(--color-primary-tint);
+  padding: 22px;
+  border-radius: 50%;
+}
+
+.module-placeholder h3 {
+  color: var(--color-text);
+  font-size: 1.15rem;
+}
+
+.module-placeholder .phase-tag {
+  margin-top: 4px;
+}
