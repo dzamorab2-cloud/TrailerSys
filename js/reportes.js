@@ -83,7 +83,7 @@
   }
 
   // --- Reporte: Vehiculos ---
-  function renderVehiculosReport() {
+  async function renderVehiculosReport() {
     filtersContainer.innerHTML = `
       <select id="reportFiltroEstado" class="select-pill">
         ${selectOption("", "Todos los estados", "")}
@@ -92,7 +92,13 @@
     document.getElementById("reportFiltroEstado").addEventListener("change", renderVehiculosReport);
     const estado = document.getElementById("reportFiltroEstado").value;
 
-    const vehiculos = trailersysList("vehiculos").filter((v) => !estado || v.estado === estado);
+    let vehiculos;
+    try {
+      vehiculos = await trailersysApiRequest("GET", "/vehiculos");
+    } catch {
+      vehiculos = [];
+    }
+    vehiculos = vehiculos.filter((v) => !estado || v.estado === estado);
 
     const counts = { Disponible: 0, "En Ruta": 0, Mantenimiento: 0, "Fuera de Servicio": 0 };
     vehiculos.forEach((v) => {
@@ -124,7 +130,7 @@
   }
 
   // --- Reporte: Conductores ---
-  function renderConductoresReport() {
+  async function renderConductoresReport() {
     filtersContainer.innerHTML = `
       <select id="reportFiltroEstado" class="select-pill">
         ${selectOption("", "Todos los estados", "")}
@@ -133,17 +139,22 @@
     document.getElementById("reportFiltroEstado").addEventListener("change", renderConductoresReport);
     const estado = document.getElementById("reportFiltroEstado").value;
 
-    const conductores = trailersysList("conductores").filter((c) => !estado || c.estado === estado);
-    const vehiculos = trailersysList("vehiculos");
-    const hoy = todayIso();
+    let conductores;
+    try {
+      conductores = await trailersysApiRequest("GET", "/conductores");
+    } catch {
+      conductores = [];
+    }
+    conductores = conductores.filter((c) => !estado || c.estado === estado);
+
     const en30Dias = new Date();
     en30Dias.setDate(en30Dias.getDate() + 30);
     const en30DiasIso = en30Dias.toISOString().slice(0, 10);
 
     const activos = conductores.filter((c) => c.estado === "Disponible" || c.estado === "En Ruta").length;
-    const vencidas = conductores.filter((c) => c.licenciaVencimiento && c.licenciaVencimiento < hoy).length;
+    const vencidas = conductores.filter((c) => c.licenciaVencida).length;
     const porVencer = conductores.filter(
-      (c) => c.licenciaVencimiento && c.licenciaVencimiento >= hoy && c.licenciaVencimiento <= en30DiasIso
+      (c) => !c.licenciaVencida && c.licenciaVencimiento && c.licenciaVencimiento <= en30DiasIso
     ).length;
 
     statsRow.innerHTML = [
@@ -154,19 +165,16 @@
     ].join("");
 
     const headers = ["Nombres", "Identificación", "Teléfono", "Licencia", "Categoría", "Vencimiento", "Estado", "Vehículo asignado"];
-    const rows = conductores.map((c) => {
-      const vehiculo = vehiculos.find((v) => v.id === c.vehiculoId);
-      return [
-        escapeHtml(c.nombres),
-        escapeHtml(c.identificacion),
-        escapeHtml(c.telefono),
-        escapeHtml(c.licenciaNumero),
-        escapeHtml(c.licenciaCategoria),
-        escapeHtml(c.licenciaVencimiento),
-        escapeHtml(c.estado),
-        vehiculo ? escapeHtml(vehiculo.placa) : "—",
-      ];
-    });
+    const rows = conductores.map((c) => [
+      escapeHtml(c.nombres),
+      escapeHtml(c.identificacion),
+      escapeHtml(c.telefono),
+      escapeHtml(c.licenciaNumero),
+      escapeHtml(c.licenciaCategoria),
+      escapeHtml(c.licenciaVencimiento),
+      escapeHtml(c.estado),
+      c.vehiculoPlaca ? escapeHtml(c.vehiculoPlaca) : "—",
+    ]);
 
     renderTable(headers, rows);
     setExportData(headers, rows, "reporte-conductores");
@@ -174,7 +182,7 @@
   }
 
   // --- Reporte: Viajes ---
-  function renderViajesReport() {
+  async function renderViajesReport() {
     filtersContainer.innerHTML = `
       <select id="reportFiltroEstado" class="select-pill">
         ${selectOption("", "Todos los estados", "")}
@@ -183,10 +191,13 @@
     document.getElementById("reportFiltroEstado").addEventListener("change", renderViajesReport);
     const estado = document.getElementById("reportFiltroEstado").value;
 
-    const viajes = trailersysList("viajes").filter((v) => !estado || v.estado === estado);
-    const vehiculos = trailersysList("vehiculos");
-    const conductores = trailersysList("conductores");
-    const clientes = trailersysList("clientes");
+    let viajes;
+    try {
+      viajes = await trailersysApiRequest("GET", "/viajes");
+    } catch {
+      viajes = [];
+    }
+    viajes = viajes.filter((v) => !estado || v.estado === estado);
 
     const counts = { Programado: 0, "En Curso": 0, Finalizado: 0, Cancelado: 0 };
     let kmTotales = 0;
@@ -204,21 +215,16 @@
     ].join("");
 
     const headers = ["Origen", "Destino", "Vehículo", "Conductor", "Cliente", "Estado", "Distancia", "Salida"];
-    const rows = viajes.map((v) => {
-      const vehiculo = vehiculos.find((x) => x.id === v.vehiculoId);
-      const conductor = conductores.find((x) => x.id === v.conductorId);
-      const cliente = clientes.find((x) => x.id === v.clienteId);
-      return [
-        escapeHtml(v.origen),
-        escapeHtml(v.destino),
-        vehiculo ? escapeHtml(vehiculo.placa) : "—",
-        conductor ? escapeHtml(conductor.nombres) : "—",
-        cliente ? escapeHtml(cliente.nombre) : "—",
-        escapeHtml(v.estado),
-        v.ruta ? `${v.ruta.distanciaKm.toFixed(1)} km` : "—",
-        v.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "—",
-      ];
-    });
+    const rows = viajes.map((v) => [
+      escapeHtml(v.origen),
+      escapeHtml(v.destino),
+      escapeHtml(v.vehiculoPlaca),
+      escapeHtml(v.conductorNombres),
+      escapeHtml(v.clienteNombre),
+      escapeHtml(v.estado),
+      v.ruta ? `${v.ruta.distanciaKm.toFixed(1)} km` : "—",
+      v.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "—",
+    ]);
 
     renderTable(headers, rows);
     setExportData(headers, rows, "reporte-viajes");
@@ -226,8 +232,13 @@
   }
 
   // --- Reporte: Mantenimientos ---
-  function renderMantenimientosReport() {
-    const vehiculos = trailersysList("vehiculos");
+  async function renderMantenimientosReport() {
+    let vehiculos;
+    try {
+      vehiculos = await trailersysApiRequest("GET", "/vehiculos");
+    } catch {
+      vehiculos = [];
+    }
     filtersContainer.innerHTML = `
       <select id="reportFiltroVehiculo" class="select-pill">
         ${selectOption("", "Todos los vehículos", "")}
@@ -243,15 +254,20 @@
     const vehiculoId = document.getElementById("reportFiltroVehiculo").value;
     const tipo = document.getElementById("reportFiltroTipo").value;
 
-    const mantenimientos = trailersysList("mantenimientos")
-      .filter((m) => !vehiculoId || m.vehiculoId === vehiculoId)
+    let mantenimientos;
+    try {
+      mantenimientos = await trailersysApiRequest("GET", "/mantenimientos");
+    } catch {
+      mantenimientos = [];
+    }
+    mantenimientos = mantenimientos
+      .filter((m) => !vehiculoId || String(m.vehiculoId) === vehiculoId)
       .filter((m) => !tipo || m.tipo === tipo)
       .sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
-    const hoy = todayIso();
     const preventivos = mantenimientos.filter((m) => m.tipo === "Preventivo").length;
     const correctivos = mantenimientos.filter((m) => m.tipo === "Correctivo").length;
-    const vencidos = mantenimientos.filter((m) => m.proximoServicio && m.proximoServicio < hoy).length;
+    const vencidos = mantenimientos.filter((m) => m.proximoServicioVencido).length;
     const costoTotal = mantenimientos.reduce((sum, m) => sum + Number(m.costo || 0), 0);
 
     statsRow.innerHTML = [
@@ -263,18 +279,15 @@
     ].join("");
 
     const headers = ["Vehículo", "Tipo", "Fecha", "Kilometraje", "Costo", "Próximo servicio", "Descripción"];
-    const rows = mantenimientos.map((m) => {
-      const vehiculo = vehiculos.find((v) => v.id === m.vehiculoId);
-      return [
-        vehiculo ? escapeHtml(vehiculo.placa) : "—",
-        escapeHtml(m.tipo),
-        escapeHtml(m.fecha),
-        `${Number(m.kilometraje).toLocaleString("es-EC")} km`,
-        formatCosto(m.costo),
-        m.proximoServicio ? escapeHtml(m.proximoServicio) : "—",
-        escapeHtml(m.descripcion),
-      ];
-    });
+    const rows = mantenimientos.map((m) => [
+      escapeHtml(m.vehiculoPlaca),
+      escapeHtml(m.tipo),
+      escapeHtml(m.fecha),
+      `${Number(m.kilometraje).toLocaleString("es-EC")} km`,
+      formatCosto(m.costo),
+      m.proximoServicio ? escapeHtml(m.proximoServicio) : "—",
+      escapeHtml(m.descripcion),
+    ]);
 
     renderTable(headers, rows);
     setExportData(headers, rows, "reporte-mantenimientos");
@@ -288,10 +301,10 @@
     mantenimientos: renderMantenimientosReport,
   };
 
-  function switchTab(tab) {
+  async function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll(".report-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
-    RENDERERS[tab]();
+    await RENDERERS[tab]();
   }
 
   tabsContainer.addEventListener("click", (event) => {
