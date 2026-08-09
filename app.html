@@ -327,12 +327,35 @@
               <h1>Mantenimientos</h1>
               <p>Preventivos, correctivos e historial por vehículo.</p>
             </div>
+            <button class="btn btn-primary" id="btnNuevoMantenimiento" hidden>
+              <i class="bi bi-plus-lg"></i>
+              Nuevo mantenimiento
+            </button>
           </div>
-          <div class="module-placeholder card">
+
+          <div class="toolbar">
+            <div class="toolbar-search">
+              <i class="bi bi-search"></i>
+              <input type="text" id="mantenimientoBuscar" placeholder="Buscar por descripción o vehículo" />
+            </div>
+            <div class="toolbar-filters">
+              <select id="mantenimientoFiltroVehiculo" class="select-pill">
+                <option value="">Todos los vehículos</option>
+              </select>
+              <select id="mantenimientoFiltroTipo" class="select-pill">
+                <option value="">Todos los tipos</option>
+                <option value="Preventivo">Preventivo</option>
+                <option value="Correctivo">Correctivo</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="results-count" id="mantenimientoResultsCount"></p>
+          <div class="item-grid" id="mantenimientoGrid"></div>
+          <div class="module-placeholder card" id="mantenimientoEmptyState" hidden>
             <i class="bi bi-tools"></i>
-            <h3>Módulo en construcción</h3>
-            <p>Historial, programación y alertas de mantenimiento.</p>
-            <span class="badge badge-neutral phase-tag">Fase 8 · Mantenimientos</span>
+            <h3 id="mantenimientoEmptyTitle">Todavía no hay mantenimientos registrados</h3>
+            <p id="mantenimientoEmptyText">Usa "Nuevo mantenimiento" para registrar el primero.</p>
           </div>
         </section>
 
@@ -1062,6 +1085,97 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="mantenimientoModalOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="mantenimientoModalTitle">Nuevo mantenimiento</h3>
+        <button type="button" class="modal-close" id="mantenimientoModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <form id="mantenimientoForm" novalidate>
+        <input type="hidden" id="mantenimientoId" />
+
+        <div class="form-grid">
+          <div class="field field-span-2" id="fieldMantenimientoVehiculo">
+            <label for="mantenimientoVehiculo">Vehículo</label>
+            <div class="input-wrap">
+              <i class="bi bi-truck"></i>
+              <select id="mantenimientoVehiculo">
+                <option value="">Selecciona un vehículo</option>
+              </select>
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldMantenimientoTipo">
+            <label for="mantenimientoTipo">Tipo</label>
+            <div class="input-wrap">
+              <i class="bi bi-tools"></i>
+              <select id="mantenimientoTipo">
+                <option value="Preventivo">Preventivo</option>
+                <option value="Correctivo">Correctivo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field" id="fieldMantenimientoFecha">
+            <label for="mantenimientoFecha">Fecha</label>
+            <div class="input-wrap">
+              <i class="bi bi-calendar-event"></i>
+              <input type="date" id="mantenimientoFecha" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldMantenimientoKilometraje">
+            <label for="mantenimientoKilometraje">Kilometraje</label>
+            <div class="input-wrap">
+              <i class="bi bi-speedometer2"></i>
+              <input type="number" id="mantenimientoKilometraje" min="0" placeholder="0" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldMantenimientoCosto">
+            <label for="mantenimientoCosto">Costo (USD)</label>
+            <div class="input-wrap">
+              <i class="bi bi-cash-coin"></i>
+              <input type="number" id="mantenimientoCosto" min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="mantenimientoProximoServicio">Próximo servicio (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-calendar-check"></i>
+              <input type="date" id="mantenimientoProximoServicio" />
+            </div>
+          </div>
+
+          <div class="field field-span-2" id="fieldMantenimientoDescripcion">
+            <label for="mantenimientoDescripcion">Descripción</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="mantenimientoDescripcion" placeholder="Ej. Cambio de aceite y filtros" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="mantenimientoCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i>
+            Guardar mantenimiento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModalOverlay">
     <div class="modal-dialog" style="max-width: 400px;">
       <div class="modal-header">
@@ -1088,6 +1202,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/map-service.js"></script>
   <script src="js/viajes.js"></script>
+  <script src="js/mantenimientos.js"></script>
   <script src="js/seguimiento.js"></script>
   <script src="js/navigation.js"></script>
 </body>

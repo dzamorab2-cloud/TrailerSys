@@ -141,6 +141,17 @@
         });
       });
 
+    trailersysList("mantenimientos")
+      .filter((m) => m.proximoServicio && m.proximoServicio < todayIso())
+      .forEach((mantenimiento) => {
+        const vehiculo = vehiculos.find((v) => v.id === mantenimiento.vehiculoId);
+        alerts.push({
+          level: "warning",
+          icon: "bi-tools",
+          text: `El próximo servicio del vehículo ${vehiculo ? vehiculo.placa : "desconocido"} venció el ${mantenimiento.proximoServicio}.`,
+        });
+      });
+
     return alerts;
   }
 
