@@ -191,6 +191,22 @@
   color: #a83a37;
 }
 
+/* Lista de etiquetas (ej. servicios asociados) */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-pill {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-tint);
+  color: var(--color-accent-dark);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
 /* Estado "en construccion" para modulos pendientes */
 .module-placeholder {
   display: flex;

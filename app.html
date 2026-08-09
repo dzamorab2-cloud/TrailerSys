@@ -173,12 +173,32 @@
               <h1>Clientes</h1>
               <p>Clientes y servicios de transporte asociados.</p>
             </div>
+            <button class="btn btn-primary" id="btnNuevoCliente" hidden>
+              <i class="bi bi-plus-lg"></i>
+              Nuevo cliente
+            </button>
           </div>
-          <div class="module-placeholder card">
+
+          <div class="toolbar">
+            <div class="toolbar-search">
+              <i class="bi bi-search"></i>
+              <input type="text" id="clienteBuscar" placeholder="Buscar por nombre, identificación o teléfono" />
+            </div>
+            <div class="toolbar-filters">
+              <select id="clienteFiltroEstado" class="select-pill">
+                <option value="">Todos los estados</option>
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="results-count" id="clienteResultsCount"></p>
+          <div class="people-grid" id="clienteGrid"></div>
+          <div class="module-placeholder card" id="clienteEmptyState" hidden>
             <i class="bi bi-people"></i>
-            <h3>Módulo en construcción</h3>
-            <p>Gestión de clientes.</p>
-            <span class="badge badge-neutral phase-tag">Fase 4 · Clientes</span>
+            <h3 id="clienteEmptyTitle">Todavía no hay clientes registrados</h3>
+            <p id="clienteEmptyText">Usa "Nuevo cliente" para registrar el primero.</p>
           </div>
         </section>
 
@@ -546,6 +566,103 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="clienteModalOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="clienteModalTitle">Nuevo cliente</h3>
+        <button type="button" class="modal-close" id="clienteModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <form id="clienteForm" novalidate>
+        <input type="hidden" id="clienteId" />
+
+        <div class="form-grid">
+          <div class="field field-span-2" id="fieldClienteNombre">
+            <label for="clienteNombre">Nombre / razón social</label>
+            <div class="input-wrap">
+              <i class="bi bi-building"></i>
+              <input type="text" id="clienteNombre" placeholder="Nombre o razón social" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldClienteIdentificacion">
+            <label for="clienteIdentificacion">Identificación</label>
+            <div class="input-wrap">
+              <i class="bi bi-person-vcard"></i>
+              <input type="text" id="clienteIdentificacion" placeholder="Cédula o RUC" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldClienteEstado">
+            <label for="clienteEstado">Estado</label>
+            <div class="input-wrap">
+              <i class="bi bi-toggle2-on"></i>
+              <select id="clienteEstado">
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field" id="fieldClienteTelefono">
+            <label for="clienteTelefono">Teléfono</label>
+            <div class="input-wrap">
+              <i class="bi bi-telephone"></i>
+              <input type="text" id="clienteTelefono" placeholder="09XXXXXXXX" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldClienteCorreo">
+            <label for="clienteCorreo">Correo (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-envelope"></i>
+              <input type="email" id="clienteCorreo" placeholder="correo@ejemplo.com" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2" id="fieldClienteDireccion">
+            <label for="clienteDireccion">Dirección</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt"></i>
+              <input type="text" id="clienteDireccion" placeholder="Dirección completa" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="clienteServicios">Servicios asociados (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-tags"></i>
+              <input type="text" id="clienteServicios" placeholder="Ej. Carga seca, Refrigerados" />
+            </div>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="clienteObservaciones">Observaciones</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="clienteObservaciones" placeholder="Observaciones opcionales" />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="clienteCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i>
+            Guardar cliente
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModalOverlay">
     <div class="modal-dialog" style="max-width: 400px;">
       <div class="modal-header">
@@ -567,6 +684,7 @@
   <script src="js/ui-helpers.js"></script>
   <script src="js/vehiculos.js"></script>
   <script src="js/conductores.js"></script>
+  <script src="js/clientes.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>
