@@ -1,6 +1,5 @@
 (function () {
   const MODULE_KEY = "seguimiento";
-  const COLLECTION = "seguimientos";
   const ESTADO_BADGE = {
     Programado: "badge-info",
     "En Curso": "badge-warning",
@@ -16,26 +15,23 @@
     Otro: "bi-info-circle",
   };
 
-  trailersysSeedIfEmpty(COLLECTION, [
-    {
-      id: "seguimiento-seed-1",
-      viajeId: "viaje-seed-2",
-      vehiculoId: "vehiculo-seed-2",
-      fechaHora: "2026-08-09T06:05",
-      ubicacion: "Terminal de Ambato",
-      evento: "Salida",
-      observacion: "Salida registrada a tiempo.",
-    },
-    {
-      id: "seguimiento-seed-2",
-      viajeId: "viaje-seed-2",
-      vehiculoId: "vehiculo-seed-2",
-      fechaHora: "2026-08-09T06:40",
-      ubicacion: "Km 15 vía Ambato - Riobamba",
-      evento: "Parada",
-      observacion: "Parada breve por control de carga.",
-    },
-  ]);
+  // Convierte la "ruta" que devuelve /api/viajes (origenLat/origenLng/... +
+  // path como {lat,lng}) a la forma que espera Leaflet aquí mismo
+  // (origenCoords/destinoCoords + path como [lat,lng]).
+  function fromApiRuta(rutaDto) {
+    if (!rutaDto) return null;
+    return {
+      origenCoords: { lat: rutaDto.origenLat, lng: rutaDto.origenLng },
+      destinoCoords: { lat: rutaDto.destinoLat, lng: rutaDto.destinoLng },
+      distanciaKm: rutaDto.distanciaKm,
+      duracionMin: rutaDto.duracionMin,
+      path: rutaDto.path ? rutaDto.path.map((p) => [p.lat, p.lng]) : null,
+    };
+  }
+
+  // Caches del ultimo listado cargado desde la API.
+  let viajesCache = [];
+  let eventosCache = [];
 
   // --- Referencias del DOM ---
   const alertasList = document.getElementById("alertasList");
@@ -76,10 +72,6 @@
     }[char]));
   }
 
-  function todayIso() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
   function nowForInput() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, "0");
@@ -92,87 +84,29 @@
     wrap.querySelector(".field-error").textContent = message || "";
   }
 
-  // --- Alertas operativas (calculadas en vivo a partir de los demas modulos) ---
-  function computeAlerts() {
-    const alerts = [];
-    const hoy = new Date();
-    const conductores = trailersysList("conductores");
-    const vehiculos = trailersysList("vehiculos");
-    const viajes = trailersysList("viajes");
-    const activos = viajes.filter((v) => v.estado === "Programado" || v.estado === "En Curso");
-
-    activos.forEach((viaje) => {
-      const conductor = conductores.find((c) => c.id === viaje.conductorId);
-      if (conductor && conductor.licenciaVencimiento && conductor.licenciaVencimiento < todayIso()) {
-        alerts.push({
-          level: "danger",
-          icon: "bi-person-x",
-          text: `La licencia de ${conductor.nombres} está vencida (venció el ${conductor.licenciaVencimiento}) y tiene un viaje ${viaje.estado.toLowerCase()} de ${viaje.origen} a ${viaje.destino}.`,
-        });
-      }
-
-      const vehiculo = vehiculos.find((v) => v.id === viaje.vehiculoId);
-      if (vehiculo && (vehiculo.estado === "Mantenimiento" || vehiculo.estado === "Fuera de Servicio")) {
-        alerts.push({
-          level: "danger",
-          icon: "bi-tools",
-          text: `El vehículo ${vehiculo.placa} está en estado "${vehiculo.estado}" pero tiene un viaje ${viaje.estado.toLowerCase()} asignado (${viaje.origen} → ${viaje.destino}).`,
-        });
-      }
-    });
-
-    viajes
-      .filter((v) => v.estado === "Programado" && v.fechaSalida && new Date(v.fechaSalida) < hoy)
-      .forEach((viaje) => {
-        alerts.push({
-          level: "warning",
-          icon: "bi-alarm",
-          text: `El viaje de ${viaje.origen} a ${viaje.destino} sigue "Programado" pero su salida (${trailersysFormatDateTime(viaje.fechaSalida)}) ya pasó.`,
-        });
-      });
-
-    viajes
-      .filter((v) => v.estado === "En Curso" && !v.ruta)
-      .forEach((viaje) => {
-        alerts.push({
-          level: "warning",
-          icon: "bi-map",
-          text: `El viaje de ${viaje.origen} a ${viaje.destino} está "En Curso" pero no tiene una ruta calculada todavía.`,
-        });
-      });
-
-    trailersysList("mantenimientos")
-      .filter((m) => m.proximoServicio && m.proximoServicio < todayIso())
-      .forEach((mantenimiento) => {
-        const vehiculo = vehiculos.find((v) => v.id === mantenimiento.vehiculoId);
-        alerts.push({
-          level: "warning",
-          icon: "bi-tools",
-          text: `El próximo servicio del vehículo ${vehiculo ? vehiculo.placa : "desconocido"} venció el ${mantenimiento.proximoServicio}.`,
-        });
-      });
-
-    return alerts;
-  }
-
-  function renderAlertas() {
-    const alerts = computeAlerts();
+  // --- Alertas operativas (calculadas en el backend) ---
+  async function renderAlertas() {
+    let alerts;
+    try {
+      alerts = await trailersysApiRequest("GET", "/seguimiento/alertas");
+    } catch {
+      alertasList.innerHTML = `<div class="alerts-empty"><i class="bi bi-exclamation-circle"></i>No se pudieron cargar las alertas.</div>`;
+      return;
+    }
     if (!alerts.length) {
       alertasList.innerHTML = `<div class="alerts-empty"><i class="bi bi-check-circle"></i>No hay alertas activas. Todo está en orden.</div>`;
       return;
     }
     alertasList.innerHTML = alerts
-      .map((a) => `<div class="alert-item level-${a.level}"><i class="bi ${a.icon}"></i><div class="alert-text">${escapeHtml(a.text)}</div></div>`)
+      .map((a) => `<div class="alert-item level-${a.nivel}"><i class="bi ${a.icono}"></i><div class="alert-text">${escapeHtml(a.texto)}</div></div>`)
       .join("");
   }
 
   // --- Tarjetas de viajes ---
   function renderCard(viaje) {
     const badgeClass = ESTADO_BADGE[viaje.estado] || "badge-neutral";
-    const vehiculo = trailersysList("vehiculos").find((v) => v.id === viaje.vehiculoId);
-    const conductor = trailersysList("conductores").find((c) => c.id === viaje.conductorId);
-    const eventos = trailersysList(COLLECTION)
-      .filter((e) => e.viajeId === viaje.id)
+    const eventos = eventosCache
+      .filter((e) => String(e.viajeId) === String(viaje.id))
       .sort((a, b) => (a.fechaHora < b.fechaHora ? 1 : -1));
     const ultimo = eventos[0];
 
@@ -182,7 +116,7 @@
           <i class="bi bi-geo-alt"></i>
           <div class="item-banner-title">
             <div class="item-title">${escapeHtml(viaje.origen)} → ${escapeHtml(viaje.destino)}</div>
-            <div class="item-subtitle">${escapeHtml(vehiculo ? vehiculo.placa : "Vehículo no encontrado")} · ${escapeHtml(conductor ? conductor.nombres : "Conductor no encontrado")}</div>
+            <div class="item-subtitle">${escapeHtml(viaje.vehiculoPlaca)} · ${escapeHtml(viaje.conductorNombres)}</div>
           </div>
         </div>
         <div class="item-body">
@@ -203,17 +137,36 @@
       </article>`;
   }
 
-  function render() {
+  async function render() {
     renderAlertas();
 
-    const viajes = trailersysList("viajes");
+    let viajes;
+    try {
+      viajes = await trailersysApiRequest("GET", "/viajes");
+    } catch (error) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar los viajes";
+      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    viajes.forEach((viaje) => {
+      viaje.ruta = fromApiRuta(viaje.ruta);
+    });
+    viajesCache = viajes;
+
+    try {
+      eventosCache = await trailersysApiRequest("GET", "/seguimiento/eventos");
+    } catch {
+      eventosCache = [];
+    }
+
     const search = inputBuscar.value.trim().toLowerCase();
     const estado = filtroEstado.value;
 
     const filtrados = viajes.filter((viaje) => {
-      const vehiculo = trailersysList("vehiculos").find((v) => v.id === viaje.vehiculoId);
-      const conductor = trailersysList("conductores").find((c) => c.id === viaje.conductorId);
-      const haystack = [viaje.origen, viaje.destino, vehiculo?.placa, conductor?.nombres]
+      const haystack = [viaje.origen, viaje.destino, viaje.vehiculoPlaca, viaje.conductorNombres]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -250,7 +203,7 @@
   grid.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action='detalle']");
     if (!button) return;
-    const viaje = trailersysList("viajes").find((v) => v.id === button.dataset.id);
+    const viaje = viajesCache.find((v) => String(v.id) === button.dataset.id);
     if (viaje) openDetailModal(viaje);
   });
 
@@ -332,8 +285,8 @@
 
   function renderTimeline(viajeId) {
     const canManage = trailersysCanManage(session, MODULE_KEY);
-    const eventos = trailersysList(COLLECTION)
-      .filter((e) => e.viajeId === viajeId)
+    const eventos = eventosCache
+      .filter((e) => String(e.viajeId) === String(viajeId))
       .sort((a, b) => (a.fechaHora < b.fechaHora ? 1 : -1));
 
     if (!eventos.length) {
@@ -368,10 +321,15 @@
       title: "Eliminar evento",
       text: "¿Seguro que deseas eliminar este evento de seguimiento?",
       acceptLabel: "Eliminar",
-      onAccept: () => {
-        trailersysRemove(COLLECTION, id);
-        renderTimeline(viajeActualId);
-        render();
+      onAccept: async () => {
+        try {
+          await trailersysApiRequest("DELETE", `/seguimiento/eventos/${id}`);
+          eventosCache = eventosCache.filter((e) => String(e.id) !== id);
+          renderTimeline(viajeActualId);
+          render();
+        } catch (error) {
+          alert(error.message || "No se pudo eliminar el evento.");
+        }
       },
     });
   });
@@ -405,7 +363,9 @@
     if (event.target === modalOverlay) closeDetailModal();
   });
 
-  eventoForm.addEventListener("submit", (event) => {
+  const submitEventoBtn = eventoForm.querySelector('button[type="submit"]');
+
+  eventoForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     let valid = true;
@@ -426,21 +386,25 @@
 
     if (!valid) return;
 
-    const viaje = trailersysList("viajes").find((v) => v.id === viajeActualId);
-
-    trailersysUpsert(COLLECTION, {
-      viajeId: viajeActualId,
-      vehiculoId: viaje ? viaje.vehiculoId : "",
-      fechaHora: inputFecha.value,
-      evento: selectEvento.value,
-      ubicacion,
-      observacion: inputObservacion.value.trim(),
-    });
-
-    eventoForm.reset();
-    inputFecha.value = nowForInput();
-    renderTimeline(viajeActualId);
-    render();
+    submitEventoBtn.disabled = true;
+    try {
+      await trailersysApiRequest("POST", "/seguimiento/eventos", {
+        viajeId: viajeActualId,
+        fechaHora: inputFecha.value,
+        evento: selectEvento.value,
+        ubicacion,
+        observacion: inputObservacion.value.trim(),
+      });
+      eventoForm.reset();
+      inputFecha.value = nowForInput();
+      eventosCache = await trailersysApiRequest("GET", "/seguimiento/eventos");
+      renderTimeline(viajeActualId);
+      await render();
+    } catch (error) {
+      alert(error.message || "No se pudo registrar el evento.");
+    } finally {
+      submitEventoBtn.disabled = false;
+    }
   });
 
   session = trailersysGetSession();
