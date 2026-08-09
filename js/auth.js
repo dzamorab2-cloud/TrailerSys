@@ -5,12 +5,22 @@
     return;
   }
 
+  // El backend devuelve el rol en mayusculas (enum Rol); TRAILERSYS_ROLES
+  // usa las claves en minusculas, asi que se traduce aqui una sola vez.
+  const ROL_BACKEND_A_FRONTEND = {
+    ADMINISTRADOR: "administrador",
+    COORDINADOR: "coordinador",
+    MANTENIMIENTO: "mantenimiento",
+    CONDUCTOR: "conductor",
+    SUPERVISOR: "supervisor",
+  };
+
   const form = document.getElementById("loginForm");
   const usuarioInput = document.getElementById("usuario");
   const contrasenaInput = document.getElementById("contrasena");
-  const rolSelect = document.getElementById("rol");
   const alertBox = document.getElementById("loginAlert");
   const alertText = document.getElementById("loginAlertText");
+  const submitBtn = form.querySelector('button[type="submit"]');
 
   function setFieldError(fieldWrapId, message) {
     const wrap = document.getElementById(fieldWrapId);
@@ -27,7 +37,7 @@
     alertBox.hidden = true;
   }
 
-  form.addEventListener("submit", function (event) {
+  form.addEventListener("submit", async function (event) {
     event.preventDefault();
     hideAlert();
 
@@ -54,16 +64,28 @@
       return;
     }
 
-    // Autenticacion simulada: sin backend aun, cualquier credencial no vacia
-    // es valida. Al integrar PostgreSQL esto se reemplaza por una llamada
-    // a la API que valide y devuelva el rol real del usuario.
-    const role = rolSelect.value;
-    trailersysSetSession({
-      username: usuario,
-      role,
-      loginAt: new Date().toISOString(),
-    });
+    submitBtn.disabled = true;
+    try {
+      const data = await trailersysApiRequest("POST", "/auth/login", {
+        username: usuario,
+        password: contrasena,
+      });
 
-    window.location.href = "app.html";
+      const role = ROL_BACKEND_A_FRONTEND[data.rol];
+      trailersysSetSession({
+        token: data.token,
+        id: data.id,
+        username: data.username,
+        nombre: data.nombre,
+        role,
+        loginAt: new Date().toISOString(),
+      });
+
+      window.location.href = "app.html";
+    } catch (error) {
+      showAlert(error.message || "Usuario o contraseña incorrectos.");
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 })();

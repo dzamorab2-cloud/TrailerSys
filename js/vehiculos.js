@@ -1,5 +1,4 @@
 (function () {
-  const COLLECTION = "vehiculos";
   const ESTADOS = ["Disponible", "En Ruta", "Mantenimiento", "Fuera de Servicio"];
   const ESTADO_BADGE = {
     Disponible: "badge-success",
@@ -9,50 +8,9 @@
   };
   const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 
-  trailersysSeedIfEmpty(COLLECTION, [
-    {
-      id: "vehiculo-seed-1",
-      placa: "PBA-1234",
-      marca: "Freightliner",
-      modelo: "Cascadia",
-      tipo: "Tráiler",
-      anio: 2021,
-      color: "Blanco",
-      estado: "Disponible",
-      kilometraje: 82000,
-      capacidad: 28000,
-      observaciones: "Unidad principal para rutas de larga distancia.",
-      foto: "",
-    },
-    {
-      id: "vehiculo-seed-2",
-      placa: "PCD-5678",
-      marca: "Hino",
-      modelo: "300",
-      tipo: "Camión",
-      anio: 2019,
-      color: "Azul",
-      estado: "En Ruta",
-      kilometraje: 145000,
-      capacidad: 6500,
-      observaciones: "",
-      foto: "",
-    },
-    {
-      id: "vehiculo-seed-3",
-      placa: "PEF-9012",
-      marca: "Chevrolet",
-      modelo: "NPR",
-      tipo: "Furgón",
-      anio: 2017,
-      color: "Gris",
-      estado: "Mantenimiento",
-      kilometraje: 201500,
-      capacidad: 4000,
-      observaciones: "Revisión de frenos programada.",
-      foto: "",
-    },
-  ]);
+  // Cache del ultimo listado cargado desde la API, para que los botones de
+  // editar/eliminar de cada tarjeta no dependan de una segunda peticion.
+  let vehiculosCache = [];
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevoVehiculo");
@@ -185,12 +143,23 @@
       </article>`;
   }
 
-  function render() {
-    const vehiculos = trailersysList(COLLECTION);
-    refreshFilterOptions(vehiculos);
-
-    const canManage = trailersysCanManage(session, COLLECTION);
+  async function render() {
+    const canManage = trailersysCanManage(session, "vehiculos");
     btnNuevo.hidden = !canManage;
+
+    let vehiculos;
+    try {
+      vehiculos = await trailersysApiRequest("GET", "/vehiculos");
+    } catch (error) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar la flota";
+      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    vehiculosCache = vehiculos;
+    refreshFilterOptions(vehiculos);
 
     const search = inputBuscar.value.trim().toLowerCase();
     const estado = filtroEstado.value;
@@ -290,7 +259,7 @@
   });
 
   // --- Validacion y guardado ---
-  function validate(data, currentId) {
+  function validate(data) {
     clearFieldErrors();
     let valid = true;
 
@@ -299,15 +268,7 @@
       valid = false;
     }
 
-    if (!data.placa) {
-      fail("fieldVehiculoPlaca", "La placa es obligatoria.");
-    } else {
-      const duplicada = trailersysList(COLLECTION).some(
-        (v) => v.id !== currentId && v.placa.toLowerCase() === data.placa.toLowerCase()
-      );
-      if (duplicada) fail("fieldVehiculoPlaca", "Ya existe un vehículo con esta placa.");
-    }
-
+    if (!data.placa) fail("fieldVehiculoPlaca", "La placa es obligatoria.");
     if (!data.marca) fail("fieldVehiculoMarca", "La marca es obligatoria.");
     if (!data.modelo) fail("fieldVehiculoModelo", "El modelo es obligatorio.");
     if (!data.tipo) fail("fieldVehiculoTipo", "El tipo es obligatorio.");
@@ -329,7 +290,9 @@
     return valid;
   }
 
-  form.addEventListener("submit", (event) => {
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = {
@@ -346,12 +309,27 @@
       foto: fotoActual,
     };
 
-    if (!validate(data, inputId.value || null)) return;
+    if (!validate(data)) return;
 
-    data.id = inputId.value || undefined;
-    trailersysUpsert(COLLECTION, data);
-    closeForm();
-    render();
+    const id = inputId.value || null;
+    submitBtn.disabled = true;
+    try {
+      if (id) {
+        await trailersysApiRequest("PUT", `/vehiculos/${id}`, data);
+      } else {
+        await trailersysApiRequest("POST", "/vehiculos", data);
+      }
+      closeForm();
+      await render();
+    } catch (error) {
+      if (/placa/i.test(error.message || "")) {
+        setFieldError("fieldVehiculoPlaca", error.message);
+      } else {
+        alert(error.message || "No se pudo guardar el vehículo.");
+      }
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 
   // --- Acciones sobre las tarjetas (editar / eliminar) ---
@@ -359,7 +337,7 @@
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     const { action, id } = button.dataset;
-    const vehiculo = trailersysList(COLLECTION).find((v) => v.id === id);
+    const vehiculo = vehiculosCache.find((v) => String(v.id) === id);
     if (!vehiculo) return;
 
     if (action === "editar") {
@@ -369,9 +347,13 @@
         title: "Eliminar vehículo",
         text: `¿Seguro que deseas eliminar el vehículo con placa ${vehiculo.placa}? Esta acción no se puede deshacer.`,
         acceptLabel: "Eliminar",
-        onAccept: () => {
-          trailersysRemove(COLLECTION, id);
-          render();
+        onAccept: async () => {
+          try {
+            await trailersysApiRequest("DELETE", `/vehiculos/${id}`);
+            await render();
+          } catch (error) {
+            alert(error.message || "No se pudo eliminar el vehículo.");
+          }
         },
       });
     }
