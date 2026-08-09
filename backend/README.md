@@ -1,14 +1,23 @@
 # TrailerSys Backend
 
-API REST en Java + Spring Boot 3.5 que reemplaza, modulo por modulo, la
-capa `localStorage` del prototipo frontend. Por ahora incluye:
+API REST en Java + Spring Boot 3.5 que reemplazara, modulo por modulo, la
+capa `localStorage` del prototipo frontend. Incluye:
 
 - **Autenticacion** con JWT (`POST /api/auth/login`), reemplazando el
   login simulado en `sessionStorage` (`js/auth.js` del frontend).
-- **Modulo Vehiculos** completo (`/api/vehiculos`), como patron de
-  referencia para migrar Conductores, Clientes, Cargas, Viajes,
-  Seguimiento y Mantenimientos en sesiones siguientes, repitiendo la
-  misma estructura (entidad + repositorio + servicio + controller).
+- Los **7 modulos con datos** del documento del proyecto, cada uno con
+  entidad + repositorio + servicio + controller + DTOs con validacion:
+  `/api/vehiculos`, `/api/conductores`, `/api/clientes`, `/api/cargas`,
+  `/api/viajes`, `/api/seguimiento` (eventos + alertas operativas) y
+  `/api/mantenimientos`.
+- Permisos por endpoint que replican `TRAILERSYS_ROLES` de `js/roles.js`
+  exactamente (mismos roles, mismos modulos visibles, misma distincion
+  entre "consultar" y "gestionar").
+
+Verificado funcionando de punta a punta contra PostgreSQL 18 real (no
+solo la base H2 de los tests): login, los 7 modulos y las alertas de
+Seguimiento devuelven datos correctos, incluyendo acentos y caracteres
+especiales.
 
 ## 1. Instalar PostgreSQL
 
@@ -27,23 +36,34 @@ psql -U postgres -c "CREATE DATABASE trailersys;"
 
 ## 2. Configurar la conexion
 
-Edita `src/main/resources/application.properties` con tus datos reales:
+`src/main/resources/application.properties` ya apunta a
+`localhost:5432/trailersys` con usuario `postgres`. La contraseña **no**
+esta escrita en ese archivo (para no subirla a git); se lee de la
+variable de entorno `DB_PASSWORD`, con `postgres` como valor por
+defecto si no la defines:
 
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/trailersys
-spring.datasource.username=postgres
-spring.datasource.password=tu-contraseña
+```powershell
+# PowerShell
+$env:DB_PASSWORD = "tu-contraseña"
 ```
 
-`spring.jpa.hibernate.ddl-auto=update` ya esta configurado para crear las
-tablas automaticamente la primera vez que arranca la aplicacion, a partir
-de las entidades (`Usuario`, `Vehiculo`). No necesitas escribir el `CREATE
-TABLE` a mano.
+```bash
+# Bash
+export DB_PASSWORD=tu-contraseña
+```
+
+Si tu instalacion usa otro usuario, puerto o nombre de base, edita
+`spring.datasource.url` / `spring.datasource.username` directamente.
+
+`spring.jpa.hibernate.ddl-auto=update` crea/ajusta las tablas
+automaticamente a partir de las entidades la primera vez que arranca la
+aplicacion. No necesitas escribir ningun `CREATE TABLE` a mano.
 
 ## 3. Ejecutar el backend
 
 **Desde IntelliJ IDEA** (como indica el documento del proyecto): abre la
-carpeta `backend/` como proyecto Maven y ejecuta la clase
+carpeta `backend/` como proyecto Maven, configura la variable de entorno
+`DB_PASSWORD` en la configuracion de ejecucion, y corre
 `TrailerSysBackendApplication`. IntelliJ trae su propio Maven integrado,
 no necesitas instalar nada mas.
 
@@ -59,8 +79,10 @@ La API queda escuchando en `http://localhost:8080`.
 
 ## 4. Usuario de prueba
 
-Al arrancar por primera vez (con la base de datos vacia), se crea
-automaticamente un usuario administrador:
+Al arrancar por primera vez (con la base de datos vacia), `DataSeeder`
+crea automaticamente un usuario administrador y datos demo para los 7
+modulos (los mismos vehiculos, conductores, clientes, etc. que ya
+conoces del frontend):
 
 - **Usuario:** `admin`
 - **Contraseña:** `admin1234`
@@ -79,12 +101,12 @@ curl -X POST http://localhost:8080/api/auth/login \
 # Listar vehiculos (usa el token recibido arriba)
 curl http://localhost:8080/api/vehiculos \
   -H "Authorization: Bearer <token>"
-```
 
-Los permisos por endpoint replican `TRAILERSYS_ROLES` del frontend
-(`js/roles.js`): todos los roles con acceso al modulo pueden consultar
-(`GET`), pero solo Administrador y Coordinador pueden crear, editar o
-eliminar vehiculos.
+# Alertas operativas (licencias vencidas, vehiculos en mantenimiento
+# con viaje activo, viajes retrasados o sin ruta, mantenimientos vencidos)
+curl http://localhost:8080/api/seguimiento/alertas \
+  -H "Authorization: Bearer <token>"
+```
 
 ## 6. Pruebas automatizadas
 
@@ -92,15 +114,20 @@ eliminar vehiculos.
 ./mvnw test
 ```
 
-Las pruebas corren contra una base H2 embebida en modo compatible con
-PostgreSQL (ver `src/test/resources/application.properties`), asi que
-no necesitas PostgreSQL corriendo para ejecutarlas.
+54 pruebas en total, todas contra una base H2 embebida en modo
+compatible con PostgreSQL (ver `src/test/resources/application.properties`),
+asi que no necesitas PostgreSQL corriendo para ejecutarlas.
 
-## Siguiente paso
+## Que falta para que el sistema este completo
 
-Con este patron ya probado (entidad + JPA + DTOs + validaciones +
-permisos por rol + tests), los proximos modulos (Conductores, Clientes,
-Cargas, Viajes, Seguimiento, Mantenimientos) se agregan repitiendo la
-misma estructura del paquete `vehiculo/`. El frontend seguira
-funcionando con `localStorage` hasta que cada modulo se conecte
-explicitamente a estos endpoints reales.
+Este backend por si solo no es el proyecto terminado. Falta:
+
+1. **Conectar el frontend a esta API real.** Hoy `js/vehiculos.js`,
+   `js/conductores.js`, etc. siguen leyendo/escribiendo en
+   `localStorage`. Cada modulo necesita reescribirse para usar
+   `fetch()` con el token JWT en vez de `localStorage`, siguiendo el
+   mismo patron modulo por modulo.
+2. **Fase 11 (Dashboard):** sigue como placeholder, pendiente de
+   construirse con datos reales una vez el frontend hable con esta API.
+3. **Fase 12 (Pruebas y despliegue):** pruebas end-to-end del sistema
+   completo y puesta en marcha.
