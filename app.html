@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="css/cargas.css" />
   <link rel="stylesheet" href="css/viajes.css" />
   <link rel="stylesheet" href="css/seguimiento.css" />
+  <link rel="stylesheet" href="css/reportes.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -366,11 +367,50 @@
               <p>Consultas e indicadores de la operación.</p>
             </div>
           </div>
-          <div class="module-placeholder card">
-            <i class="bi bi-bar-chart"></i>
-            <h3>Módulo en construcción</h3>
-            <p>Reportes filtrables por vehículo, viaje y conductor.</p>
-            <span class="badge badge-neutral phase-tag">Fase 9 · Reportes</span>
+
+          <div class="report-tabs" id="reportTabs">
+            <button type="button" class="report-tab active" data-tab="vehiculos">
+              <i class="bi bi-truck"></i> Vehículos
+            </button>
+            <button type="button" class="report-tab" data-tab="conductores">
+              <i class="bi bi-person-badge"></i> Conductores
+            </button>
+            <button type="button" class="report-tab" data-tab="viajes">
+              <i class="bi bi-signpost-split"></i> Viajes
+            </button>
+            <button type="button" class="report-tab" data-tab="mantenimientos">
+              <i class="bi bi-tools"></i> Mantenimientos
+            </button>
+          </div>
+
+          <div class="report-actions">
+            <div class="toolbar-filters" id="reportFilters"></div>
+            <div class="report-buttons">
+              <button type="button" class="btn btn-ghost" id="btnExportarCsv">
+                <i class="bi bi-filetype-csv"></i>
+                Exportar CSV
+              </button>
+              <button type="button" class="btn btn-primary" id="btnImprimirReporte">
+                <i class="bi bi-printer"></i>
+                Imprimir / PDF
+              </button>
+            </div>
+          </div>
+
+          <div id="reportePrintArea">
+            <div class="print-header print-only" id="reportPrintHeader"></div>
+            <div class="stats-row" id="reportStats"></div>
+            <div class="table-wrap" id="reportTableWrap">
+              <table class="report-table" id="reportTable">
+                <thead id="reportTableHead"></thead>
+                <tbody id="reportTableBody"></tbody>
+              </table>
+            </div>
+            <div class="module-placeholder card" id="reportEmptyState" hidden>
+              <i class="bi bi-bar-chart"></i>
+              <h3>Sin datos para mostrar</h3>
+              <p>Ningún registro coincide con el filtro aplicado.</p>
+            </div>
           </div>
         </section>
 
@@ -1204,6 +1244,7 @@
   <script src="js/viajes.js"></script>
   <script src="js/mantenimientos.js"></script>
   <script src="js/seguimiento.js"></script>
+  <script src="js/reportes.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>

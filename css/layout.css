@@ -1,13 +1,13 @@
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
   transition: grid-template-columns var(--transition);
 }
 
 @media (min-width: 861px) {
   .app-shell.sidebar-toggled {
-    grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
   }
 }
 
@@ -268,7 +268,7 @@
 
 @media (max-width: 860px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar-backdrop {
@@ -302,7 +302,7 @@
   }
 
   .app-shell.sidebar-toggled {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .main-content {
