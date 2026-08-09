@@ -6,6 +6,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import com.trailersys.backend.carga.Carga;
+import com.trailersys.backend.carga.CargaRepository;
+import com.trailersys.backend.carga.EstadoCarga;
 import com.trailersys.backend.cliente.Cliente;
 import com.trailersys.backend.cliente.ClienteRepository;
 import com.trailersys.backend.cliente.EstadoCliente;
@@ -32,15 +35,17 @@ public class DataSeeder implements CommandLineRunner {
     private final VehiculoRepository vehiculoRepository;
     private final ConductorRepository conductorRepository;
     private final ClienteRepository clienteRepository;
+    private final CargaRepository cargaRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(UsuarioRepository usuarioRepository, VehiculoRepository vehiculoRepository,
                        ConductorRepository conductorRepository, ClienteRepository clienteRepository,
-                       PasswordEncoder passwordEncoder) {
+                       CargaRepository cargaRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.vehiculoRepository = vehiculoRepository;
         this.conductorRepository = conductorRepository;
         this.clienteRepository = clienteRepository;
+        this.cargaRepository = cargaRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -90,6 +95,19 @@ public class DataSeeder implements CommandLineRunner {
                     "Distribuidora El Roble", "0911223344", EstadoCliente.INACTIVO,
                     "0987001122", null, "Calle Bolívar y Sucre, Ambato",
                     "Refrigerados", null));
+        }
+
+        if (cargaRepository.count() == 0) {
+            Cliente comercialAndina = clienteRepository.findByIdentificacionIgnoreCase("0992345678001").orElse(null);
+            Cliente distribuidoraElRoble = clienteRepository.findByIdentificacionIgnoreCase("0911223344").orElse(null);
+
+            cargaRepository.save(new Carga(
+                    "Lote de telas e insumos textiles", comercialAndina, "Textiles", 3200,
+                    "Guayaquil", "Quito", EstadoCarga.PENDIENTE, null));
+
+            cargaRepository.save(new Carga(
+                    "Productos refrigerados para distribución", distribuidoraElRoble, "Refrigerados", 1800,
+                    "Ambato", "Riobamba", EstadoCarga.EN_TRANSITO, "Requiere cadena de frío."));
         }
     }
 }
