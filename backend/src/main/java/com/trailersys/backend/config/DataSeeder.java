@@ -6,6 +6,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import com.trailersys.backend.cliente.Cliente;
+import com.trailersys.backend.cliente.ClienteRepository;
+import com.trailersys.backend.cliente.EstadoCliente;
 import com.trailersys.backend.conductor.Conductor;
 import com.trailersys.backend.conductor.ConductorRepository;
 import com.trailersys.backend.conductor.EstadoConductor;
@@ -28,13 +31,16 @@ public class DataSeeder implements CommandLineRunner {
     private final UsuarioRepository usuarioRepository;
     private final VehiculoRepository vehiculoRepository;
     private final ConductorRepository conductorRepository;
+    private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(UsuarioRepository usuarioRepository, VehiculoRepository vehiculoRepository,
-                       ConductorRepository conductorRepository, PasswordEncoder passwordEncoder) {
+                       ConductorRepository conductorRepository, ClienteRepository clienteRepository,
+                       PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.vehiculoRepository = vehiculoRepository;
         this.conductorRepository = conductorRepository;
+        this.clienteRepository = clienteRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -72,6 +78,18 @@ public class DataSeeder implements CommandLineRunner {
                     "Marcia Torres", "0923456789", "0987654321", null,
                     "LIC-40071", "Tipo C", LocalDate.of(2024, 1, 10),
                     EstadoConductor.DISPONIBLE, null, "Disponible para rutas cortas.", null));
+        }
+
+        if (clienteRepository.count() == 0) {
+            clienteRepository.save(new Cliente(
+                    "Comercial Andina S.A.", "0992345678001", EstadoCliente.ACTIVO,
+                    "042345678", "contacto@comercialandina.test", "Av. Quito 456, Guayaquil",
+                    "Carga seca, Paletizada", "Cliente frecuente con envíos semanales."));
+
+            clienteRepository.save(new Cliente(
+                    "Distribuidora El Roble", "0911223344", EstadoCliente.INACTIVO,
+                    "0987001122", null, "Calle Bolívar y Sucre, Ambato",
+                    "Refrigerados", null));
         }
     }
 }
