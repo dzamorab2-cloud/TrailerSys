@@ -16,6 +16,9 @@ import com.trailersys.backend.cliente.EstadoCliente;
 import com.trailersys.backend.conductor.Conductor;
 import com.trailersys.backend.conductor.ConductorRepository;
 import com.trailersys.backend.conductor.EstadoConductor;
+import com.trailersys.backend.mantenimiento.Mantenimiento;
+import com.trailersys.backend.mantenimiento.MantenimientoRepository;
+import com.trailersys.backend.mantenimiento.TipoMantenimiento;
 import com.trailersys.backend.seguimiento.SeguimientoEvento;
 import com.trailersys.backend.seguimiento.SeguimientoEventoRepository;
 import com.trailersys.backend.seguimiento.TipoEvento;
@@ -45,12 +48,14 @@ public class DataSeeder implements CommandLineRunner {
     private final CargaRepository cargaRepository;
     private final ViajeRepository viajeRepository;
     private final SeguimientoEventoRepository seguimientoEventoRepository;
+    private final MantenimientoRepository mantenimientoRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(UsuarioRepository usuarioRepository, VehiculoRepository vehiculoRepository,
                        ConductorRepository conductorRepository, ClienteRepository clienteRepository,
                        CargaRepository cargaRepository, ViajeRepository viajeRepository,
                        SeguimientoEventoRepository seguimientoEventoRepository,
+                       MantenimientoRepository mantenimientoRepository,
                        PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.vehiculoRepository = vehiculoRepository;
@@ -59,6 +64,7 @@ public class DataSeeder implements CommandLineRunner {
         this.cargaRepository = cargaRepository;
         this.viajeRepository = viajeRepository;
         this.seguimientoEventoRepository = seguimientoEventoRepository;
+        this.mantenimientoRepository = mantenimientoRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -167,6 +173,19 @@ public class DataSeeder implements CommandLineRunner {
                         viajeEnCurso, viajeEnCurso.getVehiculo(), LocalDateTime.of(2026, 8, 9, 6, 40),
                         TipoEvento.PARADA, "Km 15 vía Ambato - Riobamba", "Parada breve por control de carga."));
             }
+        }
+
+        if (mantenimientoRepository.count() == 0) {
+            Vehiculo vehiculo1 = vehiculoRepository.findByPlacaIgnoreCase("PBA-1234").orElse(null);
+            Vehiculo vehiculo2 = vehiculoRepository.findByPlacaIgnoreCase("PCD-5678").orElse(null);
+
+            mantenimientoRepository.save(new Mantenimiento(
+                    vehiculo2, TipoMantenimiento.CORRECTIVO, LocalDate.of(2026, 7, 20), 145500, 340.5,
+                    LocalDate.of(2026, 8, 5), "Revisión y cambio de pastillas de freno."));
+
+            mantenimientoRepository.save(new Mantenimiento(
+                    vehiculo1, TipoMantenimiento.PREVENTIVO, LocalDate.of(2026, 6, 10), 78000, 120.0,
+                    LocalDate.of(2026, 9, 10), "Cambio de aceite y filtros."));
         }
     }
 }

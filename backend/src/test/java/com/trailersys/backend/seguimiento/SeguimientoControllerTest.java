@@ -227,6 +227,35 @@ class SeguimientoControllerTest {
     }
 
     @Test
+    void alertasDetectanMantenimientoVencido() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-ALERT-03", "Disponible");
+
+        String mantenimiento = """
+                {"vehiculoId":%d,"tipo":"Correctivo","fecha":"2020-01-01","kilometraje":1000,
+                 "costo":10.0,"proximoServicio":"2020-06-01","descripcion":"Vencido para la alerta"}
+                """.formatted(vehiculoId);
+
+        mockMvc.perform(post("/api/mantenimientos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mantenimiento))
+                .andExpect(status().isCreated());
+
+        String alertas = mockMvc.perform(get("/api/seguimiento/alertas")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        boolean encontrada = false;
+        for (JsonNode alerta : objectMapper.readTree(alertas)) {
+            if (alerta.get("texto").asText().contains("SEG-ALERT-03")) {
+                encontrada = true;
+            }
+        }
+        assertThat(encontrada).isTrue();
+    }
+
+    @Test
     void rolSinAccesoAModuloDevuelveProhibido() throws Exception {
         if (usuarioRepository.findByUsernameIgnoreCase("supervisorseguimientotest").isEmpty()) {
             usuarioRepository.save(new Usuario(

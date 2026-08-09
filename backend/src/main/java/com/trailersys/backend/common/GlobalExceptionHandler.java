@@ -55,6 +55,17 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "El cuerpo de la solicitud no es valido.", request);
     }
 
+    /**
+     * Para validaciones cruzadas entre campos que no se pueden expresar con
+     * una sola anotacion Bean Validation (ej. "proximoServicio posterior a
+     * fecha" en Mantenimientos). Los servicios lanzan esta excepcion cuando
+     * detectan ese tipo de regla de negocio invalida.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrio un error inesperado.", request);

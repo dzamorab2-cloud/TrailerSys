@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.trailersys.backend.common.ResourceNotFoundException;
 import com.trailersys.backend.conductor.Conductor;
+import com.trailersys.backend.mantenimiento.MantenimientoRepository;
 import com.trailersys.backend.seguimiento.dto.AlertaDto;
 import com.trailersys.backend.seguimiento.dto.SeguimientoEventoRequest;
 import com.trailersys.backend.vehiculo.EstadoVehiculo;
@@ -29,10 +30,13 @@ public class SeguimientoService {
 
     private final SeguimientoEventoRepository repository;
     private final ViajeRepository viajeRepository;
+    private final MantenimientoRepository mantenimientoRepository;
 
-    public SeguimientoService(SeguimientoEventoRepository repository, ViajeRepository viajeRepository) {
+    public SeguimientoService(SeguimientoEventoRepository repository, ViajeRepository viajeRepository,
+                               MantenimientoRepository mantenimientoRepository) {
         this.repository = repository;
         this.viajeRepository = viajeRepository;
+        this.mantenimientoRepository = mantenimientoRepository;
     }
 
     public List<SeguimientoEvento> listarEventos(Long viajeId) {
@@ -65,10 +69,8 @@ public class SeguimientoService {
 
     /**
      * Replica computeAlerts() de js/seguimiento.js: nada se guarda aparte,
-     * todo se calcula en el momento a partir de Conductor/Vehiculo/Viaje.
-     * La alerta de mantenimiento vencido se agrega cuando exista el modulo
-     * Mantenimientos en el backend (la siguiente pieza), igual que paso
-     * cronologicamente en el frontend (Fase 7 antes que Fase 8).
+     * todo se calcula en el momento a partir de Conductor/Vehiculo/Viaje/
+     * Mantenimiento.
      */
     public List<AlertaDto> obtenerAlertas() {
         List<AlertaDto> alertas = new ArrayList<>();
@@ -110,6 +112,12 @@ public class SeguimientoService {
                 .forEach(v -> alertas.add(new AlertaDto("warning", "bi-map", String.format(
                         "El viaje de %s a %s está \"En Curso\" pero no tiene una ruta calculada todavía.",
                         v.getOrigen(), v.getDestino()))));
+
+        mantenimientoRepository.findAll().stream()
+                .filter(m -> m.getProximoServicio() != null && m.getProximoServicio().isBefore(hoy))
+                .forEach(m -> alertas.add(new AlertaDto("warning", "bi-tools", String.format(
+                        "El próximo servicio del vehículo %s venció el %s.",
+                        m.getVehiculo().getPlaca(), m.getProximoServicio()))));
 
         return alertas;
     }
