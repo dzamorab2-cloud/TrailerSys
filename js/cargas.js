@@ -1,5 +1,4 @@
 (function () {
-  const COLLECTION = "cargas";
   const ESTADOS = ["Pendiente", "Asignada", "En Tránsito", "Entregada"];
   const ESTADO_BADGE = {
     Pendiente: "badge-warning",
@@ -8,30 +7,9 @@
     Entregada: "badge-success",
   };
 
-  trailersysSeedIfEmpty(COLLECTION, [
-    {
-      id: "carga-seed-1",
-      descripcion: "Lote de telas e insumos textiles",
-      clienteId: "cliente-seed-1",
-      tipo: "Textiles",
-      peso: 3200,
-      origen: "Guayaquil",
-      destino: "Quito",
-      estado: "Pendiente",
-      observaciones: "",
-    },
-    {
-      id: "carga-seed-2",
-      descripcion: "Productos refrigerados para distribución",
-      clienteId: "cliente-seed-2",
-      tipo: "Refrigerados",
-      peso: 1800,
-      origen: "Ambato",
-      destino: "Riobamba",
-      estado: "En Tránsito",
-      observaciones: "Requiere cadena de frío.",
-    },
-  ]);
+  // Cache del ultimo listado de cargas cargado desde la API, para que los
+  // botones de editar/eliminar de cada tarjeta no dependan de otra peticion.
+  let cargasCache = [];
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevaCarga");
@@ -61,6 +39,10 @@
   const inputObservaciones = document.getElementById("cargaObservaciones");
 
   let session = null;
+  // Cache del listado de clientes usado solo para poblar el selector del
+  // formulario; la tarjeta y la búsqueda usan carga.clienteNombre, que ya
+  // viene denormalizado desde el backend.
+  let clientesCache = [];
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -84,22 +66,25 @@
       .forEach((id) => setFieldError(id, ""));
   }
 
-  function refreshClienteOptions() {
-    const clientes = trailersysList("clientes");
+  async function refreshClienteOptions() {
+    try {
+      clientesCache = await trailersysApiRequest("GET", "/clientes");
+    } catch {
+      clientesCache = [];
+    }
     const current = selectCliente.value;
     selectCliente.innerHTML = '<option value="">Selecciona un cliente</option>';
-    clientes.forEach((c) => {
+    clientesCache.forEach((c) => {
       const option = document.createElement("option");
       option.value = c.id;
       option.textContent = c.nombre;
       selectCliente.appendChild(option);
     });
-    if (clientes.some((c) => c.id === current)) selectCliente.value = current;
+    if (clientesCache.some((c) => String(c.id) === current)) selectCliente.value = current;
   }
 
   function renderCard(carga, canManage) {
     const badgeClass = ESTADO_BADGE[carga.estado] || "badge-neutral";
-    const cliente = trailersysList("clientes").find((c) => c.id === carga.clienteId);
 
     const actions = canManage
       ? `<div class="item-actions">
@@ -118,7 +103,7 @@
           <i class="bi bi-box-seam"></i>
           <div class="item-banner-title">
             <div class="item-title">${escapeHtml(carga.descripcion)}</div>
-            <div class="item-subtitle">${escapeHtml(carga.tipo)} · ${escapeHtml(cliente ? cliente.nombre : "Cliente no encontrado")}</div>
+            <div class="item-subtitle">${escapeHtml(carga.tipo)} · ${escapeHtml(carga.clienteNombre || "Cliente no encontrado")}</div>
           </div>
         </div>
         <div class="item-body">
@@ -138,19 +123,28 @@
       </article>`;
   }
 
-  function render() {
-    const cargas = trailersysList(COLLECTION);
-    refreshClienteOptions();
-
-    const canManage = trailersysCanManage(session, COLLECTION);
+  async function render() {
+    const canManage = trailersysCanManage(session, "cargas");
     btnNuevo.hidden = !canManage;
+
+    let cargas;
+    try {
+      cargas = await trailersysApiRequest("GET", "/cargas");
+    } catch (error) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar las cargas";
+      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    cargasCache = cargas;
 
     const search = inputBuscar.value.trim().toLowerCase();
     const estado = filtroEstado.value;
 
     const filtrados = cargas.filter((carga) => {
-      const cliente = trailersysList("clientes").find((c) => c.id === carga.clienteId);
-      const clienteNombre = cliente ? cliente.nombre.toLowerCase() : "";
+      const clienteNombre = (carga.clienteNombre || "").toLowerCase();
       const matchesSearch = !search
         || carga.descripcion.toLowerCase().includes(search)
         || carga.origen.toLowerCase().includes(search)
@@ -183,11 +177,11 @@
   }
 
   // --- Modal de alta / edicion ---
-  function openForm(carga) {
+  async function openForm(carga) {
     clearFieldErrors();
     form.reset();
     selectEstado.value = "Pendiente";
-    refreshClienteOptions();
+    await refreshClienteOptions();
 
     if (carga) {
       modalTitle.textContent = "Editar carga";
@@ -244,12 +238,14 @@
     return valid;
   }
 
-  form.addEventListener("submit", (event) => {
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = {
       descripcion: inputDescripcion.value.trim(),
-      clienteId: selectCliente.value,
+      clienteId: selectCliente.value ? Number(selectCliente.value) : null,
       tipo: inputTipo.value.trim(),
       peso: inputPeso.value === "" ? "" : Number(inputPeso.value),
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],
@@ -260,10 +256,21 @@
 
     if (!validate(data)) return;
 
-    data.id = inputId.value || undefined;
-    trailersysUpsert(COLLECTION, data);
-    closeForm();
-    render();
+    const id = inputId.value || null;
+    submitBtn.disabled = true;
+    try {
+      if (id) {
+        await trailersysApiRequest("PUT", `/cargas/${id}`, data);
+      } else {
+        await trailersysApiRequest("POST", "/cargas", data);
+      }
+      closeForm();
+      await render();
+    } catch (error) {
+      alert(error.message || "No se pudo guardar la carga.");
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 
   // --- Acciones sobre las tarjetas (editar / eliminar) ---
@@ -271,7 +278,7 @@
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     const { action, id } = button.dataset;
-    const carga = trailersysList(COLLECTION).find((c) => c.id === id);
+    const carga = cargasCache.find((c) => String(c.id) === id);
     if (!carga) return;
 
     if (action === "editar") {
@@ -281,9 +288,13 @@
         title: "Eliminar carga",
         text: `¿Seguro que deseas eliminar la carga "${carga.descripcion}"? Esta acción no se puede deshacer.`,
         acceptLabel: "Eliminar",
-        onAccept: () => {
-          trailersysRemove(COLLECTION, id);
-          render();
+        onAccept: async () => {
+          try {
+            await trailersysApiRequest("DELETE", `/cargas/${id}`);
+            await render();
+          } catch (error) {
+            alert(error.message || "No se pudo eliminar la carga.");
+          }
         },
       });
     }
