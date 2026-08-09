@@ -1,33 +1,9 @@
 (function () {
-  const COLLECTION = "mantenimientos";
   const TIPOS = ["Preventivo", "Correctivo"];
 
-  function todayIso() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  trailersysSeedIfEmpty(COLLECTION, [
-    {
-      id: "mantenimiento-seed-1",
-      vehiculoId: "vehiculo-seed-3",
-      tipo: "Correctivo",
-      fecha: "2026-07-20",
-      kilometraje: 201500,
-      costo: 340.5,
-      proximoServicio: "2026-08-05",
-      descripcion: "Revisión y cambio de pastillas de freno.",
-    },
-    {
-      id: "mantenimiento-seed-2",
-      vehiculoId: "vehiculo-seed-1",
-      tipo: "Preventivo",
-      fecha: "2026-06-10",
-      kilometraje: 78000,
-      costo: 120,
-      proximoServicio: "2026-09-10",
-      descripcion: "Cambio de aceite y filtros.",
-    },
-  ]);
+  // Caches del ultimo listado cargado desde la API.
+  let mantenimientosCache = [];
+  let vehiculosCache = [];
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevoMantenimiento");
@@ -85,22 +61,28 @@
   }
 
   // --- Selects relacionados ---
+  async function refreshVehiculosCache() {
+    try {
+      vehiculosCache = await trailersysApiRequest("GET", "/vehiculos");
+    } catch {
+      vehiculosCache = [];
+    }
+  }
+
   function fillVehiculoSelect(select, placeholder) {
     const current = select.value;
-    const vehiculos = trailersysList("vehiculos");
     select.innerHTML = `<option value="">${placeholder}</option>`;
-    vehiculos.forEach((v) => {
+    vehiculosCache.forEach((v) => {
       const option = document.createElement("option");
       option.value = v.id;
       option.textContent = `${v.placa} · ${v.marca} ${v.modelo}`;
       select.appendChild(option);
     });
-    if (vehiculos.some((v) => v.id === current)) select.value = current;
+    if (vehiculosCache.some((v) => String(v.id) === current)) select.value = current;
   }
 
   function renderCard(mantenimiento, canManage) {
-    const vehiculo = trailersysList("vehiculos").find((v) => v.id === mantenimiento.vehiculoId);
-    const vencido = mantenimiento.proximoServicio && mantenimiento.proximoServicio < todayIso();
+    const vencido = mantenimiento.proximoServicioVencido;
 
     const actions = canManage
       ? `<div class="item-actions">
@@ -118,7 +100,7 @@
         <div class="item-banner">
           <i class="bi bi-tools"></i>
           <div class="item-banner-title">
-            <div class="item-title">${escapeHtml(mantenimiento.tipo)} · ${escapeHtml(vehiculo ? vehiculo.placa : "Vehículo no encontrado")}</div>
+            <div class="item-title">${escapeHtml(mantenimiento.tipo)} · ${escapeHtml(mantenimiento.vehiculoPlaca)}</div>
             <div class="item-subtitle">${escapeHtml(mantenimiento.fecha)}</div>
           </div>
         </div>
@@ -138,22 +120,34 @@
       </article>`;
   }
 
-  function render() {
-    const mantenimientos = trailersysList(COLLECTION);
+  async function render() {
+    const canManage = trailersysCanManage(session, "mantenimientos");
+    btnNuevo.hidden = !canManage;
+
+    await refreshVehiculosCache();
     fillVehiculoSelect(filtroVehiculo, "Todos los vehículos");
 
-    const canManage = trailersysCanManage(session, COLLECTION);
-    btnNuevo.hidden = !canManage;
+    let mantenimientos;
+    try {
+      mantenimientos = await trailersysApiRequest("GET", "/mantenimientos");
+    } catch (error) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar los mantenimientos";
+      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    mantenimientosCache = mantenimientos;
 
     const search = inputBuscar.value.trim().toLowerCase();
     const vehiculoId = filtroVehiculo.value;
     const tipo = filtroTipo.value;
 
     const filtrados = mantenimientos.filter((m) => {
-      const vehiculo = trailersysList("vehiculos").find((v) => v.id === m.vehiculoId);
-      const haystack = [m.descripcion, vehiculo?.placa].filter(Boolean).join(" ").toLowerCase();
+      const haystack = [m.descripcion, m.vehiculoPlaca].filter(Boolean).join(" ").toLowerCase();
       const matchesSearch = !search || haystack.includes(search);
-      const matchesVehiculo = !vehiculoId || m.vehiculoId === vehiculoId;
+      const matchesVehiculo = !vehiculoId || String(m.vehiculoId) === vehiculoId;
       const matchesTipo = !tipo || m.tipo === tipo;
       return matchesSearch && matchesVehiculo && matchesTipo;
     });
@@ -183,10 +177,11 @@
   }
 
   // --- Modal de alta / edicion ---
-  function openForm(mantenimiento) {
+  async function openForm(mantenimiento) {
     clearFieldErrors();
     form.reset();
     selectTipo.value = "Preventivo";
+    await refreshVehiculosCache();
     fillVehiculoSelect(selectVehiculo, "Selecciona un vehículo");
 
     if (mantenimiento) {
@@ -249,25 +244,38 @@
     return valid;
   }
 
-  form.addEventListener("submit", (event) => {
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const data = {
-      vehiculoId: selectVehiculo.value,
+      vehiculoId: selectVehiculo.value ? Number(selectVehiculo.value) : null,
       tipo: TIPOS.includes(selectTipo.value) ? selectTipo.value : TIPOS[0],
       fecha: inputFecha.value,
       kilometraje: inputKilometraje.value === "" ? "" : Number(inputKilometraje.value),
       costo: inputCosto.value === "" ? "" : Number(inputCosto.value),
-      proximoServicio: inputProximoServicio.value,
+      proximoServicio: inputProximoServicio.value || null,
       descripcion: inputDescripcion.value.trim(),
     };
 
     if (!validate(data)) return;
 
-    data.id = inputId.value || undefined;
-    trailersysUpsert(COLLECTION, data);
-    closeForm();
-    render();
+    const id = inputId.value || null;
+    submitBtn.disabled = true;
+    try {
+      if (id) {
+        await trailersysApiRequest("PUT", `/mantenimientos/${id}`, data);
+      } else {
+        await trailersysApiRequest("POST", "/mantenimientos", data);
+      }
+      closeForm();
+      await render();
+    } catch (error) {
+      alert(error.message || "No se pudo guardar el mantenimiento.");
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 
   // --- Acciones sobre las tarjetas (editar / eliminar) ---
@@ -275,7 +283,7 @@
     const button = event.target.closest("button[data-action]");
     if (!button) return;
     const { action, id } = button.dataset;
-    const mantenimiento = trailersysList(COLLECTION).find((m) => m.id === id);
+    const mantenimiento = mantenimientosCache.find((m) => String(m.id) === id);
     if (!mantenimiento) return;
 
     if (action === "editar") {
@@ -285,9 +293,13 @@
         title: "Eliminar mantenimiento",
         text: "¿Seguro que deseas eliminar este registro de mantenimiento? Esta acción no se puede deshacer.",
         acceptLabel: "Eliminar",
-        onAccept: () => {
-          trailersysRemove(COLLECTION, id);
-          render();
+        onAccept: async () => {
+          try {
+            await trailersysApiRequest("DELETE", `/mantenimientos/${id}`);
+            await render();
+          } catch (error) {
+            alert(error.message || "No se pudo eliminar el mantenimiento.");
+          }
         },
       });
     }
