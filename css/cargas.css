@@ -1,0 +1,110 @@
+/**
+ * Patron generico de tarjeta (banner + cuerpo) para modulos cuyo
+ * registro no es una persona ni un vehiculo: Cargas, y mas adelante
+ * Viajes, que comparte la necesidad de mostrar una ruta origen-destino.
+ */
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.item-card {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--color-primary-tint);
+}
+
+.item-banner i {
+  font-size: 1.3rem;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.item-banner-title {
+  min-width: 0;
+}
+
+.item-title {
+  font-weight: 700;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.item-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.item-route i {
+  color: var(--color-primary);
+}
+
+.item-route .item-route-sep {
+  color: var(--color-text-muted);
+}
+
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.item-meta span i {
+  margin-right: 4px;
+  color: var(--color-primary);
+}
+
+.item-observations {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.item-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}

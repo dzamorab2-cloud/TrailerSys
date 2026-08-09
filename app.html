@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="css/modal.css" />
   <link rel="stylesheet" href="css/vehiculos.css" />
   <link rel="stylesheet" href="css/conductores.css" />
+  <link rel="stylesheet" href="css/cargas.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -208,12 +209,34 @@
               <h1>Cargas</h1>
               <p>Mercancía, origen, destino y estado.</p>
             </div>
+            <button class="btn btn-primary" id="btnNuevaCarga" hidden>
+              <i class="bi bi-plus-lg"></i>
+              Nueva carga
+            </button>
           </div>
-          <div class="module-placeholder card">
+
+          <div class="toolbar">
+            <div class="toolbar-search">
+              <i class="bi bi-search"></i>
+              <input type="text" id="cargaBuscar" placeholder="Buscar por descripción, cliente, origen o destino" />
+            </div>
+            <div class="toolbar-filters">
+              <select id="cargaFiltroEstado" class="select-pill">
+                <option value="">Todos los estados</option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Asignada">Asignada</option>
+                <option value="En Tránsito">En Tránsito</option>
+                <option value="Entregada">Entregada</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="results-count" id="cargaResultsCount"></p>
+          <div class="item-grid" id="cargaGrid"></div>
+          <div class="module-placeholder card" id="cargaEmptyState" hidden>
             <i class="bi bi-box-seam"></i>
-            <h3>Módulo en construcción</h3>
-            <p>Registro y control de cargas.</p>
-            <span class="badge badge-neutral phase-tag">Fase 5 · Cargas</span>
+            <h3 id="cargaEmptyTitle">Todavía no hay cargas registradas</h3>
+            <p id="cargaEmptyText">Usa "Nueva carga" para registrar la primera.</p>
           </div>
         </section>
 
@@ -663,6 +686,108 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="cargaModalOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="cargaModalTitle">Nueva carga</h3>
+        <button type="button" class="modal-close" id="cargaModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <form id="cargaForm" novalidate>
+        <input type="hidden" id="cargaId" />
+
+        <div class="form-grid">
+          <div class="field field-span-2" id="fieldCargaDescripcion">
+            <label for="cargaDescripcion">Descripción</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="cargaDescripcion" placeholder="Descripción de la mercancía" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldCargaCliente">
+            <label for="cargaCliente">Cliente</label>
+            <div class="input-wrap">
+              <i class="bi bi-building"></i>
+              <select id="cargaCliente">
+                <option value="">Selecciona un cliente</option>
+              </select>
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldCargaTipo">
+            <label for="cargaTipo">Tipo de mercancía</label>
+            <div class="input-wrap">
+              <i class="bi bi-tag"></i>
+              <input type="text" id="cargaTipo" placeholder="Ej. Textiles, Alimentos..." />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldCargaPeso">
+            <label for="cargaPeso">Peso (kg)</label>
+            <div class="input-wrap">
+              <i class="bi bi-box-seam"></i>
+              <input type="number" id="cargaPeso" min="0" placeholder="0" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldCargaEstado">
+            <label for="cargaEstado">Estado</label>
+            <div class="input-wrap">
+              <i class="bi bi-toggle2-on"></i>
+              <select id="cargaEstado">
+                <option value="Pendiente">Pendiente</option>
+                <option value="Asignada">Asignada</option>
+                <option value="En Tránsito">En Tránsito</option>
+                <option value="Entregada">Entregada</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field" id="fieldCargaOrigen">
+            <label for="cargaOrigen">Origen</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt"></i>
+              <input type="text" id="cargaOrigen" placeholder="Ciudad de origen" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldCargaDestino">
+            <label for="cargaDestino">Destino</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt-fill"></i>
+              <input type="text" id="cargaDestino" placeholder="Ciudad de destino" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="cargaObservaciones">Observaciones</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="cargaObservaciones" placeholder="Observaciones opcionales" />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="cargaCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i>
+            Guardar carga
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModalOverlay">
     <div class="modal-dialog" style="max-width: 400px;">
       <div class="modal-header">
@@ -685,6 +810,7 @@
   <script src="js/vehiculos.js"></script>
   <script src="js/conductores.js"></script>
   <script src="js/clientes.js"></script>
+  <script src="js/cargas.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>
