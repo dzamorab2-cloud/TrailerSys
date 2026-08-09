@@ -27,6 +27,17 @@
   box-shadow: var(--shadow-md);
 }
 
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-danger:hover {
+  background: #c24743;
+  box-shadow: var(--shadow-md);
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--color-text-muted);

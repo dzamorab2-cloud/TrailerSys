@@ -13,24 +13,37 @@ const TRAILERSYS_ROLES = {
       "dashboard", "vehiculos", "conductores", "clientes", "cargas",
       "viajes", "seguimiento", "mantenimientos", "reportes", "configuracion",
     ],
+    manage: [
+      "vehiculos", "conductores", "clientes", "cargas",
+      "viajes", "seguimiento", "mantenimientos", "configuracion",
+    ],
   },
   coordinador: {
     label: "Coordinador / Operador",
     modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento"],
+    manage: ["vehiculos", "conductores", "cargas", "viajes", "seguimiento"],
   },
   mantenimiento: {
     label: "Responsable de Mantenimiento",
     modules: ["dashboard", "vehiculos", "mantenimientos"],
+    manage: ["mantenimientos"],
   },
   conductor: {
     label: "Conductor",
     modules: ["dashboard", "viajes", "seguimiento"],
+    manage: [],
   },
   supervisor: {
     label: "Supervisor / Consulta",
     modules: ["dashboard", "vehiculos", "viajes", "reportes"],
+    manage: [],
   },
 };
+
+function trailersysCanManage(session, moduleName) {
+  const roleInfo = TRAILERSYS_ROLES[session?.role];
+  return Boolean(roleInfo && roleInfo.manage.includes(moduleName));
+}
 
 function trailersysGetSession() {
   const raw = sessionStorage.getItem(TRAILERSYS_STORAGE_KEY);

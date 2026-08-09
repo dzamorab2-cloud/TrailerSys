@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/modal.css" />
+  <link rel="stylesheet" href="css/vehiculos.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -90,12 +92,40 @@
               <h1>Vehículos</h1>
               <p>Flota de la empresa: estado, ficha técnica y fotografía.</p>
             </div>
+            <button class="btn btn-primary" id="btnNuevoVehiculo" hidden>
+              <i class="bi bi-plus-lg"></i>
+              Nuevo vehículo
+            </button>
           </div>
-          <div class="module-placeholder card">
+
+          <div class="toolbar">
+            <div class="toolbar-search">
+              <i class="bi bi-search"></i>
+              <input type="text" id="vehiculoBuscar" placeholder="Buscar por placa, marca o modelo" />
+            </div>
+            <div class="toolbar-filters">
+              <select id="vehiculoFiltroEstado" class="select-pill">
+                <option value="">Todos los estados</option>
+                <option value="Disponible">Disponible</option>
+                <option value="En Ruta">En Ruta</option>
+                <option value="Mantenimiento">Mantenimiento</option>
+                <option value="Fuera de Servicio">Fuera de Servicio</option>
+              </select>
+              <select id="vehiculoFiltroTipo" class="select-pill">
+                <option value="">Todos los tipos</option>
+              </select>
+              <select id="vehiculoFiltroMarca" class="select-pill">
+                <option value="">Todas las marcas</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="results-count" id="vehiculoResultsCount"></p>
+          <div class="vehicle-grid" id="vehiculoGrid"></div>
+          <div class="module-placeholder card" id="vehiculoEmptyState" hidden>
             <i class="bi bi-truck"></i>
-            <h3>Módulo en construcción</h3>
-            <p>CRUD visual, búsqueda, filtros y fotografía de vehículos.</p>
-            <span class="badge badge-neutral phase-tag">Fase 2 · Vehículos</span>
+            <h3 id="vehiculoEmptyTitle">Todavía no hay vehículos registrados</h3>
+            <p id="vehiculoEmptyText">Usa "Nuevo vehículo" para registrar el primero de la flota.</p>
           </div>
         </section>
 
@@ -222,7 +252,161 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="vehiculoModalOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="vehiculoModalTitle">Nuevo vehículo</h3>
+        <button type="button" class="modal-close" id="vehiculoModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <form id="vehiculoForm" novalidate>
+        <input type="hidden" id="vehiculoId" />
+
+        <div class="photo-upload">
+          <div class="photo-preview" id="vehiculoFotoPreview">
+            <i class="bi bi-truck"></i>
+          </div>
+          <div class="photo-upload-actions">
+            <label class="btn btn-ghost" for="vehiculoFoto">
+              <i class="bi bi-camera"></i>
+              Seleccionar fotografía
+            </label>
+            <input type="file" id="vehiculoFoto" accept="image/*" />
+            <button type="button" class="btn btn-ghost" id="vehiculoFotoQuitar" hidden>
+              <i class="bi bi-trash3"></i>
+              Quitar fotografía
+            </button>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field field-span-2" id="fieldVehiculoPlaca">
+            <label for="vehiculoPlaca">Placa</label>
+            <div class="input-wrap">
+              <i class="bi bi-credit-card-2-front"></i>
+              <input type="text" id="vehiculoPlaca" placeholder="PBA-1234" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldVehiculoMarca">
+            <label for="vehiculoMarca">Marca</label>
+            <div class="input-wrap">
+              <i class="bi bi-tag"></i>
+              <input type="text" id="vehiculoMarca" placeholder="Freightliner" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldVehiculoModelo">
+            <label for="vehiculoModelo">Modelo</label>
+            <div class="input-wrap">
+              <i class="bi bi-tag"></i>
+              <input type="text" id="vehiculoModelo" placeholder="Cascadia" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldVehiculoTipo">
+            <label for="vehiculoTipo">Tipo</label>
+            <div class="input-wrap">
+              <i class="bi bi-truck-front"></i>
+              <input type="text" id="vehiculoTipo" placeholder="Tráiler, camión, furgón..." />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldVehiculoAnio">
+            <label for="vehiculoAnio">Año</label>
+            <div class="input-wrap">
+              <i class="bi bi-calendar3"></i>
+              <input type="number" id="vehiculoAnio" placeholder="2022" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldVehiculoColor">
+            <label for="vehiculoColor">Color</label>
+            <div class="input-wrap">
+              <i class="bi bi-palette"></i>
+              <input type="text" id="vehiculoColor" placeholder="Blanco" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldVehiculoEstado">
+            <label for="vehiculoEstado">Estado</label>
+            <div class="input-wrap">
+              <i class="bi bi-toggle2-on"></i>
+              <select id="vehiculoEstado">
+                <option value="Disponible">Disponible</option>
+                <option value="En Ruta">En Ruta</option>
+                <option value="Mantenimiento">Mantenimiento</option>
+                <option value="Fuera de Servicio">Fuera de Servicio</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field" id="fieldVehiculoKilometraje">
+            <label for="vehiculoKilometraje">Kilometraje</label>
+            <div class="input-wrap">
+              <i class="bi bi-speedometer2"></i>
+              <input type="number" id="vehiculoKilometraje" min="0" placeholder="0" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldVehiculoCapacidad">
+            <label for="vehiculoCapacidad">Capacidad (kg)</label>
+            <div class="input-wrap">
+              <i class="bi bi-box-seam"></i>
+              <input type="number" id="vehiculoCapacidad" min="0" placeholder="0" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="vehiculoObservaciones">Observaciones</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="vehiculoObservaciones" placeholder="Observaciones opcionales" />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="vehiculoCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i>
+            Guardar vehículo
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="confirmModalOverlay">
+    <div class="modal-dialog" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 id="confirmModalTitle">Confirmar acción</h3>
+        <button type="button" class="modal-close" id="confirmModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <p id="confirmModalText" class="modal-text">¿Deseas continuar?</p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="confirmModalCancel">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirmModalAccept">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/roles.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/ui-helpers.js"></script>
+  <script src="js/vehiculos.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>
