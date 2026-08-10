@@ -1,1 +1,10 @@
 reporte-*.csv
+
+# Herramientas / IDEs (configuracion local, no parte del proyecto)
+.claude/
+.idea/
+*.iml
+.vscode/
+
+# Build del backend
+backend/target/
