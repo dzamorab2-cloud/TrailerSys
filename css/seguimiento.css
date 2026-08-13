@@ -1,3 +1,18 @@
+/* Marcador simulado del vehiculo en el mapa de seguimiento */
+.vehicle-marker {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  box-shadow: var(--shadow-md);
+  border: 2px solid var(--color-surface);
+}
+
 /* Panel de alertas operativas */
 .alerts-panel {
   margin-bottom: 20px;
@@ -48,6 +63,11 @@
   color: #8a611c;
 }
 
+.alert-item.level-info {
+  background: var(--color-info-tint);
+  color: #2b6499;
+}
+
 .alert-item .alert-text strong {
   display: block;
   font-weight: 700;
@@ -65,6 +85,40 @@
 
 .alerts-empty i {
   font-size: 1.1rem;
+}
+
+/* Reporte de confirmacion/validacion de entrega */
+.delivery-report {
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.delivery-report-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.delivery-report-block .badge {
+  align-self: flex-start;
+}
+
+.delivery-report-meta {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.delivery-report-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 /* Formulario de nuevo evento */

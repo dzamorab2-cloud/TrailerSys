@@ -97,6 +97,20 @@ class ViajeControllerTest {
         return objectMapper.readTree(creado).get("id").asLong();
     }
 
+    private Long crearCarga(Long clienteId, String sufijo) throws Exception {
+        String carga = """
+                {"descripcion":"Carga %s","clienteId":%d,"tipo":"General","peso":100,
+                 "origen":"Origen %s","destino":"Destino %s","estado":"Pendiente"}
+                """.formatted(sufijo, clienteId, sufijo, sufijo);
+        String creada = mockMvc.perform(post("/api/cargas")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(carga))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(creada).get("id").asLong();
+    }
+
     @Test
     void listarSinTokenDevuelveNoAutorizado() throws Exception {
         mockMvc.perform(get("/api/viajes"))
@@ -210,6 +224,375 @@ class ViajeControllerTest {
             }
         }
         assertThat(placaEncontrada).isEqualTo("VJE-LIST");
+    }
+
+    private Long crearViajeEnCurso(String sufijo) throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-EC-" + sufijo);
+        Long conductorId = crearConductor("CI-VJE-EC-" + sufijo);
+        Long clienteId = crearCliente("CI-VJE-EC-CLI-" + sufijo);
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"Quito","destino":"Guayaquil",
+                 "fechaSalida":"2026-08-15T08:30:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(creado).get("id").asLong();
+    }
+
+    private String tokenPara(String username, Rol rol) throws Exception {
+        if (usuarioRepository.findByUsernameIgnoreCase(username).isEmpty()) {
+            usuarioRepository.save(new Usuario(username, passwordEncoder.encode("clave1234"), "Usuario " + username, null, rol));
+        }
+        String body = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"%s\",\"password\":\"clave1234\"}".formatted(username)))
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("token").asText();
+    }
+
+    @Test
+    void crearViajeConCargaDeOtroClienteDaError() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-CRG-01");
+        Long conductorId = crearConductor("CI-VJE-CRG-01");
+        Long clienteViaje = crearCliente("CI-VJE-CRG-CLI-01");
+        Long clienteCarga = crearCliente("CI-VJE-CRG-CLI-02");
+        Long cargaId = crearCarga(clienteCarga, "CRG01");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductorId, clienteViaje, cargaId);
+
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void crearViajeConCargaYaAsignadaAOtroViajeActivoDaConflicto() throws Exception {
+        Long clienteId = crearCliente("CI-VJE-CRG-CLI-03");
+        Long cargaId = crearCarga(clienteId, "CRG02");
+
+        Long vehiculo1 = crearVehiculo("VJE-CRG-02");
+        Long conductor1 = crearConductor("CI-VJE-CRG-02");
+        String viaje1 = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculo1, conductor1, clienteId, cargaId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje1))
+                .andExpect(status().isCreated());
+
+        Long vehiculo2 = crearVehiculo("VJE-CRG-03");
+        Long conductor2 = crearConductor("CI-VJE-CRG-03");
+        String viaje2 = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"C","destino":"D","fechaSalida":"2026-08-16T08:00:00","estado":"Programado"}
+                """.formatted(vehiculo2, conductor2, clienteId, cargaId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje2))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void crearViajeEnCursoConCargaSincronizaEstadoATransito() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-CRG-04");
+        Long conductorId = crearConductor("CI-VJE-CRG-04");
+        Long clienteId = crearCliente("CI-VJE-CRG-CLI-04");
+        Long cargaId = crearCarga(clienteId, "CRG04");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId, cargaId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("En Tránsito"));
+    }
+
+    @Test
+    void confirmarEntregaSincronizaCargaAEntregada() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-CRG-05");
+        Long conductorId = crearConductor("CI-VJE-CRG-05");
+        Long clienteId = crearCliente("CI-VJE-CRG-CLI-05");
+        Long cargaId = crearCarga(clienteId, "CRG05");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId, cargaId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        String tokenConductor = tokenPara("conductorcarga1", Rol.CONDUCTOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("Entregada"));
+    }
+
+    @Test
+    void crearViajeConVehiculoYaAsignadoAOtroViajeActivoDaConflicto() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-DISP-01");
+        Long conductor1 = crearConductor("CI-VJE-DISP-01");
+        Long conductor2 = crearConductor("CI-VJE-DISP-02");
+        Long clienteId = crearCliente("CI-VJE-DISP-CLI-01");
+
+        String viaje1 = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductor1, clienteId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje1))
+                .andExpect(status().isCreated());
+
+        String viaje2 = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"C","destino":"D","fechaSalida":"2026-08-16T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductor2, clienteId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje2))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void crearViajeConConductorYaAsignadoAOtroViajeActivoDaConflicto() throws Exception {
+        Long vehiculo1 = crearVehiculo("VJE-DISP-02");
+        Long vehiculo2 = crearVehiculo("VJE-DISP-03");
+        Long conductorId = crearConductor("CI-VJE-DISP-03");
+        Long clienteId = crearCliente("CI-VJE-DISP-CLI-02");
+
+        String viaje1 = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculo1, conductorId, clienteId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje1))
+                .andExpect(status().isCreated());
+
+        String viaje2 = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"C","destino":"D","fechaSalida":"2026-08-16T08:00:00","estado":"Programado"}
+                """.formatted(vehiculo2, conductorId, clienteId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje2))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void crearViajeEnCursoSincronizaVehiculoYConductorAEnRuta() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-DISP-04");
+        Long conductorId = crearConductor("CI-VJE-DISP-04");
+        Long clienteId = crearCliente("CI-VJE-DISP-CLI-03");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+        mockMvc.perform(get("/api/conductores/" + conductorId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+    }
+
+    @Test
+    void confirmarEntregaSincronizaVehiculoYConductorADisponible() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-DISP-05");
+        Long conductorId = crearConductor("CI-VJE-DISP-05");
+        Long clienteId = crearCliente("CI-VJE-DISP-CLI-04");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        String tokenConductor = tokenPara("conductordisp1", Rol.CONDUCTOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Disponible"));
+        mockMvc.perform(get("/api/conductores/" + conductorId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Disponible"));
+    }
+
+    @Test
+    void conductorConfirmaLlegadaFinalizaElViajeYQuedaRegistrado() throws Exception {
+        Long viajeId = crearViajeEnCurso("CONF1");
+        String tokenConductor = tokenPara("conductorentrega1", Rol.CONDUCTOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"observacion\":\"Entregado sin novedad\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("Finalizado"))
+                .andExpect(jsonPath("$.entregaConfirmada").value(true))
+                .andExpect(jsonPath("$.confirmadoPor").value("conductorentrega1"))
+                .andExpect(jsonPath("$.observacionEntrega").value("Entregado sin novedad"));
+    }
+
+    @Test
+    void supervisorNoPuedeConfirmarLlegada() throws Exception {
+        Long viajeId = crearViajeEnCurso("CONF2");
+        String tokenSupervisor = tokenPara("supervisorentrega1", Rol.SUPERVISOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenSupervisor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void confirmarLlegadaDeViajeNoEnCursoDaConflicto() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-PROG");
+        Long conductorId = crearConductor("CI-VJE-PROG");
+        Long clienteId = crearCliente("CI-VJE-PROG-CLI");
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:30:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductorId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        String tokenConductor = tokenPara("conductorentrega2", Rol.CONDUCTOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void confirmarLlegadaDosVecesDaConflicto() throws Exception {
+        Long viajeId = crearViajeEnCurso("CONF3");
+        String tokenConductor = tokenPara("conductorentrega3", Rol.CONDUCTOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void supervisorValidaEntregaYaConfirmada() throws Exception {
+        Long viajeId = crearViajeEnCurso("VAL1");
+        String tokenConductor = tokenPara("conductorentrega4", Rol.CONDUCTOR);
+        String tokenSupervisor = tokenPara("supervisorentrega2", Rol.SUPERVISOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/validar-entrega")
+                        .header("Authorization", "Bearer " + tokenSupervisor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"observacion\":\"Confirmado con el cliente\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entregaValidada").value(true))
+                .andExpect(jsonPath("$.validadoPor").value("supervisorentrega2"));
+    }
+
+    @Test
+    void validarEntregaSinConfirmarDaConflicto() throws Exception {
+        Long viajeId = crearViajeEnCurso("VAL2");
+        String tokenSupervisor = tokenPara("supervisorentrega3", Rol.SUPERVISOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/validar-entrega")
+                        .header("Authorization", "Bearer " + tokenSupervisor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void conductorNoPuedeValidarEntrega() throws Exception {
+        Long viajeId = crearViajeEnCurso("VAL3");
+        String tokenConductor = tokenPara("conductorentrega5", Rol.CONDUCTOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/validar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

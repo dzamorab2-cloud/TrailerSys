@@ -48,6 +48,7 @@
   const modalTitle = document.getElementById("seguimientoModalTitle");
   const resumen = document.getElementById("seguimientoResumen");
   const mapaContainer = document.getElementById("seguimientoMapaContainer");
+  const reporteEntrega = document.getElementById("seguimientoReporteEntrega");
   const btnCerrarModal = document.getElementById("seguimientoModalClose");
   const btnCerrarBtn = document.getElementById("seguimientoCerrarBtn");
 
@@ -61,6 +62,8 @@
   let session = null;
   let leafletMapInstance = null;
   let viajeActualId = null;
+  let vehiculoMarker = null;
+  let posicionIntervalId = null;
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -137,19 +140,15 @@
       </article>`;
   }
 
-  async function render() {
-    renderAlertas();
-
+  // Trae viajes + eventos y actualiza los caches; separado de render() para
+  // poder refrescar solo el modal de detalle (actualizacion periodica del
+  // vehiculo simulado) sin repintar toda la grilla de tarjetas.
+  async function refrescarDatos() {
     let viajes;
     try {
       viajes = await trailersysApiRequest("GET", "/viajes");
     } catch (error) {
-      grid.hidden = true;
-      emptyState.hidden = false;
-      resultsCount.textContent = "";
-      emptyTitle.textContent = "No se pudo cargar los viajes";
-      emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
-      return;
+      return { ok: false, error };
     }
     viajes.forEach((viaje) => {
       viaje.ruta = fromApiRuta(viaje.ruta);
@@ -161,6 +160,22 @@
     } catch {
       eventosCache = [];
     }
+    return { ok: true };
+  }
+
+  async function render() {
+    renderAlertas();
+
+    const resultado = await refrescarDatos();
+    if (!resultado.ok) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      resultsCount.textContent = "";
+      emptyTitle.textContent = "No se pudo cargar los viajes";
+      emptyText.textContent = resultado.error?.message || "Ocurrió un error al conectar con el servidor.";
+      return;
+    }
+    const viajes = viajesCache;
 
     const search = inputBuscar.value.trim().toLowerCase();
     const estado = filtroEstado.value;
@@ -229,10 +244,145 @@
     `;
   }
 
+  function renderReporteEntrega(viaje) {
+    const bloques = [];
+
+    if (viaje.entregaConfirmada) {
+      bloques.push(`
+        <div class="delivery-report-block">
+          <span class="badge badge-success"><i class="bi bi-check-circle"></i> Llegada confirmada</span>
+          <div class="delivery-report-meta">${trailersysFormatDateTime(viaje.fechaEntregaConfirmada)} · por ${escapeHtml(viaje.confirmadoPor || "—")}</div>
+          ${viaje.observacionEntrega ? `<div>${escapeHtml(viaje.observacionEntrega)}</div>` : ""}
+        </div>`);
+    }
+
+    if (viaje.entregaValidada) {
+      bloques.push(`
+        <div class="delivery-report-block">
+          <span class="badge badge-info"><i class="bi bi-patch-check"></i> Validada por supervisor</span>
+          <div class="delivery-report-meta">${trailersysFormatDateTime(viaje.fechaValidacionEntrega)} · por ${escapeHtml(viaje.validadoPor || "—")}</div>
+          ${viaje.observacionValidacion ? `<div>${escapeHtml(viaje.observacionValidacion)}</div>` : ""}
+        </div>`);
+    }
+
+    const acciones = [];
+    if (session?.role === "conductor" && viaje.estado === "En Curso" && !viaje.entregaConfirmada) {
+      acciones.push(`<button type="button" class="btn btn-primary" data-action="confirmar-entrega"><i class="bi bi-flag-fill"></i> Confirmar llegada</button>`);
+    }
+    if (session?.role === "supervisor" && viaje.entregaConfirmada && !viaje.entregaValidada) {
+      acciones.push(`<button type="button" class="btn btn-primary" data-action="validar-entrega"><i class="bi bi-patch-check"></i> Validar entrega</button>`);
+    }
+    if (acciones.length) {
+      bloques.push(`<div class="delivery-report-actions">${acciones.join("")}</div>`);
+    }
+
+    if (!bloques.length) {
+      reporteEntrega.hidden = true;
+      reporteEntrega.innerHTML = "";
+      return;
+    }
+
+    reporteEntrega.hidden = false;
+    reporteEntrega.innerHTML = bloques.join("");
+  }
+
+  reporteEntrega.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button || !viajeActualId) return;
+
+    const accion = button.dataset.action;
+    const observacion = window.prompt(
+      accion === "confirmar-entrega"
+        ? "Observación de la llegada (opcional):"
+        : "Observación de la validación (opcional):",
+      ""
+    );
+    if (observacion === null) return;
+
+    button.disabled = true;
+    try {
+      await trailersysApiRequest(
+        "POST",
+        `/viajes/${viajeActualId}/${accion}`,
+        { observacion: observacion.trim() }
+      );
+      await render();
+      const viajeActualizado = viajesCache.find((v) => String(v.id) === String(viajeActualId));
+      if (viajeActualizado) {
+        renderResumen(viajeActualizado);
+        renderReporteEntrega(viajeActualizado);
+      }
+    } catch (error) {
+      alert(error.message || "No se pudo completar la acción.");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   function destroyLeafletMap() {
     if (leafletMapInstance) {
       leafletMapInstance.remove();
       leafletMapInstance = null;
+    }
+    vehiculoMarker = null;
+  }
+
+  const VEHICULO_ICON = L.divIcon({
+    className: "vehicle-marker",
+    html: '<i class="bi bi-truck"></i>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+
+  // Posicion simulada del vehiculo sobre viaje.ruta.path, interpolando
+  // segun cuanto tiempo real transcurrio desde fechaSalida frente a la
+  // duracion estimada de la ruta. No hay telemetria real: es la misma idea
+  // que ya aplica ViajeSimulacionService en el backend para las paradas
+  // automaticas, pero calculada aca para animar el marcador.
+  function calcularPosicionSimulada(viaje) {
+    const path = viaje.ruta?.path;
+    if (!path || path.length < 2 || !viaje.fechaSalida || !viaje.ruta.duracionMin) {
+      return null;
+    }
+    const salida = new Date(viaje.fechaSalida).getTime();
+    if (Number.isNaN(salida)) return null;
+    const duracionMs = viaje.ruta.duracionMin * 60000;
+    if (duracionMs <= 0) return null;
+
+    const progreso = Math.min(1, Math.max(0, (Date.now() - salida) / duracionMs));
+    const posicionExacta = progreso * (path.length - 1);
+    const indiceBase = Math.floor(posicionExacta);
+    const indiceSiguiente = Math.min(path.length - 1, indiceBase + 1);
+    const fraccionLocal = posicionExacta - indiceBase;
+
+    const p1 = path[indiceBase];
+    const p2 = path[indiceSiguiente];
+    return [
+      p1[0] + (p2[0] - p1[0]) * fraccionLocal,
+      p1[1] + (p2[1] - p1[1]) * fraccionLocal,
+    ];
+  }
+
+  function actualizarMarcadorVehiculo(viaje) {
+    if (!leafletMapInstance) return;
+
+    if (viaje.estado !== "En Curso") {
+      if (vehiculoMarker) {
+        leafletMapInstance.removeLayer(vehiculoMarker);
+        vehiculoMarker = null;
+      }
+      return;
+    }
+
+    const posicion = calcularPosicionSimulada(viaje);
+    if (!posicion) return;
+
+    if (vehiculoMarker) {
+      vehiculoMarker.setLatLng(posicion);
+    } else {
+      vehiculoMarker = L.marker(posicion, { icon: VEHICULO_ICON })
+        .addTo(leafletMapInstance)
+        .bindPopup("Posición estimada del vehículo (simulada)");
     }
   }
 
@@ -257,6 +407,7 @@
     if (!path) {
       const ruta = await trailersysGetRoute(viaje.ruta.origenCoords, viaje.ruta.destinoCoords);
       if (ruta) path = ruta.path;
+      viaje.ruta.path = path;
     }
 
     leafletMapInstance = L.map(mapaContainer, { scrollWheelZoom: true });
@@ -277,6 +428,8 @@
     } else {
       leafletMapInstance.fitBounds(L.latLngBounds([origenLatLng, destinoLatLng]), { padding: [24, 24] });
     }
+
+    actualizarMarcadorVehiculo(viaje);
 
     setTimeout(() => {
       if (leafletMapInstance) leafletMapInstance.invalidateSize();
@@ -334,6 +487,32 @@
     });
   });
 
+  // Mientras el modal esta abierto sobre un viaje En Curso, refresca datos
+  // cada 10s: mueve el marcador simulado y muestra sin recargar la pagina
+  // las paradas que ViajeSimulacionService vaya registrando en el backend.
+  function detenerActualizacionPeriodica() {
+    if (posicionIntervalId) {
+      clearInterval(posicionIntervalId);
+      posicionIntervalId = null;
+    }
+  }
+
+  function iniciarActualizacionPeriodica() {
+    detenerActualizacionPeriodica();
+    posicionIntervalId = setInterval(async () => {
+      if (!viajeActualId) return;
+      const resultado = await refrescarDatos();
+      if (!resultado.ok || !viajeActualId) return;
+
+      const viaje = viajesCache.find((v) => String(v.id) === String(viajeActualId));
+      if (!viaje) return;
+      renderResumen(viaje);
+      renderReporteEntrega(viaje);
+      renderTimeline(viaje.id);
+      actualizarMarcadorVehiculo(viaje);
+    }, 10000);
+  }
+
   function openDetailModal(viaje) {
     viajeActualId = viaje.id;
     modalTitle.textContent = `${viaje.origen} → ${viaje.destino}`;
@@ -346,14 +525,17 @@
     setFieldError("fieldSeguimientoUbicacion", "");
 
     renderResumen(viaje);
+    renderReporteEntrega(viaje);
     renderTimeline(viaje.id);
     trailersysOpenModal(modalOverlay);
     renderMapa(viaje);
+    iniciarActualizacionPeriodica();
   }
 
   function closeDetailModal() {
     trailersysCloseModal(modalOverlay);
     destroyLeafletMap();
+    detenerActualizacionPeriodica();
     viajeActualId = null;
   }
 

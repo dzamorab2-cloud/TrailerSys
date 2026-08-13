@@ -98,6 +98,17 @@ class SeguimientoControllerTest {
         return objectMapper.readTree(creado).get("id").asLong();
     }
 
+    private String tokenPara(String username, Rol rol) throws Exception {
+        if (usuarioRepository.findByUsernameIgnoreCase(username).isEmpty()) {
+            usuarioRepository.save(new Usuario(username, passwordEncoder.encode("clave1234"), "Usuario " + username, null, rol));
+        }
+        String body = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"%s\",\"password\":\"clave1234\"}".formatted(username)))
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("token").asText();
+    }
+
     private Long crearViaje(Long vehiculoId, Long conductorId, Long clienteId, String origen, String destino,
                              String fechaSalida, String estado) throws Exception {
         String viaje = """
@@ -124,6 +135,8 @@ class SeguimientoControllerTest {
         Long vehiculoId = crearVehiculo("SEG-EVT-01", "Disponible");
         Long conductorId = crearConductor("CI-SEG-EVT-01", "2030-01-01");
         Long clienteId = crearCliente("CI-SEG-EVT-CLI-01");
+        // Crear el viaje directo en "En Curso" ya dispara un evento de Salida
+        // automatico (ver ViajeService.registrarSalidaAutomatica).
         Long viajeId = crearViaje(vehiculoId, conductorId, clienteId, "Origen Evento", "Destino Evento",
                 "2026-08-15T08:00:00", "En Curso");
 
@@ -148,7 +161,7 @@ class SeguimientoControllerTest {
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(objectMapper.readTree(listado)).hasSize(1);
+        assertThat(objectMapper.readTree(listado)).hasSize(2);
 
         mockMvc.perform(delete("/api/seguimiento/eventos/" + eventoId)
                         .header("Authorization", "Bearer " + tokenAdmin))
@@ -159,7 +172,8 @@ class SeguimientoControllerTest {
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(objectMapper.readTree(listadoTrasEliminar)).isEmpty();
+        // Queda el evento de Salida automatico; solo se elimino el manual.
+        assertThat(objectMapper.readTree(listadoTrasEliminar)).hasSize(1);
     }
 
     @Test
@@ -256,7 +270,55 @@ class SeguimientoControllerTest {
     }
 
     @Test
-    void rolSinAccesoAModuloDevuelveProhibido() throws Exception {
+    void alertaDeEntregaPendienteApareceTrasConfirmarYDesapareceTrasValidar() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-ALERT-04", "Disponible");
+        Long conductorId = crearConductor("CI-SEG-ALERT-04", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-ALERT-CLI-04");
+        Long viajeId = crearViaje(vehiculoId, conductorId, clienteId, "Origen Pendiente", "Destino Pendiente",
+                "2026-08-15T08:00:00", "En Curso");
+
+        String tokenConductor = tokenPara("conductoralertatest", Rol.CONDUCTOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        String alertasTrasConfirmar = mockMvc.perform(get("/api/seguimiento/alertas")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        boolean aparecePendiente = false;
+        for (JsonNode alerta : objectMapper.readTree(alertasTrasConfirmar)) {
+            if (alerta.get("texto").asText().contains("Origen Pendiente")) {
+                aparecePendiente = true;
+                assertThat(alerta.get("nivel").asText()).isEqualTo("info");
+            }
+        }
+        assertThat(aparecePendiente).isTrue();
+
+        String tokenSupervisor = tokenPara("supervisoralertatest", Rol.SUPERVISOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/validar-entrega")
+                        .header("Authorization", "Bearer " + tokenSupervisor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        String alertasTrasValidar = mockMvc.perform(get("/api/seguimiento/alertas")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        boolean siguePendiente = false;
+        for (JsonNode alerta : objectMapper.readTree(alertasTrasValidar)) {
+            if (alerta.get("texto").asText().contains("Origen Pendiente")) {
+                siguePendiente = true;
+            }
+        }
+        assertThat(siguePendiente).isFalse();
+    }
+
+    @Test
+    void supervisorPuedeConsultarPeroNoCrearEventos() throws Exception {
         if (usuarioRepository.findByUsernameIgnoreCase("supervisorseguimientotest").isEmpty()) {
             usuarioRepository.save(new Usuario(
                     "supervisorseguimientotest", passwordEncoder.encode("clave1234"), "Supervisor Test", null, Rol.SUPERVISOR));
@@ -268,8 +330,45 @@ class SeguimientoControllerTest {
                 .andReturn().getResponse().getContentAsString();
         String tokenSupervisor = objectMapper.readTree(body).get("token").asText();
 
+        // Puede leer: necesita ver el detalle del viaje para validar una entrega.
         mockMvc.perform(get("/api/seguimiento/eventos")
                         .header("Authorization", "Bearer " + tokenSupervisor))
+                .andExpect(status().isOk());
+
+        // No puede escribir: no gestiona eventos manuales, solo consulta.
+        // El body debe ser valido para que la validacion no enmascare el 403.
+        Long vehiculoId = crearVehiculo("SEG-SUP-01", "Disponible");
+        Long conductorId = crearConductor("CI-SEG-SUP-01", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-SUP-CLI-01");
+        Long viajeId = crearViaje(vehiculoId, conductorId, clienteId, "Origen Supervisor", "Destino Supervisor",
+                "2026-08-15T08:00:00", "En Curso");
+        String evento = """
+                {"viajeId":%d,"fechaHora":"2026-08-15T08:05:00","evento":"Salida",
+                 "ubicacion":"Terminal de prueba","observacion":"Todo en orden"}
+                """.formatted(viajeId);
+
+        mockMvc.perform(post("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenSupervisor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(evento))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void rolSinAccesoAModuloDevuelveProhibido() throws Exception {
+        if (usuarioRepository.findByUsernameIgnoreCase("mantenimientoseguimientotest").isEmpty()) {
+            usuarioRepository.save(new Usuario(
+                    "mantenimientoseguimientotest", passwordEncoder.encode("clave1234"), "Mantenimiento Test", null, Rol.MANTENIMIENTO));
+        }
+
+        String bodyMantenimiento = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"mantenimientoseguimientotest\",\"password\":\"clave1234\"}"))
+                .andReturn().getResponse().getContentAsString();
+        String tokenMantenimiento = objectMapper.readTree(bodyMantenimiento).get("token").asText();
+
+        mockMvc.perform(get("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenMantenimiento))
                 .andExpect(status().isForbidden());
     }
 }

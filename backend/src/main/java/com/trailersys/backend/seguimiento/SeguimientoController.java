@@ -24,12 +24,16 @@ import jakarta.validation.Valid;
  * Segun TRAILERSYS_ROLES (js/roles.js), Administrador, Coordinador y
  * Conductor tienen "seguimiento" tanto en modulos como en manage (el
  * conductor puede registrar sus propios eventos de ruta aunque no
- * gestione Viajes), asi que un unico @PreAuthorize cubre todo.
+ * gestione Viajes). Supervisor solo consulta (necesita leer eventos/alertas
+ * para poder validar una entrega desde Viajes), por eso las lecturas y las
+ * escrituras tienen @PreAuthorize separados.
  */
 @RestController
 @RequestMapping("/api/seguimiento")
-@PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR')")
 public class SeguimientoController {
+
+    private static final String PUEDE_CONSULTAR = "hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR','SUPERVISOR')";
+    private static final String PUEDE_GESTIONAR = "hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR')";
 
     private final SeguimientoService service;
 
@@ -38,23 +42,27 @@ public class SeguimientoController {
     }
 
     @GetMapping("/eventos")
+    @PreAuthorize(PUEDE_CONSULTAR)
     public List<SeguimientoEventoResponse> listarEventos(@RequestParam(required = false) Long viajeId) {
         return service.listarEventos(viajeId).stream().map(SeguimientoEventoResponse::from).toList();
     }
 
     @PostMapping("/eventos")
+    @PreAuthorize(PUEDE_GESTIONAR)
     public ResponseEntity<SeguimientoEventoResponse> crearEvento(@Valid @RequestBody SeguimientoEventoRequest request) {
         SeguimientoEvento creado = service.crearEvento(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(SeguimientoEventoResponse.from(creado));
     }
 
     @DeleteMapping("/eventos/{id}")
+    @PreAuthorize(PUEDE_GESTIONAR)
     public ResponseEntity<Void> eliminarEvento(@PathVariable Long id) {
         service.eliminarEvento(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/alertas")
+    @PreAuthorize(PUEDE_CONSULTAR)
     public List<AlertaDto> alertas() {
         return service.obtenerAlertas();
     }

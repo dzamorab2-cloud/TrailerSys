@@ -901,6 +901,14 @@
             <span class="field-error"></span>
           </div>
 
+          <div class="field" id="fieldCargaPesoLibras">
+            <label for="cargaPesoLibras">Convertir desde libras (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-arrow-left-right"></i>
+              <input type="number" id="cargaPesoLibras" min="0" step="0.01" placeholder="0" />
+            </div>
+          </div>
+
           <div class="field" id="fieldCargaEstado">
             <label for="cargaEstado">Estado</label>
             <div class="input-wrap">
@@ -1113,6 +1121,8 @@
       <div class="route-summary-grid" id="seguimientoResumen"></div>
 
       <div id="seguimientoMapaContainer" class="route-map"></div>
+
+      <div id="seguimientoReporteEntrega" class="delivery-report" hidden></div>
 
       <form id="seguimientoEventoForm" class="event-form" novalidate>
         <div class="form-grid">

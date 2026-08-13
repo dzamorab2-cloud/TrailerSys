@@ -70,14 +70,19 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (usuarioRepository.count() == 0) {
-            usuarioRepository.save(new Usuario(
-                    "admin",
-                    passwordEncoder.encode("admin1234"),
-                    "Administrador General",
-                    "admin@trailersys.test",
-                    Rol.ADMINISTRADOR));
-        }
+        // Cada cuenta se siembra de forma independiente (no todo detras de un
+        // solo count()==0) para que agregar una cuenta nueva a este metodo
+        // tambien se aplique en una base de datos que ya tenia usuarios.
+        sembrarUsuarioSiNoExiste("admin", "admin1234", "Administrador General",
+                "admin@trailersys.test", Rol.ADMINISTRADOR);
+        sembrarUsuarioSiNoExiste("coordinador", "coordinador1234", "Coordinador de Operaciones",
+                "coordinador@trailersys.test", Rol.COORDINADOR);
+        sembrarUsuarioSiNoExiste("mantenimiento", "mantenimiento1234", "Responsable de Mantenimiento",
+                "mantenimiento@trailersys.test", Rol.MANTENIMIENTO);
+        sembrarUsuarioSiNoExiste("conductor", "conductor1234", "Luis Herrera",
+                "luis.herrera@trailersys.test", Rol.CONDUCTOR);
+        sembrarUsuarioSiNoExiste("supervisor", "supervisor1234", "Supervisor de Operaciones",
+                "supervisor@trailersys.test", Rol.SUPERVISOR);
 
         if (vehiculoRepository.count() == 0) {
             vehiculoRepository.save(new Vehiculo(
@@ -187,5 +192,24 @@ public class DataSeeder implements CommandLineRunner {
                     vehiculo1, TipoMantenimiento.PREVENTIVO, LocalDate.of(2026, 6, 10), 78000, 120.0,
                     LocalDate.of(2026, 9, 10), "Cambio de aceite y filtros."));
         }
+    }
+
+    /**
+     * Upsert de una cuenta demo: si ya existe (de una siembra anterior con
+     * otra contrasena) se actualiza para que las credenciales documentadas
+     * en el README siempre funcionen, en vez de quedar "atascadas" con lo
+     * que se haya sembrado la primera vez.
+     */
+    private void sembrarUsuarioSiNoExiste(String username, String password, String nombre, String correo, Rol rol) {
+        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username).orElse(null);
+        if (usuario == null) {
+            usuarioRepository.save(new Usuario(username, passwordEncoder.encode(password), nombre, correo, rol));
+            return;
+        }
+        usuario.setPasswordHash(passwordEncoder.encode(password));
+        usuario.setNombre(nombre);
+        usuario.setCorreo(correo);
+        usuario.setRol(rol);
+        usuarioRepository.save(usuario);
     }
 }

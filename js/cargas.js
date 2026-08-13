@@ -33,6 +33,7 @@
   const selectCliente = document.getElementById("cargaCliente");
   const inputTipo = document.getElementById("cargaTipo");
   const inputPeso = document.getElementById("cargaPeso");
+  const inputPesoLibras = document.getElementById("cargaPesoLibras");
   const selectEstado = document.getElementById("cargaEstado");
   const inputOrigen = document.getElementById("cargaOrigen");
   const inputDestino = document.getElementById("cargaDestino");
@@ -212,6 +213,15 @@
   btnCancelar.addEventListener("click", closeForm);
   modalOverlay.addEventListener("click", (event) => {
     if (event.target === modalOverlay) closeForm();
+  });
+
+  // Conversor de apoyo: la carga puede venir especificada en libras: el
+  // campo que realmente se guarda sigue siendo el de kg.
+  inputPesoLibras.addEventListener("input", () => {
+    const libras = parseFloat(inputPesoLibras.value);
+    if (!Number.isNaN(libras) && libras >= 0) {
+      inputPeso.value = Math.round(libras * 0.45359237);
+    }
   });
 
   // --- Validacion y guardado ---

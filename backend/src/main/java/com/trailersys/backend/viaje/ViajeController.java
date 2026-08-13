@@ -1,5 +1,6 @@
 package com.trailersys.backend.viaje;
 
+import java.security.Principal;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.trailersys.backend.viaje.dto.ConfirmarEntregaRequest;
+import com.trailersys.backend.viaje.dto.ValidarEntregaRequest;
 import com.trailersys.backend.viaje.dto.ViajeRequest;
 import com.trailersys.backend.viaje.dto.ViajeResponse;
 
@@ -72,5 +75,29 @@ public class ViajeController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * El conductor confirma que la carga llego a destino. Cierra el viaje
+     * (pasa a Finalizado) y queda registrado quien confirmo y cuando.
+     */
+    @PostMapping("/{id}/confirmar-entrega")
+    @PreAuthorize("hasAnyRole('CONDUCTOR','ADMINISTRADOR')")
+    public ViajeResponse confirmarEntrega(@PathVariable Long id, @RequestBody(required = false) ConfirmarEntregaRequest request,
+                                           Principal principal) {
+        String observacion = request != null ? request.observacion() : null;
+        return ViajeResponse.from(service.confirmarEntrega(id, observacion, principal.getName()));
+    }
+
+    /**
+     * El supervisor valida una entrega ya confirmada por el conductor. Es
+     * un registro de auditoria aparte, no vuelve a cambiar el estado.
+     */
+    @PostMapping("/{id}/validar-entrega")
+    @PreAuthorize("hasAnyRole('SUPERVISOR','ADMINISTRADOR')")
+    public ViajeResponse validarEntrega(@PathVariable Long id, @RequestBody(required = false) ValidarEntregaRequest request,
+                                         Principal principal) {
+        String observacion = request != null ? request.observacion() : null;
+        return ViajeResponse.from(service.validarEntrega(id, observacion, principal.getName()));
     }
 }

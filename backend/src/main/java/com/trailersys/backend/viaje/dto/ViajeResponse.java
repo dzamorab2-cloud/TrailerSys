@@ -21,7 +21,15 @@ public record ViajeResponse(
         LocalDateTime fechaSalida,
         EstadoViaje estado,
         String observaciones,
-        RutaDto ruta
+        RutaDto ruta,
+        boolean entregaConfirmada,
+        LocalDateTime fechaEntregaConfirmada,
+        String observacionEntrega,
+        String confirmadoPor,
+        boolean entregaValidada,
+        LocalDateTime fechaValidacionEntrega,
+        String observacionValidacion,
+        String validadoPor
 ) {
     public static ViajeResponse from(Viaje v) {
         RutaDto ruta = null;
@@ -38,6 +46,8 @@ public record ViajeResponse(
                 v.getCliente().getId(), v.getCliente().getNombre(),
                 v.getCarga() != null ? v.getCarga().getId() : null,
                 v.getCarga() != null ? v.getCarga().getDescripcion() : null,
-                v.getOrigen(), v.getDestino(), v.getFechaSalida(), v.getEstado(), v.getObservaciones(), ruta);
+                v.getOrigen(), v.getDestino(), v.getFechaSalida(), v.getEstado(), v.getObservaciones(), ruta,
+                v.isEntregaConfirmada(), v.getFechaEntregaConfirmada(), v.getObservacionEntrega(), v.getConfirmadoPor(),
+                v.isEntregaValidada(), v.getFechaValidacionEntrega(), v.getObservacionValidacion(), v.getValidadoPor());
     }
 }

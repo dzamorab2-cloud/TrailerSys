@@ -98,6 +98,12 @@
     }[char]));
   }
 
+  function nowForInput() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   function setFieldError(fieldWrapId, message) {
     const wrap = document.getElementById(fieldWrapId);
     wrap.classList.toggle("has-error", Boolean(message));
@@ -145,12 +151,22 @@
     ]);
   }
 
-  async function refreshRelationOptions() {
+  // Deja pasar solo los recursos libres (estado === estadoLibre), mas el
+  // que ya tiene asignado este viaje (si se esta editando), para no perder
+  // la seleccion actual aunque su estado ya no sea "libre".
+  function filtrarDisponibles(items, estadoLibre, currentId) {
+    return items.filter((item) => item.estado === estadoLibre || String(item.id) === String(currentId));
+  }
+
+  async function refreshRelationOptions(viaje) {
     await refreshCaches();
-    fillSelect(selectVehiculo, vehiculosCache, (v) => `${v.placa} · ${v.marca} ${v.modelo}`, "Selecciona un vehículo");
-    fillSelect(selectConductor, conductoresCache, (c) => c.nombres, "Selecciona un conductor");
+    fillSelect(selectVehiculo, filtrarDisponibles(vehiculosCache, "Disponible", viaje?.vehiculoId),
+      (v) => `${v.placa} · ${v.marca} ${v.modelo}`, "Selecciona un vehículo");
+    fillSelect(selectConductor, filtrarDisponibles(conductoresCache, "Disponible", viaje?.conductorId),
+      (c) => c.nombres, "Selecciona un conductor");
     fillSelect(selectCliente, clientesCache, (c) => c.nombre, "Selecciona un cliente");
-    fillSelect(selectCarga, cargasCache, (c) => c.descripcion, "Sin carga asociada");
+    fillSelect(selectCarga, filtrarDisponibles(cargasCache, "Pendiente", viaje?.cargaId),
+      (c) => c.descripcion, "Sin carga asociada");
   }
 
   // --- Tarjetas ---
@@ -184,6 +200,11 @@
         <div class="item-body">
           <div class="item-meta">
             <span class="badge ${badgeClass}">${escapeHtml(viaje.estado)}</span>
+            ${viaje.entregaValidada
+              ? `<span class="badge badge-info"><i class="bi bi-patch-check"></i> Validada</span>`
+              : viaje.entregaConfirmada
+                ? `<span class="badge badge-success"><i class="bi bi-check-circle"></i> Entrega confirmada</span>`
+                : ""}
             <span><i class="bi bi-building"></i>${escapeHtml(viaje.clienteNombre)}</span>
             ${viaje.cargaDescripcion ? `<span><i class="bi bi-box-seam"></i>${escapeHtml(viaje.cargaDescripcion)}</span>` : ""}
           </div>
@@ -262,7 +283,7 @@
     clearFieldErrors();
     form.reset();
     selectEstado.value = "Programado";
-    await refreshRelationOptions();
+    await refreshRelationOptions(viaje);
 
     if (viaje) {
       modalTitle.textContent = "Editar viaje";
@@ -274,12 +295,16 @@
       inputOrigen.value = viaje.origen;
       inputDestino.value = viaje.destino;
       inputFechaSalida.value = viaje.fechaSalida ? viaje.fechaSalida.slice(0, 16) : "";
+      inputFechaSalida.removeAttribute("min");
       selectEstado.value = viaje.estado;
       inputObservaciones.value = viaje.observaciones || "";
       rutaCalculada = viaje.ruta || null;
     } else {
       modalTitle.textContent = "Nuevo viaje";
       inputId.value = "";
+      // Solo para viajes nuevos: no tiene sentido bloquear la edicion de
+      // uno ya existente (por ejemplo uno Finalizado con fecha pasada).
+      inputFechaSalida.min = nowForInput();
       rutaCalculada = null;
     }
 
@@ -383,7 +408,11 @@
     if (!data.clienteId) fail("fieldViajeCliente", "Selecciona un cliente.");
     if (!data.origen) fail("fieldViajeOrigen", "El origen es obligatorio.");
     if (!data.destino) fail("fieldViajeDestino", "El destino es obligatorio.");
-    if (!data.fechaSalida) fail("fieldViajeFechaSalida", "La fecha de salida es obligatoria.");
+    if (!data.fechaSalida) {
+      fail("fieldViajeFechaSalida", "La fecha de salida es obligatoria.");
+    } else if (!inputId.value && new Date(data.fechaSalida) < new Date()) {
+      fail("fieldViajeFechaSalida", "La fecha de salida no puede estar en el pasado.");
+    }
 
     return valid;
   }

@@ -76,6 +76,38 @@ public class Viaje {
     @Column(columnDefinition = "TEXT")
     private String rutaPath;
 
+    @Column(nullable = false)
+    private boolean entregaConfirmada = false;
+
+    private LocalDateTime fechaEntregaConfirmada;
+
+    @Column(columnDefinition = "TEXT")
+    private String observacionEntrega;
+
+    @Column(length = 60)
+    private String confirmadoPor;
+
+    @Column(nullable = false)
+    private boolean entregaValidada = false;
+
+    private LocalDateTime fechaValidacionEntrega;
+
+    @Column(columnDefinition = "TEXT")
+    private String observacionValidacion;
+
+    @Column(length = 60)
+    private String validadoPor;
+
+    /**
+     * Cuantos puntos de control de ViajeSimulacionService ya generaron una
+     * parada automatica para este viaje. Integer (no int) y sin
+     * nullable=false a proposito: agregar una columna NOT NULL sobre una
+     * tabla con filas existentes falla en Postgres si no se define un
+     * DEFAULT explicito (ya nos paso con entregaConfirmada/entregaValidada
+     * en esta misma sesion).
+     */
+    private Integer paradasSimuladasRegistradas;
+
     protected Viaje() {
     }
 
@@ -222,5 +254,77 @@ public class Viaje {
 
     public void setRutaPath(String rutaPath) {
         this.rutaPath = rutaPath;
+    }
+
+    public boolean isEntregaConfirmada() {
+        return entregaConfirmada;
+    }
+
+    public void setEntregaConfirmada(boolean entregaConfirmada) {
+        this.entregaConfirmada = entregaConfirmada;
+    }
+
+    public LocalDateTime getFechaEntregaConfirmada() {
+        return fechaEntregaConfirmada;
+    }
+
+    public void setFechaEntregaConfirmada(LocalDateTime fechaEntregaConfirmada) {
+        this.fechaEntregaConfirmada = fechaEntregaConfirmada;
+    }
+
+    public String getObservacionEntrega() {
+        return observacionEntrega;
+    }
+
+    public void setObservacionEntrega(String observacionEntrega) {
+        this.observacionEntrega = observacionEntrega;
+    }
+
+    public String getConfirmadoPor() {
+        return confirmadoPor;
+    }
+
+    public void setConfirmadoPor(String confirmadoPor) {
+        this.confirmadoPor = confirmadoPor;
+    }
+
+    public boolean isEntregaValidada() {
+        return entregaValidada;
+    }
+
+    public void setEntregaValidada(boolean entregaValidada) {
+        this.entregaValidada = entregaValidada;
+    }
+
+    public LocalDateTime getFechaValidacionEntrega() {
+        return fechaValidacionEntrega;
+    }
+
+    public void setFechaValidacionEntrega(LocalDateTime fechaValidacionEntrega) {
+        this.fechaValidacionEntrega = fechaValidacionEntrega;
+    }
+
+    public String getObservacionValidacion() {
+        return observacionValidacion;
+    }
+
+    public void setObservacionValidacion(String observacionValidacion) {
+        this.observacionValidacion = observacionValidacion;
+    }
+
+    public String getValidadoPor() {
+        return validadoPor;
+    }
+
+    public void setValidadoPor(String validadoPor) {
+        this.validadoPor = validadoPor;
+    }
+
+    public int getParadasSimuladasRegistradas() {
+        return paradasSimuladasRegistradas == null ? 0 : paradasSimuladasRegistradas;
+    }
+
+    public void setParadasSimuladasRegistradas(int paradasSimuladasRegistradas) {
+        this.paradasSimuladasRegistradas = paradasSimuladasRegistradas;
     }
 }

@@ -214,7 +214,7 @@
       statCard("bi-map", `${kmTotales.toFixed(1)} km`, "Distancia total de rutas"),
     ].join("");
 
-    const headers = ["Origen", "Destino", "Vehículo", "Conductor", "Cliente", "Estado", "Distancia", "Salida"];
+    const headers = ["Origen", "Destino", "Vehículo", "Conductor", "Cliente", "Estado", "Distancia", "Salida", "Entrega confirmada", "Validada por supervisor"];
     const rows = viajes.map((v) => [
       escapeHtml(v.origen),
       escapeHtml(v.destino),
@@ -224,6 +224,12 @@
       escapeHtml(v.estado),
       v.ruta ? `${v.ruta.distanciaKm.toFixed(1)} km` : "—",
       v.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "—",
+      v.entregaConfirmada
+        ? `${trailersysFormatDateTime(v.fechaEntregaConfirmada)} (${escapeHtml(v.confirmadoPor || "—")})`
+        : "—",
+      v.entregaValidada
+        ? `${trailersysFormatDateTime(v.fechaValidacionEntrega)} (${escapeHtml(v.validadoPor || "—")})`
+        : "—",
     ]);
 
     renderTable(headers, rows);

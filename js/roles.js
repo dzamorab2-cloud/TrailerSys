@@ -37,7 +37,10 @@ const TRAILERSYS_ROLES = {
   },
   supervisor: {
     label: "Supervisor / Consulta",
-    modules: ["dashboard", "vehiculos", "viajes", "reportes"],
+    // "seguimiento" en modules (no en manage): el supervisor consulta el
+    // detalle de cada viaje ahi mismo para poder validar una entrega ya
+    // confirmada por el conductor, aunque no gestiona eventos manuales.
+    modules: ["dashboard", "vehiculos", "viajes", "seguimiento", "reportes"],
     manage: [],
   },
 };

@@ -119,6 +119,18 @@ public class SeguimientoService {
                         "El próximo servicio del vehículo %s venció el %s.",
                         m.getVehiculo().getPlaca(), m.getProximoServicio()))));
 
+        // Aviso para el supervisor: el conductor ya confirmo la llegada,
+        // falta que el supervisor le de el visto bueno (POST
+        // /viajes/{id}/validar-entrega). Este mismo panel de alertas ya lo
+        // ve el supervisor en Dashboard/Seguimiento, asi que no hace falta
+        // un canal de notificacion aparte.
+        viajes.stream()
+                .filter(Viaje::isEntregaConfirmada)
+                .filter(v -> !v.isEntregaValidada())
+                .forEach(v -> alertas.add(new AlertaDto("info", "bi-patch-check", String.format(
+                        "El conductor confirmó la llegada del viaje %s → %s el %s. Pendiente de validación del supervisor.",
+                        v.getOrigen(), v.getDestino(), v.getFechaEntregaConfirmada().format(FORMATO_FECHA)))));
+
         return alertas;
     }
 }

@@ -77,18 +77,22 @@ mvnw.cmd spring-boot:run        # Windows
 
 La API queda escuchando en `http://localhost:8080`.
 
-## 4. Usuario de prueba
+## 4. Usuarios de prueba
 
-Al arrancar por primera vez (con la base de datos vacia), `DataSeeder`
-crea automaticamente un usuario administrador y datos demo para los 7
-modulos (los mismos vehiculos, conductores, clientes, etc. que ya
-conoces del frontend):
+`DataSeeder` crea automaticamente (y mantiene, aunque la base de datos ya
+tenga datos: la contraseña se re-sincroniza en cada arranque) una cuenta
+por cada rol, ademas de los datos demo para los 7 modulos:
 
-- **Usuario:** `admin`
-- **Contraseña:** `admin1234`
+| Usuario         | Contraseña           | Rol            |
+|-----------------|-----------------------|----------------|
+| `admin`         | `admin1234`           | Administrador  |
+| `coordinador`   | `coordinador1234`     | Coordinador    |
+| `mantenimiento` | `mantenimiento1234`   | Mantenimiento  |
+| `conductor`     | `conductor1234`       | Conductor      |
+| `supervisor`    | `supervisor1234`      | Supervisor     |
 
-Cambia esta contraseña (o borra y recrea el usuario) antes de usar esto
-en un entorno real.
+Cambia estas contraseñas (o borra y recrea los usuarios) antes de usar
+esto en un entorno real.
 
 ## 5. Probar la API
 
