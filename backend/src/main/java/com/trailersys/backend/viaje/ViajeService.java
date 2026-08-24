@@ -67,10 +67,12 @@ public class ViajeService {
     public Viaje crear(ViajeRequest request) {
         Cliente cliente = resolverCliente(request.clienteId());
         Carga carga = resolverCarga(request.cargaId());
-        validarCarga(carga, cliente, null);
         Vehiculo vehiculo = resolverVehiculo(request.vehiculoId());
         Conductor conductor = resolverConductor(request.conductorId());
-        validarDisponibilidad(vehiculo, conductor, null);
+        if (esActivo(request.estado())) {
+            validarCarga(carga, cliente, null);
+            validarDisponibilidad(vehiculo, conductor, null);
+        }
 
         Viaje viaje = new Viaje(
                 vehiculo,
@@ -96,10 +98,12 @@ public class ViajeService {
 
         Cliente cliente = resolverCliente(request.clienteId());
         Carga carga = resolverCarga(request.cargaId());
-        validarCarga(carga, cliente, id);
         Vehiculo vehiculo = resolverVehiculo(request.vehiculoId());
         Conductor conductor = resolverConductor(request.conductorId());
-        validarDisponibilidad(vehiculo, conductor, id);
+        if (esActivo(request.estado())) {
+            validarCarga(carga, cliente, id);
+            validarDisponibilidad(vehiculo, conductor, id);
+        }
 
         viaje.setVehiculo(vehiculo);
         viaje.setConductor(conductor);
@@ -190,6 +194,18 @@ public class ViajeService {
             carga.setEstado(nuevoEstado);
             cargaRepository.save(carga);
         }
+    }
+
+    /**
+     * Las validaciones de disponibilidad (carga, vehiculo, conductor) solo
+     * tienen sentido cuando el viaje va a quedar Programado o En Curso. Si
+     * se esta finalizando o cancelando, el viaje deja de "ocupar" esos
+     * recursos, asi que no hay nada que validar: bloquearlo aqui impediria
+     * cerrar un viaje precisamente para liberar un vehiculo/conductor que
+     * otro viaje activo necesita.
+     */
+    private boolean esActivo(EstadoViaje estado) {
+        return estado == EstadoViaje.PROGRAMADO || estado == EstadoViaje.EN_CURSO;
     }
 
     /**
