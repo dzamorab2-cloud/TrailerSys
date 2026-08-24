@@ -118,20 +118,13 @@ curl http://localhost:8080/api/seguimiento/alertas \
 ./mvnw test
 ```
 
-54 pruebas en total, todas contra una base H2 embebida en modo
+78 pruebas en total, todas contra una base H2 embebida en modo
 compatible con PostgreSQL (ver `src/test/resources/application.properties`),
 asi que no necesitas PostgreSQL corriendo para ejecutarlas.
 
-## Que falta para que el sistema este completo
+## Estado del proyecto
 
-Este backend por si solo no es el proyecto terminado. Falta:
-
-1. **Conectar el frontend a esta API real.** Hoy `js/vehiculos.js`,
-   `js/conductores.js`, etc. siguen leyendo/escribiendo en
-   `localStorage`. Cada modulo necesita reescribirse para usar
-   `fetch()` con el token JWT en vez de `localStorage`, siguiendo el
-   mismo patron modulo por modulo.
-2. **Fase 11 (Dashboard):** sigue como placeholder, pendiente de
-   construirse con datos reales una vez el frontend hable con esta API.
-3. **Fase 12 (Pruebas y despliegue):** pruebas end-to-end del sistema
-   completo y puesta en marcha.
+El frontend (`js/*.js`) ya esta completamente conectado a esta API via
+`fetch()` con el token JWT (ya no usa `localStorage` para datos de
+negocio). Ver el `README.md` en la raiz del repositorio para levantar
+el proyecto completo (backend + frontend).
