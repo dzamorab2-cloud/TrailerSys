@@ -3,6 +3,10 @@
 Este módulo completa los controles operativos de PostgreSQL de TrailerSys. No
 contiene contraseñas ni respaldos reales.
 
+La ejecución comprobada sobre PostgreSQL 18.4 está documentada en
+[`VALIDACION_POSTGRESQL.md`](VALIDACION_POSTGRESQL.md), con los planes reales en
+[`explain-resultados.txt`](explain-resultados.txt).
+
 ## Instalación
 
 Primero inicia el backend una vez para que Hibernate cree las tablas. Después,
@@ -91,4 +95,3 @@ COMMIT;
 ```
 
 La cuenta normal de operación no puede modificar ni borrar la bitácora.
-

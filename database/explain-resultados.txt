@@ -1,0 +1,68 @@
+ANALYZE
+                                                          QUERY PLAN                                                          
+------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1.03..1.04 rows=1 width=94) (actual time=0.031..0.031 rows=0.00 loops=1)
+   Output: id, evento, fecha_hora, observacion, ubicacion, vehiculo_id, viaje_id
+   Sort Key: seguimiento_eventos.fecha_hora DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=1
+   ->  Seq Scan on public.seguimiento_eventos  (cost=0.00..1.02 rows=1 width=94) (actual time=0.017..0.017 rows=0.00 loops=1)
+         Output: id, evento, fecha_hora, observacion, ubicacion, vehiculo_id, viaje_id
+         Filter: (seguimiento_eventos.viaje_id = 1)
+         Rows Removed by Filter: 2
+         Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=57 read=1
+ Planning Time: 1.183 ms
+ Execution Time: 0.067 ms
+(14 rows)
+
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1.03..1.04 rows=1 width=82) (actual time=0.020..0.021 rows=1.00 loops=1)
+   Output: id, costo, descripcion, fecha, kilometraje, proximo_servicio, tipo, vehiculo_id
+   Sort Key: mantenimientos.fecha DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=1
+   ->  Seq Scan on public.mantenimientos  (cost=0.00..1.02 rows=1 width=82) (actual time=0.015..0.015 rows=1.00 loops=1)
+         Output: id, costo, descripcion, fecha, kilometraje, proximo_servicio, tipo, vehiculo_id
+         Filter: (mantenimientos.vehiculo_id = 1)
+         Rows Removed by Filter: 1
+         Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=44 read=1
+ Planning Time: 1.086 ms
+ Execution Time: 0.034 ms
+(14 rows)
+
+                                                                                                                                                                                                                      QUERY PLAN                                                                                                                                                                                                                      
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1.03..1.04 rows=1 width=534) (actual time=0.020..0.020 rows=1.00 loops=1)
+   Output: id, confirmado_por, destino, entrega_confirmada, entrega_validada, estado, fecha_entrega_confirmada, fecha_salida, fecha_validacion_entrega, observacion_entrega, observacion_validacion, observaciones, origen, paradas_simuladas_registradas, ruta_destino_lat, ruta_destino_lng, ruta_distancia_km, ruta_duracion_min, ruta_origen_lat, ruta_origen_lng, ruta_path, validado_por, carga_id, cliente_id, conductor_id, vehiculo_id
+   Sort Key: viajes.fecha_salida DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=1
+   ->  Seq Scan on public.viajes  (cost=0.00..1.02 rows=1 width=534) (actual time=0.015..0.015 rows=1.00 loops=1)
+         Output: id, confirmado_por, destino, entrega_confirmada, entrega_validada, estado, fecha_entrega_confirmada, fecha_salida, fecha_validacion_entrega, observacion_entrega, observacion_validacion, observaciones, origen, paradas_simuladas_registradas, ruta_destino_lat, ruta_destino_lng, ruta_distancia_km, ruta_duracion_min, ruta_origen_lat, ruta_origen_lng, ruta_path, validado_por, carga_id, cliente_id, conductor_id, vehiculo_id
+         Filter: ((viajes.estado)::text = 'EN_CURSO'::text)
+         Rows Removed by Filter: 1
+         Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=97 read=4
+ Planning Time: 1.183 ms
+ Execution Time: 0.040 ms
+(14 rows)
+
+                                                  QUERY PLAN                                                  
+--------------------------------------------------------------------------------------------------------------
+ Seq Scan on public.usuarios  (cost=0.00..1.07 rows=1 width=142) (actual time=0.019..0.022 rows=1.00 loops=1)
+   Output: id, activo, correo, nombre, password_hash, rol, username
+   Filter: (upper((usuarios.username)::text) = 'ADMIN'::text)
+   Rows Removed by Filter: 4
+   Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=40 read=1
+ Planning Time: 2.419 ms
+ Execution Time: 0.038 ms
+(9 rows)
+
