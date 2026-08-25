@@ -91,14 +91,18 @@ corriendo para ejecutarlas).
 ├── index.html, app.html   # Login y shell de la aplicación (frontend)
 ├── css/, js/               # Estilos y lógica de cada módulo (frontend)
 ├── dev/server.js           # Servidor estático simple para desarrollo local
-└── backend/                # API REST (Spring Boot + PostgreSQL)
-    └── src/main/java/com/trailersys/backend/
+├── backend/                # API REST (Spring Boot + PostgreSQL)
+│   └── src/main/java/com/trailersys/backend/
         ├── auth/            # Login (JWT) y perfil del usuario autenticado
         ├── vehiculo/ conductor/ cliente/ carga/
         ├── viaje/           # Incluye ruta, simulación automática y confirmación de entrega
         ├── seguimiento/     # Eventos de viaje y alertas operativas
-        └── mantenimiento/
+│       └── mantenimiento/
+└── database/               # Roles, auditoría, índices y respaldo/recuperación
 ```
+
+Los controles y procedimientos de base de datos se documentan en
+[`database/README.md`](database/README.md).
 
 ## Módulos
 
