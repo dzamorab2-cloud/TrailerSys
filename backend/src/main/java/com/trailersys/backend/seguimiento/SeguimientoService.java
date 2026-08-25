@@ -77,10 +77,8 @@ public class SeguimientoService {
         LocalDate hoy = LocalDate.now();
         LocalDateTime ahora = LocalDateTime.now();
 
-        List<Viaje> viajes = viajeRepository.findAll();
-        List<Viaje> activos = viajes.stream()
-                .filter(v -> v.getEstado() == EstadoViaje.PROGRAMADO || v.getEstado() == EstadoViaje.EN_CURSO)
-                .toList();
+        List<Viaje> activos = viajeRepository.findTop100ByEstadoInOrderByFechaSalidaAsc(
+                List.of(EstadoViaje.PROGRAMADO, EstadoViaje.EN_CURSO));
 
         for (Viaje viaje : activos) {
             Conductor conductor = viaje.getConductor();
@@ -100,37 +98,41 @@ public class SeguimientoService {
             }
         }
 
-        viajes.stream()
+        activos.stream()
                 .filter(v -> v.getEstado() == EstadoViaje.PROGRAMADO
                         && v.getFechaSalida() != null && v.getFechaSalida().isBefore(ahora))
                 .forEach(v -> alertas.add(new AlertaDto("warning", "bi-alarm", String.format(
                         "El viaje de %s a %s sigue \"Programado\" pero su salida (%s) ya pasó.",
                         v.getOrigen(), v.getDestino(), v.getFechaSalida().format(FORMATO_FECHA)))));
 
-        viajes.stream()
+        activos.stream()
                 .filter(v -> v.getEstado() == EstadoViaje.EN_CURSO && v.getRutaDistanciaKm() == null)
                 .forEach(v -> alertas.add(new AlertaDto("warning", "bi-map", String.format(
                         "El viaje de %s a %s está \"En Curso\" pero no tiene una ruta calculada todavía.",
                         v.getOrigen(), v.getDestino()))));
 
-        mantenimientoRepository.findAll().stream()
-                .filter(m -> m.getProximoServicio() != null && m.getProximoServicio().isBefore(hoy))
-                .forEach(m -> alertas.add(new AlertaDto("warning", "bi-tools", String.format(
-                        "El próximo servicio del vehículo %s venció el %s.",
-                        m.getVehiculo().getPlaca(), m.getProximoServicio()))));
+        mantenimientoRepository.findTop100ByProximoServicioLessThanEqualOrderByProximoServicioAsc(hoy.plusDays(7)).stream()
+                .forEach(m -> {
+                    boolean vencido = m.getProximoServicio().isBefore(hoy);
+                    alertas.add(new AlertaDto(vencido ? "danger" : "warning", "bi-tools", String.format(
+                            vencido
+                                    ? "El mantenimiento preventivo del vehículo %s venció el %s."
+                                    : "El mantenimiento preventivo del vehículo %s corresponde el %s.",
+                            m.getVehiculo().getPlaca(), m.getProximoServicio())));
+                });
 
         // Aviso para el supervisor: el conductor ya confirmo la llegada,
         // falta que el supervisor le de el visto bueno (POST
         // /viajes/{id}/validar-entrega). Este mismo panel de alertas ya lo
         // ve el supervisor en Dashboard/Seguimiento, asi que no hace falta
         // un canal de notificacion aparte.
-        viajes.stream()
-                .filter(Viaje::isEntregaConfirmada)
-                .filter(v -> !v.isEntregaValidada())
+        viajeRepository.findTop100ByEntregaConfirmadaTrueAndEntregaValidadaFalseOrderByFechaEntregaConfirmadaDesc().stream()
                 .forEach(v -> alertas.add(new AlertaDto("info", "bi-patch-check", String.format(
                         "El conductor confirmó la llegada del viaje %s → %s el %s. Pendiente de validación del supervisor.",
                         v.getOrigen(), v.getDestino(), v.getFechaEntregaConfirmada().format(FORMATO_FECHA)))));
 
-        return alertas;
+        // El panel es operativo, no un reporte histórico: devolver una muestra
+        // prioritaria evita crear miles de nodos y ocultar el mapa bajo la lista.
+        return alertas.stream().limit(100).toList();
     }
 }

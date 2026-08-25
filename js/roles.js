@@ -11,7 +11,7 @@ const TRAILERSYS_ROLES = {
     label: "Administrador",
     modules: [
       "dashboard", "vehiculos", "conductores", "clientes", "cargas",
-      "viajes", "seguimiento", "mantenimientos", "reportes", "configuracion",
+      "viajes", "seguimiento", "mantenimientos", "reportes", "auditoria", "configuracion",
     ],
     manage: [
       "vehiculos", "conductores", "clientes", "cargas",

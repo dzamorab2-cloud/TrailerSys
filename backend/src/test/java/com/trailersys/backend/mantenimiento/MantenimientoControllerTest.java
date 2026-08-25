@@ -100,6 +100,22 @@ class MantenimientoControllerTest {
     }
 
     @Test
+    void preventivoSinProximaFechaLaCalculaAUnMes() throws Exception {
+        Long vehiculoId = crearVehiculo("MNT-MENSUAL-01");
+        String mantenimiento = """
+                {"vehiculoId":%d,"tipo":"Preventivo","fecha":"2026-08-24","kilometraje":1500,
+                 "costo":50.0,"descripcion":"Mantenimiento preventivo mensual"}
+                """.formatted(vehiculoId);
+
+        mockMvc.perform(post("/api/mantenimientos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mantenimiento))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.proximoServicio").value("2026-09-24"));
+    }
+
+    @Test
     void proximoServicioAnteriorALaFechaDevuelve400() throws Exception {
         Long vehiculoId = crearVehiculo("MNT-CTRL-02");
 

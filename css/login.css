@@ -3,6 +3,7 @@
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   background: var(--color-bg);
+  overflow-x: hidden;
 }
 
 .login-showcase {
@@ -110,11 +111,13 @@
   align-items: center;
   justify-content: center;
   padding: 40px;
+  min-width: 0;
 }
 
 .login-form-wrap {
   width: 100%;
   max-width: 380px;
+  min-width: 0;
 }
 
 .login-form-wrap h2 {
@@ -147,4 +150,9 @@
   .login-panel {
     padding: 24px;
   }
+}
+
+@media (max-width: 420px) {
+  .login-panel { padding: 20px 16px; }
+  .login-form-wrap h2 { font-size: 1.3rem; }
 }

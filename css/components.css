@@ -133,6 +133,44 @@
   border-color: var(--color-danger);
 }
 
+.weight-input input {
+  min-width: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.weight-input select {
+  flex: 0 0 82px;
+  width: 82px;
+  padding-left: 12px;
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+#vehiculoColorPersonalizado {
+  height: 44px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.maintenance-notice {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-left: 4px solid var(--color-primary);
+}
+
+.maintenance-notice > i {
+  color: var(--color-primary);
+  font-size: 1.4rem;
+}
+
+.maintenance-notice p {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+}
+
 .field-error {
   font-size: 0.8rem;
   color: var(--color-danger);

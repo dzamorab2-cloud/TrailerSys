@@ -53,8 +53,8 @@ public class ViajeSimulacionService {
     @Transactional
     public void ejecutarSimulacion() {
         LocalDateTime ahora = LocalDateTime.now();
-        List<Viaje> enCurso = viajeRepository.findAll().stream()
-                .filter(v -> v.getEstado() == EstadoViaje.EN_CURSO)
+        List<Viaje> enCurso = viajeRepository
+                .findTop500ByEstadoOrderByFechaSalidaAsc(EstadoViaje.EN_CURSO).stream()
                 .filter(v -> v.getRutaDistanciaKm() != null && v.getRutaDuracionMin() != null
                         && v.getRutaDuracionMin() > 0 && v.getFechaSalida() != null)
                 .toList();

@@ -7,10 +7,34 @@
     "Fuera de Servicio": "badge-danger",
   };
   const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+  const MODELOS_POR_MARCA = {
+    Freightliner: ["Cascadia 126", "Cascadia 116", "M2 106"],
+    Kenworth: ["T680 Next Gen", "W900L", "T880"],
+    Peterbilt: ["Model 579", "Model 389X", "Model 567"],
+    "Volvo Trucks": ["VNL 860", "VNR 660", "VHD 300"],
+    Mack: ["Anthem 70-inch", "Pinnacle 64T", "Granite 64FR"],
+    International: ["LT625", "RH613", "MV607"],
+    Scania: ["R 500", "S 650", "G 410"],
+    "Mercedes-Benz": ["Actros 2645", "Arocs 3345", "Atego 1726"],
+    MAN: ["TGX 26.510", "TGS 33.480", "TGM 18.290"],
+    DAF: ["XF 480", "XG 530", "CF 450"],
+    Iveco: ["S-Way AS440S", "Stralis 480", "Eurocargo ML180"],
+    "Renault Trucks": ["T High 520", "T 480", "C 440"],
+    "Western Star": ["49X 600", "57X 600", "47X 500"],
+    Isuzu: ["FVR 34K", "NPR 75L", "Giga CYZ"],
+    Hino: ["Dutro 616", "500 FC", "700 SS"],
+    Fuso: ["Canter 815", "Fighter 1627", "Super Great 6R20"],
+    "UD Trucks": ["Quon GW", "Croner PKE", "Quester GWE"],
+    Sinotruk: ["HOWO T7H 540", "HOWO TX 440", "HOWO A7 420"],
+    Shacman: ["X6000 550", "X3000 430", "F3000 385"],
+    JAC: ["Gallop K7 540", "Gallop K5 420", "N90"],
+  };
 
   // Cache del ultimo listado cargado desde la API, para que los botones de
   // editar/eliminar de cada tarjeta no dependan de una segunda peticion.
   let vehiculosCache = [];
+  let currentPage = 0;
+  let pageMeta = null;
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevoVehiculo");
@@ -38,9 +62,11 @@
   const inputTipo = document.getElementById("vehiculoTipo");
   const inputAnio = document.getElementById("vehiculoAnio");
   const inputColor = document.getElementById("vehiculoColor");
+  const inputColorPersonalizado = document.getElementById("vehiculoColorPersonalizado");
   const selectEstado = document.getElementById("vehiculoEstado");
   const inputKilometraje = document.getElementById("vehiculoKilometraje");
   const inputCapacidad = document.getElementById("vehiculoCapacidad");
+  const selectCapacidadUnidad = document.getElementById("vehiculoCapacidadUnidad");
   const inputObservaciones = document.getElementById("vehiculoObservaciones");
 
   const inputFoto = document.getElementById("vehiculoFoto");
@@ -49,6 +75,20 @@
 
   let fotoActual = "";
   let session = null;
+  let capacidadUnidadAnterior = "kg";
+
+  function kgToLb(kg) {
+    return Number(kg) * 2.2046226218;
+  }
+
+  function valorEnKg(valor, unidad) {
+    return unidad === "lb" ? Number(valor) / 2.2046226218 : Number(valor);
+  }
+
+  function formatPesoDoble(kg) {
+    const kilos = Number(kg) || 0;
+    return `${kilos.toLocaleString("es-EC")} kg / ${kgToLb(kilos).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
+  }
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -64,6 +104,19 @@
     const wrap = document.getElementById(fieldWrapId);
     wrap.classList.toggle("has-error", Boolean(message));
     wrap.querySelector(".field-error").textContent = message || "";
+  }
+
+  function actualizarModelos(modeloSeleccionado = "") {
+    const modelos = MODELOS_POR_MARCA[inputMarca.value] || [];
+    inputModelo.innerHTML = `<option value="">${modelos.length ? "Selecciona un modelo" : "Primero selecciona una marca"}</option>`;
+    modelos.forEach((modelo) => {
+      const option = document.createElement("option");
+      option.value = modelo;
+      option.textContent = modelo;
+      inputModelo.appendChild(option);
+    });
+    inputModelo.disabled = modelos.length === 0;
+    if (modelos.includes(modeloSeleccionado)) inputModelo.value = modeloSeleccionado;
   }
 
   function clearFieldErrors() {
@@ -135,7 +188,7 @@
             <span><i class="bi bi-truck-front"></i>${escapeHtml(vehiculo.tipo)}</span>
             <span><i class="bi bi-palette"></i>${escapeHtml(vehiculo.color)}</span>
             <span><i class="bi bi-speedometer2"></i>${Number(vehiculo.kilometraje).toLocaleString("es-EC")} km</span>
-            <span><i class="bi bi-box-seam"></i>${Number(vehiculo.capacidad).toLocaleString("es-EC")} kg</span>
+            <span><i class="bi bi-box-seam"></i>${formatPesoDoble(vehiculo.capacidad)}</span>
           </div>
           ${vehiculo.observaciones ? `<p class="vehicle-observations">${escapeHtml(vehiculo.observaciones)}</p>` : ""}
           ${actions}
@@ -149,7 +202,8 @@
 
     let vehiculos;
     try {
-      vehiculos = await trailersysApiRequest("GET", "/vehiculos");
+      pageMeta = await trailersysPagedRequest("vehiculos", currentPage, 24);
+      vehiculos = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
       emptyState.hidden = false;
@@ -196,6 +250,7 @@
     grid.hidden = false;
     emptyState.hidden = true;
     resultsCount.textContent = `${filtrados.length} de ${vehiculos.length} vehículo${vehiculos.length === 1 ? "" : "s"}`;
+    trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((v) => renderCard(v, canManage)).join("");
   }
 
@@ -203,17 +258,26 @@
   function openForm(vehiculo) {
     clearFieldErrors();
     form.reset();
+    actualizarModelos();
     selectEstado.value = "Disponible";
+    selectCapacidadUnidad.value = "kg";
+    capacidadUnidadAnterior = "kg";
+    inputColorPersonalizado.hidden = true;
 
     if (vehiculo) {
       modalTitle.textContent = "Editar vehículo";
       inputId.value = vehiculo.id;
       inputPlaca.value = vehiculo.placa;
       inputMarca.value = vehiculo.marca;
-      inputModelo.value = vehiculo.modelo;
+      actualizarModelos(vehiculo.modelo);
       inputTipo.value = vehiculo.tipo;
       inputAnio.value = vehiculo.anio;
-      inputColor.value = vehiculo.color;
+      const opcionColor = [...inputColor.options].some((opcion) => opcion.value === vehiculo.color);
+      inputColor.value = opcionColor ? vehiculo.color : "__personalizado__";
+      if (!opcionColor) {
+        inputColorPersonalizado.value = /^#[0-9a-f]{6}$/i.test(vehiculo.color) ? vehiculo.color : "#ffffff";
+        inputColorPersonalizado.hidden = false;
+      }
       selectEstado.value = vehiculo.estado;
       inputKilometraje.value = vehiculo.kilometraje;
       inputCapacidad.value = vehiculo.capacidad;
@@ -256,6 +320,21 @@
   btnQuitarFoto.addEventListener("click", () => {
     inputFoto.value = "";
     setFotoPreview("");
+  });
+
+  inputMarca.addEventListener("change", () => actualizarModelos());
+
+  inputColor.addEventListener("change", () => {
+    inputColorPersonalizado.hidden = inputColor.value !== "__personalizado__";
+  });
+
+  selectCapacidadUnidad.addEventListener("change", () => {
+    const valor = Number(inputCapacidad.value);
+    if (!Number.isNaN(valor) && inputCapacidad.value !== "") {
+      const kg = valorEnKg(valor, capacidadUnidadAnterior);
+      inputCapacidad.value = (selectCapacidadUnidad.value === "lb" ? kgToLb(kg) : kg).toFixed(2).replace(/\.00$/, "");
+    }
+    capacidadUnidadAnterior = selectCapacidadUnidad.value;
   });
 
   // --- Validacion y guardado ---
@@ -301,10 +380,10 @@
       modelo: inputModelo.value.trim(),
       tipo: inputTipo.value.trim(),
       anio: Number(inputAnio.value),
-      color: inputColor.value.trim(),
+      color: inputColor.value === "__personalizado__" ? inputColorPersonalizado.value : inputColor.value,
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],
       kilometraje: inputKilometraje.value === "" ? "" : Number(inputKilometraje.value),
-      capacidad: inputCapacidad.value === "" ? "" : Number(inputCapacidad.value),
+      capacidad: inputCapacidad.value === "" ? "" : Math.round(valorEnKg(inputCapacidad.value, selectCapacidadUnidad.value)),
       observaciones: inputObservaciones.value.trim(),
       foto: fotoActual,
     };

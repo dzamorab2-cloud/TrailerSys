@@ -133,9 +133,8 @@ public class ViajeService {
     @Transactional
     public void iniciarViajesProgramadosVencidos() {
         LocalDateTime ahora = LocalDateTime.now();
-        repository.findAll().stream()
-                .filter(v -> v.getEstado() == EstadoViaje.PROGRAMADO
-                        && v.getFechaSalida() != null && !v.getFechaSalida().isAfter(ahora))
+        repository.findTop500ByEstadoAndFechaSalidaLessThanEqualOrderByFechaSalidaAsc(
+                        EstadoViaje.PROGRAMADO, ahora).stream()
                 // Si el vehiculo o el conductor ya estan en otro viaje activo, se
                 // deja en Programado (se reintenta en el proximo ciclo) en vez
                 // de arrancarlo igual y duplicar la asignacion.
@@ -213,6 +212,16 @@ public class ViajeService {
      * viaje activo (Programado/En Curso). Mismo patron que validarCarga.
      */
     private void validarDisponibilidad(Vehiculo vehiculo, Conductor conductor, Long viajeIdActual) {
+        boolean mismosRecursos = viajeIdActual != null && repository.findById(viajeIdActual)
+                .map(v -> v.getVehiculo().getId().equals(vehiculo.getId())
+                        && v.getConductor().getId().equals(conductor.getId()))
+                .orElse(false);
+        if (!mismosRecursos && vehiculo.getEstado() != EstadoVehiculo.DISPONIBLE) {
+            throw new ConflictException("El vehículo seleccionado no está disponible.");
+        }
+        if (!mismosRecursos && conductor.getEstado() != EstadoConductor.DISPONIBLE) {
+            throw new ConflictException("El conductor seleccionado no está disponible.");
+        }
         if (!estaDisponible(vehiculo, conductor, viajeIdActual)) {
             boolean vehiculoOcupado = !vehiculoLibre(vehiculo.getId(), viajeIdActual);
             throw new ConflictException(vehiculoOcupado

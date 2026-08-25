@@ -3,6 +3,8 @@
 
   // Caches del ultimo listado cargado desde la API.
   let mantenimientosCache = [];
+  let currentPage = 0;
+  let pageMeta = null;
   let vehiculosCache = [];
 
   // --- Referencias del DOM ---
@@ -48,6 +50,33 @@
     return `$ ${Number(value).toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  function sumarUnMes(fechaTexto) {
+    if (!fechaTexto) return "";
+    const [anio, mes, dia] = fechaTexto.split("-").map(Number);
+    const inicioMesDestino = new Date(Date.UTC(anio, mes, 1));
+    const ultimoDia = new Date(Date.UTC(inicioMesDestino.getUTCFullYear(), inicioMesDestino.getUTCMonth() + 1, 0)).getUTCDate();
+    const fecha = new Date(Date.UTC(inicioMesDestino.getUTCFullYear(), inicioMesDestino.getUTCMonth(), Math.min(dia, ultimoDia)));
+    return fecha.toISOString().slice(0, 10);
+  }
+
+  function fechaLocalHoy() {
+    const hoy = new Date();
+    const dos = (valor) => String(valor).padStart(2, "0");
+    return `${hoy.getFullYear()}-${dos(hoy.getMonth() + 1)}-${dos(hoy.getDate())}`;
+  }
+
+  function estadoProximoServicio(fechaTexto) {
+    if (!fechaTexto) return { clase: "badge-neutral", sufijo: "" };
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fecha = new Date(`${fechaTexto}T00:00:00`);
+    const dias = Math.ceil((fecha - hoy) / 86400000);
+    if (dias < 0) return { clase: "badge-danger", sufijo: ` (vencido hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? "" : "s"})` };
+    if (dias === 0) return { clase: "badge-warning", sufijo: " (corresponde hoy)" };
+    if (dias <= 7) return { clase: "badge-warning", sufijo: ` (faltan ${dias} días)` };
+    return { clase: "badge-info", sufijo: ` (faltan ${dias} días)` };
+  }
+
   function setFieldError(fieldWrapId, message) {
     const wrap = document.getElementById(fieldWrapId);
     wrap.classList.toggle("has-error", Boolean(message));
@@ -63,7 +92,7 @@
   // --- Selects relacionados ---
   async function refreshVehiculosCache() {
     try {
-      vehiculosCache = await trailersysApiRequest("GET", "/vehiculos");
+      vehiculosCache = (await trailersysPagedRequest("vehiculos", 0, 100)).content;
     } catch {
       vehiculosCache = [];
     }
@@ -82,7 +111,7 @@
   }
 
   function renderCard(mantenimiento, canManage) {
-    const vencido = mantenimiento.proximoServicioVencido;
+    const estadoProximo = estadoProximoServicio(mantenimiento.proximoServicio);
 
     const actions = canManage
       ? `<div class="item-actions">
@@ -112,7 +141,7 @@
           </div>
           <div class="item-meta">
             ${mantenimiento.proximoServicio
-              ? `<span class="badge ${vencido ? "badge-danger" : "badge-info"}"><i class="bi bi-calendar-check"></i> Próximo servicio: ${escapeHtml(mantenimiento.proximoServicio)}${vencido ? " (vencido)" : ""}</span>`
+              ? `<span class="badge ${estadoProximo.clase}"><i class="bi bi-calendar-check"></i> Próximo mantenimiento: ${escapeHtml(mantenimiento.proximoServicio)}${estadoProximo.sufijo}</span>`
               : `<span class="badge badge-neutral">Sin próximo servicio definido</span>`}
           </div>
           ${actions}
@@ -129,7 +158,8 @@
 
     let mantenimientos;
     try {
-      mantenimientos = await trailersysApiRequest("GET", "/mantenimientos");
+      pageMeta = await trailersysPagedRequest("mantenimientos", currentPage, 24);
+      mantenimientos = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
       emptyState.hidden = false;
@@ -173,6 +203,7 @@
     grid.hidden = false;
     emptyState.hidden = true;
     resultsCount.textContent = `${filtrados.length} de ${mantenimientos.length} mantenimiento${mantenimientos.length === 1 ? "" : "s"}`;
+    trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((m) => renderCard(m, canManage)).join("");
   }
 
@@ -197,6 +228,8 @@
     } else {
       modalTitle.textContent = "Nuevo mantenimiento";
       inputId.value = "";
+      inputFecha.value = fechaLocalHoy();
+      inputProximoServicio.value = sumarUnMes(inputFecha.value);
     }
 
     trailersysOpenModal(modalOverlay);
@@ -213,6 +246,15 @@
   modalOverlay.addEventListener("click", (event) => {
     if (event.target === modalOverlay) closeForm();
   });
+
+  function actualizarFechaPreventiva() {
+    if (inputFecha.value) {
+      inputProximoServicio.value = sumarUnMes(inputFecha.value);
+    }
+  }
+
+  inputFecha.addEventListener("change", actualizarFechaPreventiva);
+  selectTipo.addEventListener("change", actualizarFechaPreventiva);
 
   // --- Validacion y guardado ---
   function validate(data) {

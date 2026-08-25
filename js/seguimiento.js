@@ -100,9 +100,12 @@
       alertasList.innerHTML = `<div class="alerts-empty"><i class="bi bi-check-circle"></i>No hay alertas activas. Todo está en orden.</div>`;
       return;
     }
-    alertasList.innerHTML = alerts
-      .map((a) => `<div class="alert-item level-${a.nivel}"><i class="bi ${a.icono}"></i><div class="alert-text">${escapeHtml(a.texto)}</div></div>`)
-      .join("");
+    const renderAlerta = (a) => `<div class="alert-item level-${a.nivel}"><i class="bi ${a.icono}"></i><div class="alert-text">${escapeHtml(a.texto)}</div></div>`;
+    const visibles = alerts.slice(0, 5);
+    const adicionales = alerts.slice(5);
+    alertasList.innerHTML = visibles.map(renderAlerta).join("") + (adicionales.length
+      ? `<details class="alerts-more"><summary>Ver ${adicionales.length} alertas adicionales</summary>${adicionales.map(renderAlerta).join("")}</details>`
+      : "");
   }
 
   // --- Tarjetas de viajes ---
@@ -146,7 +149,7 @@
   async function refrescarDatos() {
     let viajes;
     try {
-      viajes = await trailersysApiRequest("GET", "/viajes");
+      viajes = (await trailersysPagedRequest("viajes", 0, 24)).content;
     } catch (error) {
       return { ok: false, error };
     }
@@ -156,7 +159,7 @@
     viajesCache = viajes;
 
     try {
-      eventosCache = await trailersysApiRequest("GET", "/seguimiento/eventos");
+      eventosCache = (await trailersysPagedRequest("eventos", 0, 100)).content;
     } catch {
       eventosCache = [];
     }
@@ -398,6 +401,11 @@
     destroyLeafletMap();
     mapaContainer.innerHTML = "";
 
+    if (typeof L === "undefined") {
+      showMapaPlaceholder("No se pudo cargar el mapa. Verifica la conexión a internet y recarga la página.");
+      return;
+    }
+
     if (!viaje.ruta) {
       showMapaPlaceholder('Este viaje todavía no tiene una ruta calculada. Ve al módulo Viajes para calcularla.');
       return;
@@ -579,7 +587,7 @@
       });
       eventoForm.reset();
       inputFecha.value = nowForInput();
-      eventosCache = await trailersysApiRequest("GET", "/seguimiento/eventos");
+      eventosCache = (await trailersysPagedRequest("eventos", 0, 100)).content;
       renderTimeline(viajeActualId);
       await render();
     } catch (error) {

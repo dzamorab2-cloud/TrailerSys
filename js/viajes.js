@@ -80,6 +80,8 @@
 
   // Cache del ultimo listado de viajes cargado desde la API.
   let viajesCache = [];
+  let currentPage = 0;
+  let pageMeta = null;
 
   // Caches de los catalogos relacionados, usados solo para poblar los
   // selectores del formulario de alta/edicion.
@@ -144,10 +146,10 @@
 
   async function refreshCaches() {
     [vehiculosCache, conductoresCache, clientesCache, cargasCache] = await Promise.all([
-      trailersysApiRequest("GET", "/vehiculos").catch(() => []),
-      trailersysApiRequest("GET", "/conductores").catch(() => []),
-      trailersysApiRequest("GET", "/clientes").catch(() => []),
-      trailersysApiRequest("GET", "/cargas").catch(() => []),
+      trailersysApiRequest("GET", "/paginas/vehiculos?page=0&size=100&estado=Disponible").then((d) => d.content).catch(() => []),
+      trailersysApiRequest("GET", "/paginas/conductores?page=0&size=100&estado=Disponible").then((d) => d.content).catch(() => []),
+      trailersysPagedRequest("clientes", 0, 100).then((d) => d.content).catch(() => []),
+      trailersysPagedRequest("cargas", 0, 100).then((d) => d.content).catch(() => []),
     ]);
   }
 
@@ -160,10 +162,18 @@
 
   async function refreshRelationOptions(viaje) {
     await refreshCaches();
+    if (viaje?.vehiculoId && !vehiculosCache.some((v) => String(v.id) === String(viaje.vehiculoId))) {
+      const actual = await trailersysApiRequest("GET", `/vehiculos/${viaje.vehiculoId}`).catch(() => null);
+      if (actual) vehiculosCache.push(actual);
+    }
+    if (viaje?.conductorId && !conductoresCache.some((c) => String(c.id) === String(viaje.conductorId))) {
+      const actual = await trailersysApiRequest("GET", `/conductores/${viaje.conductorId}`).catch(() => null);
+      if (actual) conductoresCache.push(actual);
+    }
     fillSelect(selectVehiculo, filtrarDisponibles(vehiculosCache, "Disponible", viaje?.vehiculoId),
-      (v) => `${v.placa} · ${v.marca} ${v.modelo}`, "Selecciona un vehículo");
+      (v) => `${v.placa} · ${v.marca} ${v.modelo} · ${v.estado}`, "Selecciona un vehículo disponible");
     fillSelect(selectConductor, filtrarDisponibles(conductoresCache, "Disponible", viaje?.conductorId),
-      (c) => c.nombres, "Selecciona un conductor");
+      (c) => `${c.nombres} · ${c.estado}`, "Selecciona un conductor disponible");
     fillSelect(selectCliente, clientesCache, (c) => c.nombre, "Selecciona un cliente");
     fillSelect(selectCarga, filtrarDisponibles(cargasCache, "Pendiente", viaje?.cargaId),
       (c) => c.descripcion, "Sin carga asociada");
@@ -229,7 +239,8 @@
 
     let viajes;
     try {
-      viajes = await trailersysApiRequest("GET", "/viajes");
+      pageMeta = await trailersysPagedRequest("viajes", currentPage, 24);
+      viajes = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
       emptyState.hidden = false;
@@ -275,6 +286,7 @@
     grid.hidden = false;
     emptyState.hidden = true;
     resultsCount.textContent = `${filtrados.length} de ${viajes.length} viaje${viajes.length === 1 ? "" : "s"}`;
+    trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((v) => renderCard(v, canManage)).join("");
   }
 
@@ -516,6 +528,11 @@
   function drawLeafletRoute(viaje) {
     destroyLeafletMap();
     mapaContainer.innerHTML = "";
+
+    if (typeof L === "undefined") {
+      mapaContainer.innerHTML = '<div class="route-map-placeholder"><i class="bi bi-wifi-off"></i><p>No se pudo cargar el mapa. Verifica la conexión a internet y recarga la página.</p></div>';
+      return;
+    }
 
     leafletMapInstance = L.map(mapaContainer, { scrollWheelZoom: true });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {

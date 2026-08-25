@@ -51,3 +51,19 @@ async function trailersysApiRequest(method, path, body) {
 
   return data;
 }
+
+async function trailersysPagedRequest(resource, page = 0, size = 24) {
+  return trailersysApiRequest("GET", `/paginas/${resource}?page=${page}&size=${size}`);
+}
+
+function trailersysRenderPager(anchor, data, onPage) {
+  const anchorEl = typeof anchor === "string" ? document.getElementById(anchor) : anchor;
+  if (!anchorEl) return;
+  let pager = anchorEl.nextElementSibling;
+  if (!pager || !pager.classList.contains("pagination")) {
+    pager = document.createElement("div"); pager.className = "pagination"; anchorEl.after(pager);
+  }
+  pager.innerHTML = `<span>${Number(data.totalElements).toLocaleString("es-EC")} registros · Página ${data.number + 1} de ${Math.max(1, data.totalPages)}</span><div class="pagination-actions"><button class="btn btn-ghost pager-prev" ${data.first ? "disabled" : ""}>Anterior</button><button class="btn btn-ghost pager-next" ${data.last ? "disabled" : ""}>Siguiente</button></div>`;
+  pager.querySelector(".pager-prev").onclick = () => onPage(data.number - 1);
+  pager.querySelector(".pager-next").onclick = () => onPage(data.number + 1);
+}

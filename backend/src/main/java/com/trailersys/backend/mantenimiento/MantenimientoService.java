@@ -45,9 +45,10 @@ public class MantenimientoService {
     public Mantenimiento crear(MantenimientoRequest request) {
         validarFechas(request);
         Vehiculo vehiculo = resolverVehiculo(request.vehiculoId());
+        var proximoServicio = calcularProximoServicio(request);
 
         Mantenimiento mantenimiento = new Mantenimiento(vehiculo, request.tipo(), request.fecha(),
-                request.kilometraje(), request.costo(), request.proximoServicio(), request.descripcion());
+                request.kilometraje(), request.costo(), proximoServicio, request.descripcion());
         return repository.save(mantenimiento);
     }
 
@@ -61,7 +62,7 @@ public class MantenimientoService {
         mantenimiento.setFecha(request.fecha());
         mantenimiento.setKilometraje(request.kilometraje());
         mantenimiento.setCosto(request.costo());
-        mantenimiento.setProximoServicio(request.proximoServicio());
+        mantenimiento.setProximoServicio(calcularProximoServicio(request));
         mantenimiento.setDescripcion(request.descripcion());
 
         return mantenimiento;
@@ -79,6 +80,15 @@ public class MantenimientoService {
         if (request.proximoServicio() != null && request.proximoServicio().isBefore(request.fecha())) {
             throw new IllegalArgumentException("El próximo servicio debe ser posterior a la fecha del mantenimiento.");
         }
+    }
+
+    private java.time.LocalDate calcularProximoServicio(MantenimientoRequest request) {
+        if (request.proximoServicio() != null) {
+            return request.proximoServicio();
+        }
+        // El próximo control preventivo es mensual, incluso cuando el registro
+        // actual corresponde a una reparación correctiva.
+        return request.fecha().plusMonths(1);
     }
 
     private Vehiculo resolverVehiculo(Long id) {

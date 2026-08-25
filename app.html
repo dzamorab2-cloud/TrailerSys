@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/leaflet.css" />
   <link rel="stylesheet" href="css/variables.css" />
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/reportes.css" />
   <link rel="stylesheet" href="css/dashboard.css" />
   <link rel="stylesheet" href="css/configuracion.css" />
+  <link rel="stylesheet" href="css/admin.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -34,18 +35,23 @@
       <p class="nav-section-title">Operación</p>
       <ul class="nav-list">
         <li><button class="nav-link" data-module="dashboard"><i class="bi bi-speedometer2"></i><span class="nav-label">Dashboard</span></button></li>
-        <li><button class="nav-link" data-module="vehiculos"><i class="bi bi-truck"></i><span class="nav-label">Vehículos</span></button></li>
-        <li><button class="nav-link" data-module="conductores"><i class="bi bi-person-badge"></i><span class="nav-label">Conductores</span></button></li>
-        <li><button class="nav-link" data-module="clientes"><i class="bi bi-people"></i><span class="nav-label">Clientes</span></button></li>
         <li><button class="nav-link" data-module="cargas"><i class="bi bi-box-seam"></i><span class="nav-label">Cargas</span></button></li>
         <li><button class="nav-link" data-module="viajes"><i class="bi bi-signpost-split"></i><span class="nav-label">Viajes</span></button></li>
         <li><button class="nav-link" data-module="seguimiento"><i class="bi bi-geo-alt"></i><span class="nav-label">Seguimiento</span></button></li>
       </ul>
 
+      <p class="nav-section-title">Flota</p>
+      <ul class="nav-list">
+        <li><button class="nav-link" data-module="vehiculos"><i class="bi bi-truck"></i><span class="nav-label">Vehículos</span></button></li>
+        <li><button class="nav-link" data-module="conductores"><i class="bi bi-person-badge"></i><span class="nav-label">Conductores</span></button></li>
+        <li><button class="nav-link" data-module="mantenimientos"><i class="bi bi-tools"></i><span class="nav-label">Mantenimientos</span></button></li>
+      </ul>
+
       <p class="nav-section-title">Gestión</p>
       <ul class="nav-list">
-        <li><button class="nav-link" data-module="mantenimientos"><i class="bi bi-tools"></i><span class="nav-label">Mantenimientos</span></button></li>
+        <li><button class="nav-link" data-module="clientes"><i class="bi bi-people"></i><span class="nav-label">Clientes</span></button></li>
         <li><button class="nav-link" data-module="reportes"><i class="bi bi-bar-chart"></i><span class="nav-label">Reportes</span></button></li>
+        <li><button class="nav-link" data-module="auditoria"><i class="bi bi-shield-check"></i><span class="nav-label">Auditoría</span></button></li>
         <li><button class="nav-link" data-module="configuracion"><i class="bi bi-gear"></i><span class="nav-label">Configuración</span></button></li>
       </ul>
 
@@ -166,7 +172,7 @@
           <div class="toolbar">
             <div class="toolbar-search">
               <i class="bi bi-search"></i>
-              <input type="text" id="conductorBuscar" placeholder="Buscar por nombre, identificación o teléfono" />
+              <input type="text" id="conductorBuscar" placeholder="Buscar por nombre, apellido, identificación o teléfono" />
             </div>
             <div class="toolbar-filters">
               <select id="conductorFiltroEstado" class="select-pill">
@@ -350,6 +356,11 @@
             </button>
           </div>
 
+          <div class="card maintenance-notice">
+            <i class="bi bi-calendar2-check"></i>
+            <div><strong>Plan preventivo mensual</strong><p>Cada tráiler debe recibir mantenimiento preventivo una vez al mes. El sistema calcula la próxima fecha y avisa cuando falten 7 días o esté vencida.</p></div>
+          </div>
+
           <div class="toolbar">
             <div class="toolbar-search">
               <i class="bi bi-search"></i>
@@ -430,6 +441,21 @@
           </div>
         </section>
 
+        <section class="module" id="module-auditoria" data-module="auditoria" hidden>
+          <div class="module-header">
+            <div><h1>Auditoría</h1><p>Historial de operaciones importantes realizadas en el sistema.</p></div>
+          </div>
+          <div class="toolbar">
+            <div class="toolbar-search"><i class="bi bi-search"></i><input id="auditoriaBuscar" type="search" placeholder="Buscar usuario o ID de registro" /></div>
+            <div class="toolbar-filters">
+              <select id="auditoriaTabla" class="select-pill"><option value="">Todas las tablas</option><option>usuarios</option><option>vehiculos</option><option>conductores</option><option>clientes</option><option>cargas</option><option>viajes</option><option>seguimiento_eventos</option><option>mantenimientos</option></select>
+              <select id="auditoriaOperacion" class="select-pill"><option value="">Todas las operaciones</option><option>INSERT</option><option>UPDATE</option><option>DELETE</option></select>
+            </div>
+          </div>
+          <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Operación</th><th>Tabla</th><th>Registro</th><th>Detalle</th></tr></thead><tbody id="auditoriaBody"></tbody></table></div>
+          <div class="pagination" id="auditoriaPager"></div>
+        </section>
+
         <section class="module" id="module-configuracion" data-module="configuracion" hidden>
           <div class="module-header">
             <div>
@@ -471,11 +497,10 @@
             <p id="perfilEmptyText">Ocurrió un error al conectar con el servidor.</p>
           </div>
 
-          <div class="module-placeholder card profile-future-note">
-            <i class="bi bi-gear"></i>
-            <h3>Administración de usuarios en construcción</h3>
-            <p>Crear, editar y desactivar otros usuarios llegará en una fase futura.</p>
-            <span class="badge badge-neutral phase-tag">Backend · Configuración</span>
+          <div class="admin-users" id="adminUsuarios" hidden>
+            <div class="section-heading"><div><h2>Usuarios y acceso</h2><p>Administra cuentas, roles y estado de acceso.</p></div><button class="btn btn-primary" id="btnNuevoUsuario"><i class="bi bi-person-plus"></i>Nuevo usuario</button></div>
+            <div class="toolbar"><div class="toolbar-search"><i class="bi bi-search"></i><input id="usuarioBuscar" type="search" placeholder="Buscar usuario, nombre o correo" /></div><div class="toolbar-filters"><select id="usuarioRolFiltro" class="select-pill"><option value="">Todos los roles</option><option>ADMINISTRADOR</option><option>COORDINADOR</option><option>MANTENIMIENTO</option><option>CONDUCTOR</option><option>SUPERVISOR</option></select></div></div>
+            <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
           </div>
         </section>
       </main>
@@ -525,7 +550,29 @@
             <label for="vehiculoMarca">Marca</label>
             <div class="input-wrap">
               <i class="bi bi-tag"></i>
-              <input type="text" id="vehiculoMarca" placeholder="Freightliner" />
+              <select id="vehiculoMarca">
+                <option value="">Selecciona una marca</option>
+                <option>Freightliner</option>
+                <option>Kenworth</option>
+                <option>Peterbilt</option>
+                <option>Volvo Trucks</option>
+                <option>Mack</option>
+                <option>International</option>
+                <option>Scania</option>
+                <option>Mercedes-Benz</option>
+                <option>MAN</option>
+                <option>DAF</option>
+                <option>Iveco</option>
+                <option>Renault Trucks</option>
+                <option>Western Star</option>
+                <option>Isuzu</option>
+                <option>Hino</option>
+                <option>Fuso</option>
+                <option>UD Trucks</option>
+                <option>Sinotruk</option>
+                <option>Shacman</option>
+                <option>JAC</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -534,7 +581,9 @@
             <label for="vehiculoModelo">Modelo</label>
             <div class="input-wrap">
               <i class="bi bi-tag"></i>
-              <input type="text" id="vehiculoModelo" placeholder="Cascadia" />
+              <select id="vehiculoModelo" disabled>
+                <option value="">Primero selecciona una marca</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -543,7 +592,19 @@
             <label for="vehiculoTipo">Tipo</label>
             <div class="input-wrap">
               <i class="bi bi-truck-front"></i>
-              <input type="text" id="vehiculoTipo" placeholder="Tráiler, camión, furgón..." />
+              <select id="vehiculoTipo">
+                <option value="">Selecciona un tipo</option>
+                <option>Tráiler</option>
+                <option>Camión</option>
+                <option>Cabezal</option>
+                <option>Furgón</option>
+                <option>Plataforma</option>
+                <option>Portacontenedor</option>
+                <option>Refrigerado</option>
+                <option>Tanquero</option>
+                <option>Volqueta</option>
+                <option>Grúa</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -561,8 +622,17 @@
             <label for="vehiculoColor">Color</label>
             <div class="input-wrap">
               <i class="bi bi-palette"></i>
-              <input type="text" id="vehiculoColor" placeholder="Blanco" />
+              <select id="vehiculoColor">
+                <option value="">Selecciona un color</option>
+                <option>Blanco</option><option>Negro</option><option>Gris</option><option>Plateado</option>
+                <option>Rojo</option><option>Rojo vino</option><option>Naranja</option><option>Amarillo</option>
+                <option>Verde</option><option>Verde oliva</option><option>Azul</option><option>Azul marino</option>
+                <option>Celeste</option><option>Turquesa</option><option>Morado</option><option>Violeta</option>
+                <option>Rosa</option><option>Marrón</option><option>Beige</option><option>Dorado</option>
+                <option>Bronce</option><option>Crema</option><option value="__personalizado__">Personalizado (paleta completa)</option>
+              </select>
             </div>
+            <input type="color" id="vehiculoColorPersonalizado" value="#ffffff" aria-label="Elegir color personalizado" hidden />
             <span class="field-error"></span>
           </div>
 
@@ -589,10 +659,14 @@
           </div>
 
           <div class="field" id="fieldVehiculoCapacidad">
-            <label for="vehiculoCapacidad">Capacidad (kg)</label>
-            <div class="input-wrap">
+            <label for="vehiculoCapacidad">Capacidad disponible</label>
+            <div class="input-wrap weight-input">
               <i class="bi bi-box-seam"></i>
-              <input type="number" id="vehiculoCapacidad" min="0" placeholder="0" />
+              <input type="number" id="vehiculoCapacidad" min="0" step="0.01" placeholder="0" />
+              <select id="vehiculoCapacidadUnidad" aria-label="Unidad de capacidad">
+                <option value="kg">kg</option>
+                <option value="lb">lb</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -693,10 +767,23 @@
           </div>
 
           <div class="field" id="fieldConductorLicenciaCategoria">
-            <label for="conductorLicenciaCategoria">Categoría</label>
+            <label for="conductorLicenciaCategoria">Tipo de licencia</label>
             <div class="input-wrap">
               <i class="bi bi-award"></i>
-              <input type="text" id="conductorLicenciaCategoria" placeholder="Ej. Tipo E" />
+              <select id="conductorLicenciaCategoria">
+                <option value="">Selecciona el tipo de licencia</option>
+                <option value="Tipo A">Tipo A — Motocicletas</option>
+                <option value="Tipo A1">Tipo A1 — Tricimotos y mototaxis</option>
+                <option value="Tipo B">Tipo B — Automóviles y camionetas</option>
+                <option value="Tipo C">Tipo C — Taxis y transporte liviano</option>
+                <option value="Tipo C1">Tipo C1 — Vehículos policiales y ambulancias</option>
+                <option value="Tipo D">Tipo D — Transporte público de pasajeros</option>
+                <option value="Tipo D1">Tipo D1 — Transporte escolar e institucional</option>
+                <option value="Tipo E">Tipo E — Camiones pesados y tráileres</option>
+                <option value="Tipo E1">Tipo E1 — Ferrocarriles y maquinaria especial</option>
+                <option value="Tipo F">Tipo F — Vehículos adaptados</option>
+                <option value="Tipo G">Tipo G — Maquinaria agrícola o pesada</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -893,20 +980,16 @@
           </div>
 
           <div class="field" id="fieldCargaPeso">
-            <label for="cargaPeso">Peso (kg)</label>
-            <div class="input-wrap">
+            <label for="cargaPeso">Peso de la carga</label>
+            <div class="input-wrap weight-input">
               <i class="bi bi-box-seam"></i>
-              <input type="number" id="cargaPeso" min="0" placeholder="0" />
+              <input type="number" id="cargaPeso" min="0" step="0.01" placeholder="0" />
+              <select id="cargaPesoUnidad" aria-label="Unidad de peso">
+                <option value="kg">kg</option>
+                <option value="lb">lb</option>
+              </select>
             </div>
             <span class="field-error"></span>
-          </div>
-
-          <div class="field" id="fieldCargaPesoLibras">
-            <label for="cargaPesoLibras">Convertir desde libras (opcional)</label>
-            <div class="input-wrap">
-              <i class="bi bi-arrow-left-right"></i>
-              <input type="number" id="cargaPesoLibras" min="0" step="0.01" placeholder="0" />
-            </div>
           </div>
 
           <div class="field" id="fieldCargaEstado">
@@ -1248,11 +1331,12 @@
           </div>
 
           <div class="field field-span-2">
-            <label for="mantenimientoProximoServicio">Próximo servicio (opcional)</label>
+            <label for="mantenimientoProximoServicio">Próximo mantenimiento</label>
             <div class="input-wrap">
               <i class="bi bi-calendar-check"></i>
               <input type="date" id="mantenimientoProximoServicio" />
             </div>
+            <small>El próximo control preventivo se calcula automáticamente a un mes.</small>
           </div>
 
           <div class="field field-span-2" id="fieldMantenimientoDescripcion">
@@ -1292,6 +1376,24 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="usuarioModalOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header"><h3 id="usuarioModalTitle">Nuevo usuario</h3><button type="button" class="modal-close" id="usuarioModalClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+      <form id="usuarioForm" novalidate>
+        <input type="hidden" id="usuarioId" />
+        <div class="form-grid">
+          <div class="field"><label for="usuarioUsername">Usuario *</label><div class="input-wrap"><i class="bi bi-person"></i><input id="usuarioUsername" maxlength="60" required /></div></div>
+          <div class="field"><label for="usuarioNombre">Nombre completo *</label><div class="input-wrap"><i class="bi bi-person-vcard"></i><input id="usuarioNombre" maxlength="120" required /></div></div>
+          <div class="field"><label for="usuarioCorreo">Correo</label><div class="input-wrap"><i class="bi bi-envelope"></i><input id="usuarioCorreo" type="email" maxlength="120" /></div></div>
+          <div class="field"><label for="usuarioRol">Rol *</label><div class="input-wrap"><i class="bi bi-shield"></i><select id="usuarioRol" required><option value="ADMINISTRADOR">Administrador</option><option value="COORDINADOR">Coordinador</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="CONDUCTOR">Conductor</option><option value="SUPERVISOR">Supervisor</option></select></div></div>
+          <div class="field field-span-2"><label for="usuarioPassword">Contraseña <span id="usuarioPasswordHint">*</span></label><div class="input-wrap"><i class="bi bi-key"></i><input id="usuarioPassword" type="password" minlength="8" autocomplete="new-password" /></div><small class="field-help">En edición déjala vacía para conservar la contraseña actual.</small></div>
+          <label class="switch-row field-span-2"><input id="usuarioActivo" type="checkbox" checked /><span>Cuenta activa</span></label>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-ghost" id="usuarioCancelar">Cancelar</button><button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i>Guardar usuario</button></div>
+      </form>
+    </div>
+  </div>
+
   <script src="js/roles.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/api-client.js"></script>
@@ -1300,7 +1402,7 @@
   <script src="js/conductores.js"></script>
   <script src="js/clientes.js"></script>
   <script src="js/cargas.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/vendor/leaflet.js"></script>
   <script src="js/map-service.js"></script>
   <script src="js/viajes.js"></script>
   <script src="js/mantenimientos.js"></script>
@@ -1308,6 +1410,7 @@
   <script src="js/reportes.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/configuracion.js"></script>
+  <script src="js/admin.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>

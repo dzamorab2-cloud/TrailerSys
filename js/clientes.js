@@ -8,6 +8,8 @@
   // Cache del ultimo listado cargado desde la API, para que los botones de
   // editar/eliminar de cada tarjeta no dependan de una segunda peticion.
   let clientesCache = [];
+  let currentPage = 0;
+  let pageMeta = null;
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevoCliente");
@@ -119,7 +121,8 @@
 
     let clientes;
     try {
-      clientes = await trailersysApiRequest("GET", "/clientes");
+      pageMeta = await trailersysPagedRequest("clientes", currentPage, 24);
+      clientes = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
       emptyState.hidden = false;
@@ -161,6 +164,7 @@
     grid.hidden = false;
     emptyState.hidden = true;
     resultsCount.textContent = `${filtrados.length} de ${clientes.length} cliente${clientes.length === 1 ? "" : "s"}`;
+    trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((c) => renderCard(c, canManage)).join("");
   }
 

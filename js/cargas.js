@@ -10,6 +10,8 @@
   // Cache del ultimo listado de cargas cargado desde la API, para que los
   // botones de editar/eliminar de cada tarjeta no dependan de otra peticion.
   let cargasCache = [];
+  let currentPage = 0;
+  let pageMeta = null;
 
   // --- Referencias del DOM ---
   const btnNuevo = document.getElementById("btnNuevaCarga");
@@ -33,13 +35,27 @@
   const selectCliente = document.getElementById("cargaCliente");
   const inputTipo = document.getElementById("cargaTipo");
   const inputPeso = document.getElementById("cargaPeso");
-  const inputPesoLibras = document.getElementById("cargaPesoLibras");
+  const selectPesoUnidad = document.getElementById("cargaPesoUnidad");
   const selectEstado = document.getElementById("cargaEstado");
   const inputOrigen = document.getElementById("cargaOrigen");
   const inputDestino = document.getElementById("cargaDestino");
   const inputObservaciones = document.getElementById("cargaObservaciones");
 
   let session = null;
+  let pesoUnidadAnterior = "kg";
+
+  function kgToLb(kg) {
+    return Number(kg) * 2.2046226218;
+  }
+
+  function valorEnKg(valor, unidad) {
+    return unidad === "lb" ? Number(valor) / 2.2046226218 : Number(valor);
+  }
+
+  function formatPesoDoble(kg) {
+    const kilos = Number(kg) || 0;
+    return `${kilos.toLocaleString("es-EC")} kg / ${kgToLb(kilos).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
+  }
   // Cache del listado de clientes usado solo para poblar el selector del
   // formulario; la tarjeta y la búsqueda usan carga.clienteNombre, que ya
   // viene denormalizado desde el backend.
@@ -69,7 +85,7 @@
 
   async function refreshClienteOptions() {
     try {
-      clientesCache = await trailersysApiRequest("GET", "/clientes");
+      clientesCache = (await trailersysPagedRequest("clientes", 0, 100)).content;
     } catch {
       clientesCache = [];
     }
@@ -116,7 +132,7 @@
           </div>
           <div class="item-meta">
             <span class="badge ${badgeClass}">${escapeHtml(carga.estado)}</span>
-            <span><i class="bi bi-box-seam"></i>${Number(carga.peso).toLocaleString("es-EC")} kg</span>
+            <span><i class="bi bi-box-seam"></i>${formatPesoDoble(carga.peso)}</span>
           </div>
           ${carga.observaciones ? `<p class="item-observations">${escapeHtml(carga.observaciones)}</p>` : ""}
           ${actions}
@@ -130,7 +146,8 @@
 
     let cargas;
     try {
-      cargas = await trailersysApiRequest("GET", "/cargas");
+      pageMeta = await trailersysPagedRequest("cargas", currentPage, 24);
+      cargas = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
       emptyState.hidden = false;
@@ -174,6 +191,7 @@
     grid.hidden = false;
     emptyState.hidden = true;
     resultsCount.textContent = `${filtrados.length} de ${cargas.length} carga${cargas.length === 1 ? "" : "s"}`;
+    trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((c) => renderCard(c, canManage)).join("");
   }
 
@@ -182,6 +200,8 @@
     clearFieldErrors();
     form.reset();
     selectEstado.value = "Pendiente";
+    selectPesoUnidad.value = "kg";
+    pesoUnidadAnterior = "kg";
     await refreshClienteOptions();
 
     if (carga) {
@@ -215,13 +235,13 @@
     if (event.target === modalOverlay) closeForm();
   });
 
-  // Conversor de apoyo: la carga puede venir especificada en libras: el
-  // campo que realmente se guarda sigue siendo el de kg.
-  inputPesoLibras.addEventListener("input", () => {
-    const libras = parseFloat(inputPesoLibras.value);
-    if (!Number.isNaN(libras) && libras >= 0) {
-      inputPeso.value = Math.round(libras * 0.45359237);
+  selectPesoUnidad.addEventListener("change", () => {
+    const valor = Number(inputPeso.value);
+    if (!Number.isNaN(valor) && inputPeso.value !== "") {
+      const kg = valorEnKg(valor, pesoUnidadAnterior);
+      inputPeso.value = (selectPesoUnidad.value === "lb" ? kgToLb(kg) : kg).toFixed(2).replace(/\.00$/, "");
     }
+    pesoUnidadAnterior = selectPesoUnidad.value;
   });
 
   // --- Validacion y guardado ---
@@ -257,7 +277,7 @@
       descripcion: inputDescripcion.value.trim(),
       clienteId: selectCliente.value ? Number(selectCliente.value) : null,
       tipo: inputTipo.value.trim(),
-      peso: inputPeso.value === "" ? "" : Number(inputPeso.value),
+      peso: inputPeso.value === "" ? "" : Math.round(valorEnKg(inputPeso.value, selectPesoUnidad.value)),
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],
       origen: inputOrigen.value.trim(),
       destino: inputDestino.value.trim(),

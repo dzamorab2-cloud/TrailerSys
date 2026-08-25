@@ -94,7 +94,7 @@
 
     let vehiculos;
     try {
-      vehiculos = await trailersysApiRequest("GET", "/vehiculos");
+      vehiculos = (await trailersysPagedRequest("vehiculos", 0, 100)).content;
     } catch {
       vehiculos = [];
     }
@@ -141,7 +141,7 @@
 
     let conductores;
     try {
-      conductores = await trailersysApiRequest("GET", "/conductores");
+      conductores = (await trailersysPagedRequest("conductores", 0, 100)).content;
     } catch {
       conductores = [];
     }
@@ -193,7 +193,7 @@
 
     let viajes;
     try {
-      viajes = await trailersysApiRequest("GET", "/viajes");
+      viajes = (await trailersysPagedRequest("viajes", 0, 100)).content;
     } catch {
       viajes = [];
     }
@@ -241,7 +241,7 @@
   async function renderMantenimientosReport() {
     let vehiculos;
     try {
-      vehiculos = await trailersysApiRequest("GET", "/vehiculos");
+      vehiculos = (await trailersysPagedRequest("vehiculos", 0, 100)).content;
     } catch {
       vehiculos = [];
     }
@@ -262,7 +262,7 @@
 
     let mantenimientos;
     try {
-      mantenimientos = await trailersysApiRequest("GET", "/mantenimientos");
+      mantenimientos = (await trailersysPagedRequest("mantenimientos", 0, 100)).content;
     } catch {
       mantenimientos = [];
     }
