@@ -95,3 +95,20 @@ COMMIT;
 ```
 
 La cuenta normal de operación no puede modificar ni borrar la bitácora.
+
+## Carga de volumen
+
+`04_carga_millon.sql` agrega 1 050 000 registros sintéticos distribuidos entre
+clientes, vehículos, conductores, cargas, viajes, seguimiento y mantenimiento.
+La carga es transaccional e idempotente y conserva los datos iniciales.
+
+```powershell
+psql -U postgres -d trailersys -v ON_ERROR_STOP=1 -f database/04_carga_millon.sql
+```
+
+Los triggers de auditoría se suspenden únicamente durante esta carga controlada
+para evitar duplicar artificialmente el tamaño. Las claves foráneas permanecen
+activas y al finalizar se ejecuta `VACUUM (ANALYZE)`.
+
+La ejecución real y la comparación de rendimiento están documentadas en
+[`VALIDACION_MILLON_REGISTROS.md`](VALIDACION_MILLON_REGISTROS.md).

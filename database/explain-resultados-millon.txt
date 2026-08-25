@@ -1,0 +1,86 @@
+ANALYZE
+                                                                         QUERY PLAN                                                                          
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_seguimiento_viaje_fecha on public.seguimiento_eventos  (cost=0.42..12.43 rows=2 width=97) (actual time=0.029..0.029 rows=0.00 loops=1)
+   Output: id, evento, fecha_hora, observacion, ubicacion, vehiculo_id, viaje_id
+   Index Cond: (seguimiento_eventos.viaje_id = 1)
+   Index Searches: 1
+   Buffers: shared hit=6
+ Planning:
+   Buffers: shared hit=52
+ Planning Time: 0.405 ms
+ Execution Time: 0.061 ms
+(9 rows)
+
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using idx_mantenimientos_vehiculo_fecha on public.mantenimientos  (cost=0.29..11.75 rows=2 width=77) (actual time=0.012..0.013 rows=1.00 loops=1)
+   Output: id, costo, descripcion, fecha, kilometraje, proximo_servicio, tipo, vehiculo_id
+   Index Cond: (mantenimientos.vehiculo_id = 1)
+   Index Searches: 1
+   Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=39
+ Planning Time: 0.215 ms
+ Execution Time: 0.024 ms
+(9 rows)
+
+                                                                                                                                                                                                                         QUERY PLAN                                                                                                                                                                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=15819.38..22647.23 rows=58625 width=568) (actual time=65.707..83.621 rows=58334.00 loops=1)
+   Output: id, confirmado_por, destino, entrega_confirmada, entrega_validada, estado, fecha_entrega_confirmada, fecha_salida, fecha_validacion_entrega, observacion_entrega, observacion_validacion, observaciones, origen, paradas_simuladas_registradas, ruta_destino_lat, ruta_destino_lng, ruta_distancia_km, ruta_duracion_min, ruta_origen_lat, ruta_origen_lng, ruta_path, validado_por, carga_id, cliente_id, conductor_id, vehiculo_id
+   Workers Planned: 2
+   Workers Launched: 2
+   Buffers: shared hit=5630, temp read=1103 written=1105
+   ->  Sort  (cost=14819.36..14880.42 rows=24427 width=568) (actual time=22.952..26.929 rows=19444.67 loops=3)
+         Output: id, confirmado_por, destino, entrega_confirmada, entrega_validada, estado, fecha_entrega_confirmada, fecha_salida, fecha_validacion_entrega, observacion_entrega, observacion_validacion, observaciones, origen, paradas_simuladas_registradas, ruta_destino_lat, ruta_destino_lng, ruta_distancia_km, ruta_duracion_min, ruta_origen_lat, ruta_origen_lng, ruta_path, validado_por, carga_id, cliente_id, conductor_id, vehiculo_id
+         Sort Key: viajes.fecha_salida DESC
+         Sort Method: external merge  Disk: 8824kB
+         Buffers: shared hit=5630, temp read=1103 written=1105
+         Worker 0:  actual time=3.831..3.995 rows=2757.00 loops=1
+           Sort Method: quicksort  Memory: 549kB
+           Buffers: shared hit=295
+         Worker 1:  actual time=0.132..0.133 rows=0.00 loops=1
+           Sort Method: quicksort  Memory: 25kB
+           Buffers: shared hit=37
+         ->  Parallel Seq Scan on public.viajes  (cost=0.00..6858.09 rows=24427 width=568) (actual time=0.017..11.255 rows=19444.67 loops=3)
+               Output: id, confirmado_por, destino, entrega_confirmada, entrega_validada, estado, fecha_entrega_confirmada, fecha_salida, fecha_validacion_entrega, observacion_entrega, observacion_validacion, observaciones, origen, paradas_simuladas_registradas, ruta_destino_lat, ruta_destino_lng, ruta_distancia_km, ruta_duracion_min, ruta_origen_lat, ruta_origen_lng, ruta_path, validado_por, carga_id, cliente_id, conductor_id, vehiculo_id
+               Filter: ((viajes.estado)::text = 'EN_CURSO'::text)
+               Rows Removed by Filter: 63889
+               Buffers: shared hit=5556
+               Worker 0:  actual time=0.019..2.822 rows=2757.00 loops=1
+                 Buffers: shared hit=258
+               Worker 1:  actual time=0.003..0.003 rows=0.00 loops=1
+ Planning:
+   Buffers: shared hit=95
+ Planning Time: 0.298 ms
+ Execution Time: 99.142 ms
+(28 rows)
+
+                                                                                                                                                                                                                      QUERY PLAN                                                                                                                                                                                                                      
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..40.65 rows=100 width=568) (actual time=0.121..0.165 rows=100.00 loops=1)
+   Output: id, confirmado_por, destino, entrega_confirmada, entrega_validada, estado, fecha_entrega_confirmada, fecha_salida, fecha_validacion_entrega, observacion_entrega, observacion_validacion, observaciones, origen, paradas_simuladas_registradas, ruta_destino_lat, ruta_destino_lng, ruta_distancia_km, ruta_duracion_min, ruta_origen_lat, ruta_origen_lng, ruta_path, validado_por, carga_id, cliente_id, conductor_id, vehiculo_id
+   Buffers: shared hit=51 read=3
+   ->  Index Scan using idx_viajes_estado_fecha on public.viajes  (cost=0.42..23586.61 rows=58625 width=568) (actual time=0.118..0.152 rows=100.00 loops=1)
+         Output: id, confirmado_por, destino, entrega_confirmada, entrega_validada, estado, fecha_entrega_confirmada, fecha_salida, fecha_validacion_entrega, observacion_entrega, observacion_validacion, observaciones, origen, paradas_simuladas_registradas, ruta_destino_lat, ruta_destino_lng, ruta_distancia_km, ruta_duracion_min, ruta_origen_lat, ruta_origen_lng, ruta_path, validado_por, carga_id, cliente_id, conductor_id, vehiculo_id
+         Index Cond: ((viajes.estado)::text = 'EN_CURSO'::text)
+         Index Searches: 1
+         Buffers: shared hit=51 read=3
+ Planning Time: 0.157 ms
+ Execution Time: 0.197 ms
+(10 rows)
+
+                                                  QUERY PLAN                                                  
+--------------------------------------------------------------------------------------------------------------
+ Seq Scan on public.usuarios  (cost=0.00..1.07 rows=1 width=142) (actual time=0.012..0.016 rows=1.00 loops=1)
+   Output: id, activo, correo, nombre, password_hash, rol, username
+   Filter: (upper((usuarios.username)::text) = 'ADMIN'::text)
+   Rows Removed by Filter: 4
+   Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=29
+ Planning Time: 0.173 ms
+ Execution Time: 0.029 ms
+(9 rows)
+
