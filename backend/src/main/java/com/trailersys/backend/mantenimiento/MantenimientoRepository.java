@@ -10,4 +10,6 @@ public interface MantenimientoRepository extends JpaRepository<Mantenimiento, Lo
     List<Mantenimiento> findByVehiculoIdOrderByFechaDesc(Long vehiculoId);
 
     List<Mantenimiento> findTop100ByProximoServicioLessThanEqualOrderByProximoServicioAsc(LocalDate fecha);
+
+    List<Mantenimiento> findByProximoServicioBetweenOrderByProximoServicioAsc(LocalDate desde, LocalDate hasta);
 }

@@ -12,6 +12,8 @@ public interface ConductorRepository extends JpaRepository<Conductor, Long> {
 
     Optional<Conductor> findByIdentificacionIgnoreCase(String identificacion);
 
+    Optional<Conductor> findFirstByVehiculo_Id(Long vehiculoId);
+
     boolean existsByIdentificacionIgnoreCase(String identificacion);
 
     @Query("""

@@ -113,3 +113,13 @@
     transform: rotate(360deg);
   }
 }
+.trip-timeline { position: relative; padding: 4px 8px; }
+.timeline-item { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding-bottom: 22px; }
+.timeline-item:not(:last-child)::before { content:""; position:absolute; left:9px; top:18px; bottom:0; width:2px; background:var(--color-border); }
+.timeline-dot { position:relative; z-index:1; color:var(--color-primary); font-size:.68rem; padding-top:4px; }
+.timeline-body { border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:12px 14px; }
+.timeline-date { color:var(--color-text-muted); font-size:.72rem; margin-bottom:4px; }
+.timeline-body h4 { font-size:.9rem; }
+.timeline-body p { margin-top:4px; color:var(--color-text-muted); font-size:.8rem; }
+.timeline-entrega .timeline-dot,.timeline-validacion .timeline-dot { color:var(--color-success); }
+.timeline-evento .timeline-dot { color:var(--color-warning); }

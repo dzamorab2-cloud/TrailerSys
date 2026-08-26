@@ -52,6 +52,10 @@
     if (activeLink) {
       topbarTitle.textContent = activeLink.querySelector(".nav-label").textContent;
     }
+
+    window.dispatchEvent(new CustomEvent("trailersys:module-activated", {
+      detail: { module: moduleName },
+    }));
   }
 
   navLinks.forEach((link) => {

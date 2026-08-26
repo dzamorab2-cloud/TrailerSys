@@ -1,6 +1,7 @@
 package com.trailersys.backend.mantenimiento;
 
 import java.util.List;
+import java.time.LocalDate;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,7 @@ public class MantenimientoService {
 
         Mantenimiento mantenimiento = new Mantenimiento(vehiculo, request.tipo(), request.fecha(),
                 request.kilometraje(), request.costo(), proximoServicio, request.descripcion());
+        sincronizarKilometraje(vehiculo, request.kilometraje());
         return repository.save(mantenimiento);
     }
 
@@ -57,13 +59,15 @@ public class MantenimientoService {
         validarFechas(request);
         Mantenimiento mantenimiento = obtener(id);
 
-        mantenimiento.setVehiculo(resolverVehiculo(request.vehiculoId()));
+        Vehiculo vehiculo = resolverVehiculo(request.vehiculoId());
+        mantenimiento.setVehiculo(vehiculo);
         mantenimiento.setTipo(request.tipo());
         mantenimiento.setFecha(request.fecha());
         mantenimiento.setKilometraje(request.kilometraje());
         mantenimiento.setCosto(request.costo());
         mantenimiento.setProximoServicio(calcularProximoServicio(request));
         mantenimiento.setDescripcion(request.descripcion());
+        sincronizarKilometraje(vehiculo, request.kilometraje());
 
         return mantenimiento;
     }
@@ -82,6 +86,10 @@ public class MantenimientoService {
         }
     }
 
+    public List<Mantenimiento> calendario(LocalDate desde, LocalDate hasta) {
+        return repository.findByProximoServicioBetweenOrderByProximoServicioAsc(desde, hasta);
+    }
+
     private java.time.LocalDate calcularProximoServicio(MantenimientoRequest request) {
         if (request.proximoServicio() != null) {
             return request.proximoServicio();
@@ -94,5 +102,11 @@ public class MantenimientoService {
     private Vehiculo resolverVehiculo(Long id) {
         return vehiculoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehiculo no encontrado: " + id));
+    }
+
+    private void sincronizarKilometraje(Vehiculo vehiculo, Integer kilometrajeMantenimiento) {
+        if (kilometrajeMantenimiento != null && kilometrajeMantenimiento > vehiculo.getKilometraje()) {
+            vehiculo.setKilometraje(kilometrajeMantenimiento);
+        }
     }
 }

@@ -57,6 +57,14 @@ public class ViajeController {
         return ViajeResponse.from(service.obtener(id));
     }
 
+    @GetMapping("/por-carga/{cargaId}")
+    @PreAuthorize(PUEDE_CONSULTAR)
+    public ResponseEntity<ViajeResponse> obtenerPorCarga(@PathVariable Long cargaId) {
+        return service.buscarUltimoPorCarga(cargaId)
+                .map(viaje -> ResponseEntity.ok(ViajeResponse.from(viaje)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @PostMapping
     @PreAuthorize(PUEDE_GESTIONAR)
     public ResponseEntity<ViajeResponse> crear(@Valid @RequestBody ViajeRequest request) {

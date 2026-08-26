@@ -34,6 +34,18 @@
   const inputProximoServicio = document.getElementById("mantenimientoProximoServicio");
   const inputDescripcion = document.getElementById("mantenimientoDescripcion");
 
+  const tabs = document.getElementById("maintenanceTabs");
+  const listadoView = document.getElementById("mantenimientoListadoView");
+  const calendarioView = document.getElementById("mantenimientoCalendarioView");
+  const reportesView = document.getElementById("mantenimientoReportesView");
+  const calendar = document.getElementById("maintenanceCalendar");
+  const calendarTitle = document.getElementById("calendarTitle");
+  let calendarDate = new Date();
+  let calendarMode = "month";
+  const evidenciaOverlay = document.getElementById("evidenciaModalOverlay");
+  const evidenciaForm = document.getElementById("evidenciaForm");
+  const evidenciaList = document.getElementById("evidenciaList");
+
   let session = null;
 
   function escapeHtml(value) {
@@ -114,12 +126,13 @@
     const estadoProximo = estadoProximoServicio(mantenimiento.proximoServicio);
 
     const actions = canManage
-      ? `<div class="item-actions">
-          <button type="button" class="icon-btn" data-action="editar" data-id="${mantenimiento.id}" title="Editar">
-            <i class="bi bi-pencil"></i>
+      ? `<div class="maintenance-card-actions" aria-label="Acciones del mantenimiento">
+          <button type="button" class="maintenance-action" data-action="evidencias" data-id="${mantenimiento.id}" title="Documentos y evidencias"><i class="bi bi-paperclip"></i><span>Evidencias</span></button>
+          <button type="button" class="maintenance-action" data-action="editar" data-id="${mantenimiento.id}" title="Editar mantenimiento">
+            <i class="bi bi-pencil"></i><span>Editar</span>
           </button>
-          <button type="button" class="icon-btn danger" data-action="eliminar" data-id="${mantenimiento.id}" title="Eliminar">
-            <i class="bi bi-trash3"></i>
+          <button type="button" class="maintenance-action danger" data-action="eliminar" data-id="${mantenimiento.id}" title="Eliminar mantenimiento">
+            <i class="bi bi-trash3"></i><span>Eliminar</span>
           </button>
         </div>`
       : "";
@@ -133,6 +146,7 @@
             <div class="item-subtitle">${escapeHtml(mantenimiento.fecha)}</div>
           </div>
         </div>
+        ${actions}
         <div class="item-body">
           <p class="item-observations">${escapeHtml(mantenimiento.descripcion)}</p>
           <div class="item-meta">
@@ -144,7 +158,6 @@
               ? `<span class="badge ${estadoProximo.clase}"><i class="bi bi-calendar-check"></i> Próximo mantenimiento: ${escapeHtml(mantenimiento.proximoServicio)}${estadoProximo.sufijo}</span>`
               : `<span class="badge badge-neutral">Sin próximo servicio definido</span>`}
           </div>
-          ${actions}
         </div>
       </article>`;
   }
@@ -253,6 +266,70 @@
     }
   }
 
+  async function refreshAllMaintenanceViews() {
+    await render();
+    if (!calendarioView.hidden) await renderCalendar();
+    if (!reportesView.hidden) await renderReports();
+  }
+
+  function notifyMaintenanceChanged(action, mantenimientoId) {
+    window.dispatchEvent(new CustomEvent("trailersys:data-changed", {
+      detail: { resource: "mantenimientos", action, id: mantenimientoId },
+    }));
+  }
+
+  function apiHeaders() {
+    const token = trailersysGetSession()?.token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function loadEvidencias(id) {
+    const items = await trailersysApiRequest("GET", `/mantenimientos/${id}/evidencias`);
+    evidenciaList.innerHTML = items.length ? items.map(e => `<div class="evidence-item"><i class="bi ${e.tipoContenido === "application/pdf" ? "bi-file-earmark-pdf" : "bi-image"}"></i><div class="evidence-info"><strong>${escapeHtml(e.nombre)}</strong><small>${escapeHtml(e.categoria.replaceAll("_", " "))} · ${(e.tamano / 1024).toLocaleString("es-EC",{maximumFractionDigits:1})} KB · ${trailersysFormatDateTime(e.fechaCarga)}</small></div><button class="icon-btn" data-evidence-download="${e.id}" title="Descargar"><i class="bi bi-download"></i></button><button class="icon-btn danger" data-evidence-delete="${e.id}" title="Eliminar"><i class="bi bi-trash3"></i></button></div>`).join("") : '<div class="dashboard-empty">Todavía no hay evidencias adjuntas.</div>';
+  }
+
+  async function openEvidencias(m) {
+    document.getElementById("evidenciaMantenimientoId").value = m.id;
+    document.getElementById("evidenciaMaintenanceLabel").textContent = `${m.tipo} · ${m.vehiculoPlaca} · ${m.fecha}`;
+    evidenciaForm.reset(); trailersysOpenModal(evidenciaOverlay); await loadEvidencias(m.id);
+  }
+
+  async function downloadEvidence(mid,id) {
+    const response = await fetch(`${TRAILERSYS_API_BASE_URL}/mantenimientos/${mid}/evidencias/${id}/archivo`,{headers:apiHeaders()});
+    if(!response.ok) throw new Error("No se pudo descargar el archivo.");
+    const blob=await response.blob(); const disposition=response.headers.get("content-disposition")||""; const name=/filename="([^"]+)"/.exec(disposition)?.[1]||"evidencia";
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);
+  }
+
+  evidenciaForm.addEventListener("submit",async event=>{event.preventDefault();const id=document.getElementById("evidenciaMantenimientoId").value;const file=document.getElementById("evidenciaArchivo").files[0];if(!file)return;if(file.size>10*1024*1024){alert("El archivo supera 10 MB.");return;}const fd=new FormData();fd.append("categoria",document.getElementById("evidenciaCategoria").value);fd.append("archivo",file);const btn=evidenciaForm.querySelector("button");btn.disabled=true;try{const response=await fetch(`${TRAILERSYS_API_BASE_URL}/mantenimientos/${id}/evidencias`,{method:"POST",headers:apiHeaders(),body:fd});if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.message||"No se pudo adjuntar.");}evidenciaForm.reset();await loadEvidencias(id);}catch(e){alert(e.message);}finally{btn.disabled=false;}});
+  [document.getElementById("evidenciaModalClose"),document.getElementById("evidenciaCerrarBtn")].forEach(b=>b.addEventListener("click",()=>trailersysCloseModal(evidenciaOverlay)));
+  evidenciaList.addEventListener("click",async event=>{const id=document.getElementById("evidenciaMantenimientoId").value;const download=event.target.closest("[data-evidence-download]");const del=event.target.closest("[data-evidence-delete]");try{if(download)await downloadEvidence(id,download.dataset.evidenceDownload);if(del){await trailersysApiRequest("DELETE",`/mantenimientos/${id}/evidencias/${del.dataset.evidenceDelete}`);await loadEvidencias(id);}}catch(e){alert(e.message);}});
+
+  async function renderCalendar() {
+    const year=calendarDate.getFullYear(),month=calendarDate.getMonth();
+    let first=new Date(year,month,1),start,end;
+    if(calendarMode==="day"){start=new Date(calendarDate);end=new Date(calendarDate);}
+    else if(calendarMode==="week"){start=new Date(calendarDate);start.setDate(start.getDate()-start.getDay());end=new Date(start);end.setDate(end.getDate()+6);}
+    else{start=new Date(year,month,1-first.getDay());end=new Date(start);end.setDate(end.getDate()+41);}
+    const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    calendarTitle.textContent=calendarMode==="day"?new Intl.DateTimeFormat("es-EC",{dateStyle:"full"}).format(calendarDate):calendarMode==="week"?`${new Intl.DateTimeFormat("es-EC",{day:"numeric",month:"short"}).format(start)} – ${new Intl.DateTimeFormat("es-EC",{day:"numeric",month:"short",year:"numeric"}).format(end)}`:new Intl.DateTimeFormat("es-EC",{month:"long",year:"numeric"}).format(first);
+    const events=await trailersysApiRequest("GET",`/mantenimientos/calendario?desde=${iso(start)}&hasta=${iso(end)}`);
+    const byDate=Object.groupBy(events,e=>e.proximoServicio);
+    calendar.className=`calendar-grid ${calendarMode}-view`;
+    const names=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];const heads=(calendarMode==="day"?[names[start.getDay()]]:names).map(x=>`<div class="calendar-head">${x}</div>`).join("");let days="";
+    for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){const key=iso(d);days+=`<div class="calendar-day ${d.getMonth()===month?"":"outside"}"><span class="calendar-number">${d.getDate()}</span>${(byDate[key]||[]).map(e=>`<span class="calendar-event ${key<fechaLocalHoy()?"overdue":""}" title="${escapeHtml(e.descripcion)}">${escapeHtml(e.vehiculoPlaca)} · ${escapeHtml(e.tipo)}</span>`).join("")}</div>`;}
+    calendar.innerHTML=heads+days;
+  }
+
+  function stat(icon,value,label){return `<div class="stat-card"><div class="stat-card-icon"><i class="bi ${icon}"></i></div><div><div class="stat-card-value">${value}</div><div class="stat-card-label">${label}</div></div></div>`;}
+  function bars(items,label,value,formatter=v=>v){const max=Math.max(1,...items.map(value));return items.map(x=>`<div class="metric-row"><span>${escapeHtml(label(x))}</span><div class="metric-bar"><span style="width:${value(x)*100/max}%"></span></div><strong>${formatter(value(x))}</strong></div>`).join("")||'<div class="dashboard-empty">Sin datos.</div>';}
+  async function renderReports(){const d=await trailersysApiRequest("GET","/mantenimientos/reportes");const money=n=>formatCosto(n);document.getElementById("maintenanceStats").innerHTML=[stat("bi-tools",Number(d.total).toLocaleString("es-EC"),"Mantenimientos"),stat("bi-cash-coin",money(d.costoTotal),"Costo total"),stat("bi-receipt",money(d.costoPromedio),"Costo promedio"),stat("bi-exclamation-triangle",Number(d.vencidos).toLocaleString("es-EC"),"Servicios vencidos")].join("");document.getElementById("maintenanceCosts").innerHTML=bars(d.costosPorVehiculo,x=>x.placa,x=>x.costo,money)+bars(d.costosPorVehiculo,x=>`${x.placa} · días fuera`,x=>x.diasFueraServicio);document.getElementById("maintenanceFrequency").innerHTML=bars(d.mantenimientosFrecuentes,x=>x.tipo,x=>x.cantidad,v=>Number(v).toLocaleString("es-EC"));const fleet=[{name:"Disponibles",v:d.vehiculosDisponibles},{name:"Mantenimiento",v:d.vehiculosMantenimiento},{name:"Fuera de servicio",v:d.vehiculosFueraServicio}];document.getElementById("maintenanceAvailability").innerHTML=bars(fleet,x=>x.name,x=>x.v,v=>Number(v).toLocaleString("es-EC"));}
+
+  tabs.addEventListener("click",async event=>{const btn=event.target.closest("[data-view]");if(!btn)return;tabs.querySelectorAll(".maintenance-tab").forEach(x=>x.classList.toggle("active",x===btn));listadoView.hidden=btn.dataset.view!=="listado";calendarioView.hidden=btn.dataset.view!=="calendario";reportesView.hidden=btn.dataset.view!=="reportes";try{if(btn.dataset.view==="calendario")await renderCalendar();if(btn.dataset.view==="reportes")await renderReports();}catch(e){alert(e.message);}});
+  function moveCalendar(direction){if(calendarMode==="day")calendarDate.setDate(calendarDate.getDate()+direction);else if(calendarMode==="week")calendarDate.setDate(calendarDate.getDate()+7*direction);else calendarDate.setMonth(calendarDate.getMonth()+direction);renderCalendar();}
+  document.getElementById("calendarPrev").addEventListener("click",()=>moveCalendar(-1));document.getElementById("calendarNext").addEventListener("click",()=>moveCalendar(1));document.getElementById("calendarToday").addEventListener("click",()=>{calendarDate=new Date();renderCalendar();});
+  document.querySelectorAll("[data-calendar-mode]").forEach(button=>button.addEventListener("click",()=>{calendarMode=button.dataset.calendarMode;document.querySelectorAll("[data-calendar-mode]").forEach(x=>{x.classList.toggle("btn-primary",x===button);x.classList.toggle("btn-ghost",x!==button);});renderCalendar();}));
+
   inputFecha.addEventListener("change", actualizarFechaPreventiva);
   selectTipo.addEventListener("change", actualizarFechaPreventiva);
 
@@ -312,7 +389,8 @@
         await trailersysApiRequest("POST", "/mantenimientos", data);
       }
       closeForm();
-      await render();
+      await refreshAllMaintenanceViews();
+      notifyMaintenanceChanged(id ? "updated" : "created", id);
     } catch (error) {
       alert(error.message || "No se pudo guardar el mantenimiento.");
     } finally {
@@ -330,6 +408,8 @@
 
     if (action === "editar") {
       openForm(mantenimiento);
+    } else if (action === "evidencias") {
+      openEvidencias(mantenimiento);
     } else if (action === "eliminar") {
       trailersysConfirm({
         title: "Eliminar mantenimiento",
@@ -338,7 +418,8 @@
         onAccept: async () => {
           try {
             await trailersysApiRequest("DELETE", `/mantenimientos/${id}`);
-            await render();
+            await refreshAllMaintenanceViews();
+            notifyMaintenanceChanged("deleted", id);
           } catch (error) {
             alert(error.message || "No se pudo eliminar el mantenimiento.");
           }
@@ -351,6 +432,10 @@
   [inputBuscar, filtroVehiculo, filtroTipo].forEach((el) => {
     el.addEventListener("input", render);
     el.addEventListener("change", render);
+  });
+
+  window.addEventListener("trailersys:module-activated", (event) => {
+    if (event.detail?.module === "mantenimientos") refreshAllMaintenanceViews().catch(() => {});
   });
 
   session = trailersysGetSession();

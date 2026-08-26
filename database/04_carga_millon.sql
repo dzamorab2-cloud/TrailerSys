@@ -113,17 +113,28 @@ CREATE UNIQUE INDEX ON mapa_vehiculos (rn);
 CREATE UNIQUE INDEX ON mapa_conductores (rn);
 
 INSERT INTO cargas (descripcion, cliente_id, tipo, peso, origen, destino, estado, observaciones)
-SELECT 'Carga sintética ' || g, c.id,
-       CASE WHEN g % 3 = 0 THEN 'Refrigerados' ELSE 'Carga seca' END,
-       500 + (g % 29500), 'Origen sintético ' || (g % 100),
-       'Destino sintético ' || (g % 100),
+SELECT (ARRAY[
+           'Banano de exportación', 'Camarón congelado', 'Cacao en grano',
+           'Flores frescas', 'Atún en conserva', 'Repuestos automotrices',
+           'Materiales de construcción', 'Productos lácteos', 'Arroz pilado',
+           'Medicamentos', 'Electrodomésticos', 'Textiles y confecciones',
+           'Frutas tropicales', 'Aceite vegetal', 'Alimentos balanceados'
+       ])[1 + ((g - 1) % 15)] || ' · Lote ' || lpad(g::text, 6, '0'), c.id,
+       (ARRAY[
+           'Agrícola', 'Refrigerada', 'Agrícola', 'Refrigerada', 'Alimentos',
+           'Automotriz', 'Construcción', 'Refrigerada', 'Alimentos', 'Farmacéutica',
+           'Electrodomésticos', 'Textil', 'Refrigerada', 'Alimentos', 'Agroindustrial'
+       ])[1 + ((g - 1) % 15)],
+       500 + (g % 29500),
+       (ARRAY['Guayaquil', 'Quito', 'Cuenca', 'Manta', 'Machala', 'Ambato', 'Santo Domingo', 'Loja', 'Quevedo', 'Esmeraldas'])[1 + ((g - 1) % 10)],
+       (ARRAY['Quito', 'Guayaquil', 'Loja', 'Cuenca', 'Manta', 'Riobamba', 'Ibarra', 'Machala', 'Ambato', 'Portoviejo'])[1 + ((g * 7 - 1) % 10)],
        CASE WHEN g % 5 = 0 THEN 'ENTREGADA' WHEN g % 3 = 0 THEN 'EN_TRANSITO' ELSE 'PENDIENTE' END,
-       'Registro generado para prueba de volumen'
+       'Mercancía comercial registrada para operación logística nacional'
 FROM generate_series(1, 150000) AS g
 JOIN mapa_clientes c ON c.rn = ((g - 1) % 50000) + 1;
 
 CREATE TEMP TABLE mapa_cargas ON COMMIT DROP AS
-SELECT id, row_number() OVER (ORDER BY id) AS rn FROM cargas WHERE descripcion LIKE 'Carga sintética %';
+SELECT id, row_number() OVER (ORDER BY id) AS rn FROM cargas WHERE observaciones = 'Mercancía comercial registrada para operación logística nacional';
 CREATE UNIQUE INDEX ON mapa_cargas (rn);
 
 INSERT INTO viajes (vehiculo_id, conductor_id, cliente_id, carga_id, origen, destino,
@@ -160,7 +171,11 @@ JOIN mapa_viajes vi ON vi.rn = ((g - 1) % 250000) + 1;
 INSERT INTO mantenimientos (vehiculo_id, tipo, fecha, kilometraje, costo, proximo_servicio, descripcion)
 SELECT v.id, CASE WHEN g % 3 = 0 THEN 'CORRECTIVO' ELSE 'PREVENTIVO' END,
        CURRENT_DATE - (g % 1000), 10000 + (g % 490000),
-       50.0 + (g % 5000), (CURRENT_DATE - (g % 1000) + INTERVAL '1 month')::date,
+       CASE WHEN g % 3 = 0
+            THEN 180.0 + (g % 721)
+            ELSE 65.0 + (g % 286)
+       END,
+       (CURRENT_DATE - (g % 1000) + INTERVAL '1 month')::date,
        'Mantenimiento sintético ' || g
 FROM generate_series(1, 100000) AS g
 JOIN mapa_vehiculos v ON v.rn = ((g - 1) % 50000) + 1;

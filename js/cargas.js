@@ -103,16 +103,18 @@
   function renderCard(carga, canManage) {
     const badgeClass = ESTADO_BADGE[carga.estado] || "badge-neutral";
 
-    const actions = canManage
-      ? `<div class="item-actions">
+    const actions = `<div class="item-actions">
+          <button type="button" class="icon-btn" data-action="guia" data-id="${carga.id}" title="Ver e imprimir guía">
+            <i class="bi bi-file-earmark-text"></i>
+          </button>
+          ${canManage ? `
           <button type="button" class="icon-btn" data-action="editar" data-id="${carga.id}" title="Editar">
             <i class="bi bi-pencil"></i>
           </button>
           <button type="button" class="icon-btn danger" data-action="eliminar" data-id="${carga.id}" title="Eliminar">
             <i class="bi bi-trash3"></i>
-          </button>
-        </div>`
-      : "";
+          </button>` : ""}
+        </div>`;
 
     return `
       <article class="card item-card">
@@ -138,6 +140,34 @@
           ${actions}
         </div>
       </article>`;
+  }
+
+  async function showCargaGuide(carga) {
+    const viaje = await trailersysApiRequest("GET", `/viajes/por-carga/${carga.id}`).catch(() => null);
+    const [conductor, vehiculo] = viaje ? await Promise.all([
+      trailersysApiRequest("GET", `/conductores/${viaje.conductorId}`).catch(() => null),
+      trailersysApiRequest("GET", `/vehiculos/${viaje.vehiculoId}`).catch(() => null)
+    ]) : [null, null];
+    trailersysShowGuide({
+      tipo: "Carga", id: carga.id, estado: carga.estado,
+      secciones: [
+        { titulo: "Datos de la carga", icono: "bi-box-seam", campos: [
+          ["Mercancía", carga.descripcion], ["Tipo", carga.tipo],
+          ["Peso", formatPesoDoble(carga.peso)], ["Observaciones", carga.observaciones || "Sin observaciones"]
+        ] },
+        { titulo: "Cliente y recorrido", icono: "bi-building", campos: [
+          ["Cliente", carga.clienteNombre], ["Origen", carga.origen], ["Destino", carga.destino]
+        ] },
+        { titulo: "Asignación de transporte", icono: "bi-truck", campos: [
+          ["Conductor", conductor?.nombres || "Pendiente de asignar"],
+          ["Identificación", conductor?.identificacion],
+          ["Licencia", conductor ? `${conductor.licenciaNumero || "—"} · Categoría ${conductor.licenciaCategoria || "—"}` : "—"],
+          ["Vehículo", vehiculo ? `${vehiculo.marca} ${vehiculo.modelo}` : "Pendiente de asignar"],
+          ["Placa", vehiculo?.placa], ["Capacidad", vehiculo ? formatPesoDoble(vehiculo.capacidad) : "—"],
+          ["Viaje asociado", viaje ? `GUIA-VIA-${String(viaje.id).padStart(6, "0")}` : "Sin viaje asociado"]
+        ] }
+      ]
+    });
   }
 
   async function render() {
@@ -289,13 +319,17 @@
     const id = inputId.value || null;
     submitBtn.disabled = true;
     try {
+      let guardada;
       if (id) {
-        await trailersysApiRequest("PUT", `/cargas/${id}`, data);
+        guardada = await trailersysApiRequest("PUT", `/cargas/${id}`, data);
       } else {
-        await trailersysApiRequest("POST", "/cargas", data);
+        guardada = await trailersysApiRequest("POST", "/cargas", data);
       }
       closeForm();
       await render();
+      if (!id && guardada) {
+        await showCargaGuide(guardada);
+      }
     } catch (error) {
       alert(error.message || "No se pudo guardar la carga.");
     } finally {
@@ -311,7 +345,9 @@
     const carga = cargasCache.find((c) => String(c.id) === id);
     if (!carga) return;
 
-    if (action === "editar") {
+    if (action === "guia") {
+      showCargaGuide(carga).catch((error) => alert(error.message || "No se pudo generar la guía."));
+    } else if (action === "editar") {
       openForm(carga);
     } else if (action === "eliminar") {
       trailersysConfirm({

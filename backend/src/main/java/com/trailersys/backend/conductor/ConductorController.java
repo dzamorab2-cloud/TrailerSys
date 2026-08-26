@@ -48,6 +48,13 @@ public class ConductorController {
         return ConductorResponse.from(service.obtener(id));
     }
 
+    @GetMapping("/por-vehiculo/{vehiculoId}")
+    public ResponseEntity<ConductorResponse> obtenerPorVehiculo(@PathVariable Long vehiculoId) {
+        return service.buscarPorVehiculo(vehiculoId)
+                .map(conductor -> ResponseEntity.ok(ConductorResponse.from(conductor)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @PostMapping
     public ResponseEntity<ConductorResponse> crear(@Valid @RequestBody ConductorRequest request) {
         Conductor creado = service.crear(request);

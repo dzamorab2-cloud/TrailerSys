@@ -1,6 +1,7 @@
 package com.trailersys.backend.mantenimiento;
 
 import java.util.List;
+import java.time.LocalDate;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +48,14 @@ public class MantenimientoController {
     @GetMapping("/{id}")
     public MantenimientoResponse obtener(@PathVariable Long id) {
         return MantenimientoResponse.from(service.obtener(id));
+    }
+
+    @GetMapping("/calendario")
+    public List<MantenimientoResponse> calendario(@RequestParam LocalDate desde, @RequestParam LocalDate hasta) {
+        if (hasta.isBefore(desde) || hasta.isAfter(desde.plusYears(1))) {
+            throw new IllegalArgumentException("El rango del calendario debe ser válido y no superar un año.");
+        }
+        return service.calendario(desde, hasta).stream().map(MantenimientoResponse::from).toList();
     }
 
     @PostMapping

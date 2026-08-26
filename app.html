@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/dashboard.css" />
   <link rel="stylesheet" href="css/configuracion.css" />
   <link rel="stylesheet" href="css/admin.css" />
+  <link rel="stylesheet" href="css/mantenimientos.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -51,6 +52,7 @@
       <ul class="nav-list">
         <li><button class="nav-link" data-module="clientes"><i class="bi bi-people"></i><span class="nav-label">Clientes</span></button></li>
         <li><button class="nav-link" data-module="reportes"><i class="bi bi-bar-chart"></i><span class="nav-label">Reportes</span></button></li>
+        <li><button class="nav-link" data-module="guias"><i class="bi bi-file-earmark-text"></i><span class="nav-label">Guías</span></button></li>
         <li><button class="nav-link" data-module="auditoria"><i class="bi bi-shield-check"></i><span class="nav-label">Auditoría</span></button></li>
         <li><button class="nav-link" data-module="configuracion"><i class="bi bi-gear"></i><span class="nav-label">Configuración</span></button></li>
       </ul>
@@ -111,6 +113,10 @@
               </div>
               <div id="dashboardViajes"></div>
             </div>
+          </div>
+          <div class="dashboard-panel card availability-panel" id="dashboardDisponibilidadPanel">
+            <div class="dashboard-panel-header"><i class="bi bi-clipboard2-pulse"></i><h3>Panel de disponibilidad</h3></div>
+            <div class="availability-grid" id="dashboardDisponibilidad"><div class="dashboard-empty">Cargando disponibilidad…</div></div>
           </div>
         </section>
 
@@ -361,6 +367,32 @@
             <div><strong>Plan preventivo mensual</strong><p>Cada tráiler debe recibir mantenimiento preventivo una vez al mes. El sistema calcula la próxima fecha y avisa cuando falten 7 días o esté vencida.</p></div>
           </div>
 
+          <div class="maintenance-tabs" id="maintenanceTabs">
+            <button class="maintenance-tab active" data-view="listado"><i class="bi bi-list-check"></i> Registros</button>
+            <button class="maintenance-tab" data-view="calendario"><i class="bi bi-calendar3"></i> Calendario</button>
+            <button class="maintenance-tab" data-view="reportes"><i class="bi bi-bar-chart-line"></i> Reportes y estadísticas</button>
+          </div>
+
+          <div id="mantenimientoCalendarioView" class="maintenance-view" hidden>
+            <div class="calendar-toolbar card">
+              <button class="btn btn-ghost" id="calendarPrev"><i class="bi bi-chevron-left"></i></button>
+              <h3 id="calendarTitle"></h3>
+              <div class="calendar-actions"><div class="calendar-modes"><button class="btn btn-ghost" data-calendar-mode="day">Día</button><button class="btn btn-ghost" data-calendar-mode="week">Semana</button><button class="btn btn-primary" data-calendar-mode="month">Mes</button></div><button class="btn btn-ghost" id="calendarToday">Hoy</button><button class="btn btn-ghost" id="calendarNext"><i class="bi bi-chevron-right"></i></button></div>
+            </div>
+            <div class="calendar-grid" id="maintenanceCalendar"></div>
+          </div>
+
+          <div id="mantenimientoReportesView" class="maintenance-view" hidden>
+            <div class="stats-row" id="maintenanceStats"></div>
+            <div class="maintenance-report-grid">
+              <div class="card report-panel"><h3>Costos por vehículo</h3><div id="maintenanceCosts"></div></div>
+              <div class="card report-panel"><h3>Mantenimientos frecuentes</h3><div id="maintenanceFrequency"></div></div>
+              <div class="card report-panel"><h3>Disponibilidad de la flota</h3><div id="maintenanceAvailability"></div></div>
+            </div>
+          </div>
+
+          <div id="mantenimientoListadoView" class="maintenance-view">
+
           <div class="toolbar">
             <div class="toolbar-search">
               <i class="bi bi-search"></i>
@@ -439,6 +471,28 @@
               <p>Ningún registro coincide con el filtro aplicado.</p>
             </div>
           </div>
+        </section>
+
+        <section class="module" id="module-guias" data-module="guias" hidden>
+          <div class="module-header">
+            <div><h1>Administración de guías</h1><p>Consulta e imprime las guías de cargas y viajes registrados.</p></div>
+          </div>
+          </div>
+          <div class="toolbar">
+            <div class="toolbar-search"><i class="bi bi-search"></i><input id="guiaBuscar" type="search" placeholder="Buscar número, carga, cliente, conductor o placa" /></div>
+            <div class="toolbar-filters">
+              <select id="guiaTipoFiltro" class="select-pill"><option value="">Todas las guías</option><option value="VIAJE">Viajes</option><option value="CARGA">Cargas</option></select>
+              <select id="guiaEstadoFiltro" class="select-pill"><option value="">Todos los estados</option><option>Pendiente</option><option>Asignada</option><option>En Tránsito</option><option>Entregada</option><option>Programado</option><option>En Curso</option><option>Finalizado</option><option>Cancelado</option></select>
+            </div>
+          </div>
+          <div class="stats-row" id="guiaStats"></div>
+          <div class="table-wrap card admin-table-card">
+            <table class="report-table">
+              <thead><tr><th>Número</th><th>Tipo</th><th>Detalle</th><th>Responsable</th><th>Ruta</th><th>Estado</th><th>Acción</th></tr></thead>
+              <tbody id="guiasBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="guiasPager"></div>
         </section>
 
         <section class="module" id="module-auditoria" data-module="auditoria" hidden>
@@ -1009,7 +1063,9 @@
             <label for="cargaOrigen">Origen</label>
             <div class="input-wrap">
               <i class="bi bi-geo-alt"></i>
-              <input type="text" id="cargaOrigen" placeholder="Ciudad de origen" />
+              <select id="cargaOrigen">
+                <option value="">Selecciona un lugar de origen</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -1018,7 +1074,9 @@
             <label for="cargaDestino">Destino</label>
             <div class="input-wrap">
               <i class="bi bi-geo-alt-fill"></i>
-              <input type="text" id="cargaDestino" placeholder="Ciudad de destino" />
+              <select id="cargaDestino">
+                <option value="">Selecciona un lugar de destino</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -1103,7 +1161,9 @@
             <label for="viajeOrigen">Origen</label>
             <div class="input-wrap">
               <i class="bi bi-geo-alt"></i>
-              <input type="text" id="viajeOrigen" placeholder="Ej. Quito, Ecuador" />
+              <select id="viajeOrigen">
+                <option value="">Selecciona un lugar de origen</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -1112,7 +1172,9 @@
             <label for="viajeDestino">Destino</label>
             <div class="input-wrap">
               <i class="bi bi-geo-alt-fill"></i>
-              <input type="text" id="viajeDestino" placeholder="Ej. Guayaquil, Ecuador" />
+              <select id="viajeDestino">
+                <option value="">Selecciona un lugar de destino</option>
+              </select>
             </div>
             <span class="field-error"></span>
           </div>
@@ -1360,6 +1422,49 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="guiaModalOverlay">
+    <div class="modal-dialog modal-dialog-wide guia-dialog">
+      <div class="modal-header guia-header">
+        <div>
+          <span class="guia-kicker">TRAILERSYS · DOCUMENTO OPERATIVO</span>
+          <h3 id="guiaModalTitle">Guía logística</h3>
+        </div>
+        <button type="button" class="modal-close no-print" id="guiaModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div id="guiaModalContent" class="guia-content"></div>
+      <div class="modal-footer no-print">
+        <button type="button" class="btn btn-ghost" id="guiaModalCerrarBtn">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="guiaModalImprimir">
+          <i class="bi bi-printer"></i> Imprimir guía
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="evidenciaModalOverlay">
+    <div class="modal-dialog modal-dialog-wide">
+      <div class="modal-header"><div><h3>Documentos y evidencias</h3><p id="evidenciaMaintenanceLabel"></p></div><button class="modal-close" id="evidenciaModalClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+      <form id="evidenciaForm" class="evidence-upload">
+        <input type="hidden" id="evidenciaMantenimientoId" />
+        <div class="field"><label for="evidenciaCategoria">Categoría</label><select id="evidenciaCategoria"><option value="FACTURA">Factura</option><option value="INFORME_TECNICO">Informe técnico</option><option value="FOTO_ANTES">Fotografía antes</option><option value="FOTO_DESPUES">Fotografía después</option></select></div>
+        <div class="field"><label for="evidenciaArchivo">Archivo (PDF, JPG, PNG o WEBP; máximo 10 MB)</label><input type="file" id="evidenciaArchivo" accept="application/pdf,image/jpeg,image/png,image/webp" required /></div>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-cloud-arrow-up"></i> Adjuntar evidencia</button>
+      </form>
+      <div id="evidenciaList" class="evidence-list"></div>
+      <div class="modal-footer"><button class="btn btn-ghost" id="evidenciaCerrarBtn">Cerrar</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="viajeHistorialModalOverlay">
+    <div class="modal-dialog modal-dialog-wide">
+      <div class="modal-header"><h3 id="viajeHistorialTitle">Historial del viaje</h3><button type="button" class="modal-close" id="viajeHistorialClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+      <div class="trip-timeline" id="viajeHistorialContent"></div>
+      <div class="modal-footer"><button type="button" class="btn btn-ghost" id="viajeHistorialCerrarBtn">Cerrar</button></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModalOverlay">
     <div class="modal-dialog" style="max-width: 400px;">
       <div class="modal-header">
@@ -1398,6 +1503,7 @@
   <script src="js/storage.js"></script>
   <script src="js/api-client.js"></script>
   <script src="js/ui-helpers.js"></script>
+  <script src="js/ecuador-locations.js"></script>
   <script src="js/vehiculos.js"></script>
   <script src="js/conductores.js"></script>
   <script src="js/clientes.js"></script>
@@ -1408,6 +1514,7 @@
   <script src="js/mantenimientos.js"></script>
   <script src="js/seguimiento.js"></script>
   <script src="js/reportes.js"></script>
+  <script src="js/guias.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/configuracion.js"></script>
   <script src="js/admin.js"></script>

@@ -2,6 +2,7 @@ package com.trailersys.backend.viaje;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +62,10 @@ public class ViajeService {
     public Viaje obtener(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Viaje no encontrado: " + id));
+    }
+
+    public Optional<Viaje> buscarUltimoPorCarga(Long cargaId) {
+        return repository.findFirstByCarga_IdOrderByIdDesc(cargaId);
     }
 
     @Transactional

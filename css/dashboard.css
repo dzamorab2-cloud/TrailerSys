@@ -65,6 +65,20 @@
   font-size: 0.85rem;
 }
 
+.availability-panel { margin-top: 18px; padding: 20px; }
+.availability-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.availability-group h4 { margin-bottom: 12px; font-size: .88rem; color: var(--color-text-muted); }
+.availability-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.availability-item { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.availability-item > i { color: var(--color-primary); font-size: 1.15rem; }
+.availability-item div { display: flex; flex-direction: column; }
+.availability-item strong { font-size: 1rem; }
+.availability-item span { color: var(--color-text-muted); font-size: .72rem; }
+.availability-item.ok > i { color: var(--color-success); }
+.availability-item.warning > i { color: var(--color-warning); }
+.availability-item.danger > i { color: var(--color-danger); }
+@media (max-width: 760px) { .availability-grid { grid-template-columns: 1fr; } .availability-items { grid-template-columns: 1fr 1fr; } }
+
 .stat-card-action { border-left: 3px solid transparent; }
 .stat-card-action.success { border-left-color: var(--color-success); }
 .stat-card-action.info { border-left-color: var(--color-info); }

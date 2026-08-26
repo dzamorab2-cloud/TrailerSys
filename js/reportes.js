@@ -346,5 +346,14 @@
   // --- Imprimir / PDF ---
   btnImprimir.addEventListener("click", () => window.print());
 
+  window.addEventListener("trailersys:data-changed", (event) => {
+    if (event.detail?.resource === "mantenimientos" && currentTab === "mantenimientos") {
+      renderMantenimientosReport();
+    }
+  });
+  window.addEventListener("trailersys:module-activated", (event) => {
+    if (event.detail?.module === "reportes") RENDERERS[currentTab]();
+  });
+
   switchTab("vehiculos");
 })();

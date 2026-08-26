@@ -72,6 +72,9 @@
   const btnMapaClose = document.getElementById("viajeMapaClose");
   const btnMapaCerrarBtn = document.getElementById("viajeMapaCerrarBtn");
   const btnMapaRecalcular = document.getElementById("viajeMapaRecalcular");
+  const historialOverlay = document.getElementById("viajeHistorialModalOverlay");
+  const historialTitle = document.getElementById("viajeHistorialTitle");
+  const historialContent = document.getElementById("viajeHistorialContent");
 
   let session = null;
   let rutaCalculada = null;
@@ -104,6 +107,12 @@
     const d = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function formatPesoDoble(kg) {
+    const kilos = Number(kg) || 0;
+    const libras = kilos * 2.2046226218;
+    return `${kilos.toLocaleString("es-EC")} kg / ${libras.toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
   }
 
   function setFieldError(fieldWrapId, message) {
@@ -224,6 +233,12 @@
             <span><i class="bi bi-flag"></i>ETA ${etaText}</span>
           </div>
           <div class="item-actions">
+            <button type="button" class="icon-btn" data-action="historial" data-id="${viaje.id}" title="Ver historial del viaje">
+              <i class="bi bi-clock-history"></i>
+            </button>
+            <button type="button" class="icon-btn" data-action="guia" data-id="${viaje.id}" title="Ver e imprimir guía">
+              <i class="bi bi-file-earmark-text"></i>
+            </button>
             <button type="button" class="icon-btn" data-action="mapa" data-id="${viaje.id}" title="Ver mapa de la ruta">
               <i class="bi bi-map"></i>
             </button>
@@ -232,6 +247,59 @@
         </div>
       </article>`;
   }
+
+  async function showViajeGuide(viaje) {
+    const [conductor, vehiculo, carga] = await Promise.all([
+      trailersysApiRequest("GET", `/conductores/${viaje.conductorId}`).catch(() => null),
+      trailersysApiRequest("GET", `/vehiculos/${viaje.vehiculoId}`).catch(() => null),
+      viaje.cargaId ? trailersysApiRequest("GET", `/cargas/${viaje.cargaId}`).catch(() => null) : Promise.resolve(null)
+    ]);
+    trailersysShowGuide({
+      tipo: "Viaje", id: viaje.id, estado: viaje.estado,
+      secciones: [
+        { titulo: "Conductor", icono: "bi-person-badge", campos: [
+          ["Nombre completo", conductor?.nombres || viaje.conductorNombres],
+          ["Identificación", conductor?.identificacion], ["Teléfono", conductor?.telefono],
+          ["Licencia", conductor?.licenciaNumero], ["Categoría", conductor?.licenciaCategoria],
+          ["Vencimiento", conductor?.licenciaVencimiento]
+        ] },
+        { titulo: "Vehículo", icono: "bi-truck", campos: [
+          ["Placa", vehiculo?.placa || viaje.vehiculoPlaca], ["Marca", vehiculo?.marca],
+          ["Modelo", vehiculo?.modelo], ["Tipo", vehiculo?.tipo], ["Año", vehiculo?.anio],
+          ["Color", vehiculo?.color], ["Capacidad", vehiculo ? formatPesoDoble(vehiculo.capacidad) : "—"]
+        ] },
+        { titulo: "Carga transportada", icono: "bi-box-seam", campos: [
+          ["Mercancía", carga?.descripcion || viaje.cargaDescripcion || "Viaje sin carga asociada"],
+          ["Tipo", carga?.tipo], ["Peso", carga ? formatPesoDoble(carga.peso) : "—"],
+          ["Cliente", viaje.clienteNombre]
+        ] },
+        { titulo: "Ruta y despacho", icono: "bi-signpost-split", campos: [
+          ["Origen", viaje.origen], ["Destino", viaje.destino],
+          ["Fecha de salida", trailersysFormatDateTime(viaje.fechaSalida)],
+          ["Distancia estimada", viaje.ruta ? `${viaje.ruta.distanciaKm.toFixed(1)} km` : "Sin ruta calculada"],
+          ["Duración estimada", viaje.ruta ? trailersysFormatDuration(viaje.ruta.duracionMin) : "Sin ruta calculada"],
+          ["Observaciones", viaje.observaciones || "Sin observaciones"]
+        ] }
+      ]
+    });
+  }
+
+  async function openHistorial(viaje) {
+    historialTitle.textContent = `Historial del viaje #${viaje.id}`;
+    historialContent.innerHTML = '<div class="dashboard-empty">Cargando historial…</div>';
+    trailersysOpenModal(historialOverlay);
+    const items = await trailersysApiRequest("GET", `/viajes/${viaje.id}/historial`);
+    historialContent.innerHTML = items.length ? items.map((item) => `
+      <div class="timeline-item timeline-${String(item.tipo).toLowerCase()}">
+        <div class="timeline-dot"><i class="bi bi-circle-fill"></i></div>
+        <div class="timeline-body"><div class="timeline-date">${trailersysFormatDateTime(item.fecha)}</div><h4>${escapeHtml(item.titulo)}</h4><p>${escapeHtml(item.detalle || "Sin observaciones")}</p></div>
+      </div>`).join("") : '<div class="dashboard-empty">Este viaje todavía no tiene eventos registrados.</div>';
+  }
+
+  const closeHistorial = () => trailersysCloseModal(historialOverlay);
+  document.getElementById("viajeHistorialClose").addEventListener("click", closeHistorial);
+  document.getElementById("viajeHistorialCerrarBtn").addEventListener("click", closeHistorial);
+  historialOverlay.addEventListener("click", (event) => { if (event.target === historialOverlay) closeHistorial(); });
 
   async function render() {
     const canManage = trailersysCanManage(session, "viajes");
@@ -373,14 +441,14 @@
     btnCalcularRuta.disabled = true;
     setRutaStatus("Calculando ruta con el mapa gratuito (OpenStreetMap)...", "loading");
 
-    const origenCoords = await trailersysGeocode(origenTexto);
+    const origenCoords = await trailersysGeocode(trailersysLugarParaGeocodificar(origenTexto));
     if (!origenCoords) {
       setRutaStatus(`No se encontró "${origenTexto}". Intenta ser más específico (ej. "Quito, Ecuador").`, "error");
       btnCalcularRuta.disabled = false;
       return;
     }
 
-    const destinoCoords = await trailersysGeocode(destinoTexto);
+    const destinoCoords = await trailersysGeocode(trailersysLugarParaGeocodificar(destinoTexto));
     if (!destinoCoords) {
       setRutaStatus(`No se encontró "${destinoTexto}". Intenta ser más específico (ej. "Guayaquil, Ecuador").`, "error");
       btnCalcularRuta.disabled = false;
@@ -452,13 +520,18 @@
     const id = inputId.value || null;
     submitBtn.disabled = true;
     try {
+      let guardado;
       if (id) {
-        await trailersysApiRequest("PUT", `/viajes/${id}`, data);
+        guardado = await trailersysApiRequest("PUT", `/viajes/${id}`, data);
       } else {
-        await trailersysApiRequest("POST", "/viajes", data);
+        guardado = await trailersysApiRequest("POST", "/viajes", data);
       }
       closeForm();
       await render();
+      if (!id && guardado) {
+        guardado.ruta = fromApiRuta(guardado.ruta);
+        await showViajeGuide(guardado);
+      }
     } catch (error) {
       alert(error.message || "No se pudo guardar el viaje.");
     } finally {
@@ -474,7 +547,11 @@
     const viaje = viajesCache.find((v) => String(v.id) === id);
     if (!viaje) return;
 
-    if (action === "editar") {
+    if (action === "guia") {
+      showViajeGuide(viaje).catch((error) => alert(error.message || "No se pudo generar la guía."));
+    } else if (action === "historial") {
+      openHistorial(viaje).catch((error) => { historialContent.innerHTML = `<div class="dashboard-empty">${escapeHtml(error.message)}</div>`; });
+    } else if (action === "editar") {
       openForm(viaje);
     } else if (action === "mapa") {
       openMapModal(viaje);

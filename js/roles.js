@@ -11,7 +11,7 @@ const TRAILERSYS_ROLES = {
     label: "Administrador",
     modules: [
       "dashboard", "vehiculos", "conductores", "clientes", "cargas",
-      "viajes", "seguimiento", "mantenimientos", "reportes", "auditoria", "configuracion",
+      "viajes", "seguimiento", "mantenimientos", "reportes", "guias", "auditoria", "configuracion",
     ],
     manage: [
       "vehiculos", "conductores", "clientes", "cargas",
@@ -20,7 +20,7 @@ const TRAILERSYS_ROLES = {
   },
   coordinador: {
     label: "Coordinador / Operador",
-    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento"],
+    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento", "guias"],
     manage: ["vehiculos", "conductores", "cargas", "viajes", "seguimiento"],
   },
   mantenimiento: {

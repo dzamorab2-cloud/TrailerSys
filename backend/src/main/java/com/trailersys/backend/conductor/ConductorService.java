@@ -1,6 +1,7 @@
 package com.trailersys.backend.conductor;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,10 @@ public class ConductorService {
     public Conductor obtener(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Conductor no encontrado: " + id));
+    }
+
+    public Optional<Conductor> buscarPorVehiculo(Long vehiculoId) {
+        return repository.findFirstByVehiculo_Id(vehiculoId);
     }
 
     @Transactional

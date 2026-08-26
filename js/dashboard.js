@@ -3,5 +3,30 @@
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const card=(icon,value,label,tone="")=>`<div class="stat-card stat-card-action ${tone}"><div class="stat-card-icon"><i class="bi ${icon}"></i></div><div><div class="stat-card-value">${Number(value).toLocaleString("es-EC")}</div><div class="stat-card-label">${label}</div></div></div>`;
  async function render(){stats.innerHTML='<div class="dashboard-empty">Cargando indicadores…</div>';try{const d=await trailersysApiRequest("GET","/dashboard/resumen");stats.innerHTML=[card("bi-truck",d.vehiculos,"Vehículos"),card("bi-check-circle",d.vehiculosDisponibles,"Disponibles","success"),card("bi-person-badge",d.conductoresActivos,"Conductores activos"),card("bi-signpost-split",d.viajesEnCurso,"Viajes en curso","info"),card("bi-calendar2-check",d.viajesProgramados,"Programados"),card("bi-tools",d.mantenimientosVencidos,"Servicios vencidos",d.mantenimientosVencidos?"danger":""),card("bi-patch-check",d.entregasPendientes,"Entregas por validar",d.entregasPendientes?"warning":"")].join("");const warnings=[];if(d.mantenimientosVencidos)warnings.push(`<div class="alert-item level-warning"><i class="bi bi-tools"></i><div class="alert-text"><strong>${d.mantenimientosVencidos.toLocaleString("es-EC")}</strong> servicios requieren atención.</div></div>`);if(d.entregasPendientes)warnings.push(`<div class="alert-item level-info"><i class="bi bi-patch-check"></i><div class="alert-text"><strong>${d.entregasPendientes.toLocaleString("es-EC")}</strong> entregas esperan validación.</div></div>`);alerts.innerHTML=warnings.length?warnings.join(""):'<div class="alerts-empty"><i class="bi bi-check-circle"></i>No hay alertas críticas.</div>';trips.innerHTML=d.proximosViajes.length?d.proximosViajes.map(v=>`<div class="dashboard-trip"><div><div class="dashboard-trip-route">${esc(v.origen)} → ${esc(v.destino)}</div><div class="dashboard-trip-meta">${esc(v.placa)} · ${esc(v.conductor)}</div></div><div class="dashboard-trip-when">${trailersysFormatDateTime(v.fechaSalida)}</div></div>`).join(""):'<div class="dashboard-empty">No hay viajes programados.</div>';}catch(e){stats.innerHTML=`<div class="dashboard-empty">${esc(e.message)}</div>`;}}
+ window.addEventListener("trailersys:data-changed",e=>{if(e.detail?.resource==="mantenimientos")render();});
+ window.addEventListener("trailersys:module-activated",e=>{if(e.detail?.module==="dashboard")render();});
  render();
+})();
+
+(function () {
+  const container = document.getElementById("dashboardDisponibilidad");
+  const panel = document.getElementById("dashboardDisponibilidadPanel");
+  const session = trailersysGetSession();
+  if (!["administrador", "coordinador"].includes(session?.role)) { panel.hidden = true; return; }
+  const item = (icon, label, value, tone = "") => `<div class="availability-item ${tone}"><i class="bi ${icon}"></i><div><strong>${Number(value).toLocaleString("es-EC")}</strong><span>${label}</span></div></div>`;
+  function renderAvailability() { trailersysApiRequest("GET", "/dashboard/disponibilidad").then((d) => {
+    container.innerHTML = `
+      <div class="availability-group"><h4>Vehículos</h4><div class="availability-items">
+        ${item("bi-check-circle", "Disponibles", d.vehiculosDisponibles, "ok")}${item("bi-signpost", "En ruta", d.vehiculosEnRuta)}
+        ${item("bi-tools", "En mantenimiento", d.vehiculosMantenimiento, "warning")}${item("bi-x-octagon", "Fuera de servicio", d.vehiculosFueraServicio, "danger")}
+      </div></div>
+      <div class="availability-group"><h4>Conductores</h4><div class="availability-items">
+        ${item("bi-person-check", "Disponibles", d.conductoresDisponibles, "ok")}${item("bi-person-workspace", "En ruta", d.conductoresEnRuta)}
+        ${item("bi-moon-stars", "En descanso", d.conductoresDescanso)}${item("bi-person-x", "Inactivos", d.conductoresInactivos, "danger")}
+        ${item("bi-person-vcard", "Licencias vencidas", d.licenciasVencidas, "warning")}
+      </div></div>`;
+  }).catch((error) => { container.innerHTML = `<div class="dashboard-empty">${error.message}</div>`; }); }
+  window.addEventListener("trailersys:data-changed",e=>{if(e.detail?.resource==="mantenimientos")renderAvailability();});
+  window.addEventListener("trailersys:module-activated",e=>{if(e.detail?.module==="dashboard")renderAvailability();});
+  renderAvailability();
 })();

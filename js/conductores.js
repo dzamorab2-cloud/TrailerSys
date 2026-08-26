@@ -123,16 +123,16 @@
       ? `<span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Licencia vencida</span>`
       : "";
 
-    const actions = canManage
-      ? `<div class="person-actions">
+    const actions = `<div class="person-actions">
+          <button type="button" class="icon-btn" data-action="guia" data-id="${conductor.id}" title="Ver e imprimir guía del conductor"><i class="bi bi-file-earmark-person"></i></button>
+          ${canManage ? `
           <button type="button" class="icon-btn" data-action="editar" data-id="${conductor.id}" title="Editar">
             <i class="bi bi-pencil"></i>
           </button>
           <button type="button" class="icon-btn danger" data-action="eliminar" data-id="${conductor.id}" title="Eliminar">
             <i class="bi bi-trash3"></i>
-          </button>
-        </div>`
-      : "";
+          </button>` : ""}
+        </div>`;
 
     return `
       <article class="card person-card">
@@ -156,6 +156,15 @@
         </div>
         ${actions}
       </article>`;
+  }
+
+  async function showConductorGuide(conductor) {
+    const vehiculo = conductor.vehiculoId ? await trailersysApiRequest("GET", `/vehiculos/${conductor.vehiculoId}`).catch(() => null) : null;
+    trailersysShowGuide({ tipo: "Conductor", codigo: "CON", id: conductor.id, estado: conductor.estado, secciones: [
+      { titulo: "Datos personales", icono: "bi-person-vcard", campos: [["Nombre completo", conductor.nombres], ["Identificación", conductor.identificacion], ["Teléfono", conductor.telefono], ["Correo", conductor.correo || "No registrado"]] },
+      { titulo: "Licencia profesional", icono: "bi-card-checklist", campos: [["Número", conductor.licenciaNumero], ["Categoría", conductor.licenciaCategoria], ["Vencimiento", conductor.licenciaVencimiento], ["Vigencia", conductor.licenciaVencida ? "Vencida" : "Vigente"]] },
+      { titulo: "Asignación operativa", icono: "bi-truck", campos: [["Estado", conductor.estado], ["Vehículo", vehiculo ? `${vehiculo.marca} ${vehiculo.modelo}` : "Sin vehículo asignado"], ["Placa", vehiculo?.placa || conductor.vehiculoPlaca], ["Capacidad", vehiculo ? `${Number(vehiculo.capacidad).toLocaleString("es-EC")} kg` : "—"], ["Observaciones", conductor.observaciones || "Sin observaciones"]] }
+    ] });
   }
 
   async function render() {
@@ -342,7 +351,9 @@
     const conductor = conductoresCache.find((c) => String(c.id) === id);
     if (!conductor) return;
 
-    if (action === "editar") {
+    if (action === "guia") {
+      showConductorGuide(conductor).catch((error) => alert(error.message || "No se pudo generar la guía."));
+    } else if (action === "editar") {
       openForm(conductor);
     } else if (action === "eliminar") {
       trailersysConfirm({
