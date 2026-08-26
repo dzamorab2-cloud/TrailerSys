@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -191,11 +192,26 @@ class SeguimientoControllerTest {
 
     @Test
     void alertasDetectanLicenciaVencidaYVehiculoEnMantenimiento() throws Exception {
-        Long vehiculoId = crearVehiculo("SEG-ALERT-01", "Mantenimiento");
+        // El vehiculo se crea Disponible (ValidarDisponibilidad exige ese
+        // estado para poder asignarlo a un viaje) y recien despues de que el
+        // viaje ya esta En Curso se lleva a Mantenimiento, simulando el caso
+        // real que la alerta detecta: un vehiculo que quedo en mantenimiento
+        // mientras seguia con un viaje activo asignado.
+        Long vehiculoId = crearVehiculo("SEG-ALERT-01", "Disponible");
         Long conductorId = crearConductor("CI-SEG-ALERT-01", "2020-01-01");
         Long clienteId = crearCliente("CI-SEG-ALERT-CLI-01");
         crearViaje(vehiculoId, conductorId, clienteId, "Origen Alerta", "Destino Alerta",
                 "2026-08-20T08:00:00", "En Curso");
+
+        String vehiculoEnMantenimiento = """
+                {"placa":"SEG-ALERT-01","marca":"M","modelo":"M","tipo":"Camión","anio":2020,"color":"Rojo",
+                 "estado":"Mantenimiento","kilometraje":0,"capacidad":0}
+                """;
+        mockMvc.perform(put("/api/vehiculos/" + vehiculoId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(vehiculoEnMantenimiento))
+                .andExpect(status().isOk());
 
         String alertas = mockMvc.perform(get("/api/seguimiento/alertas")
                         .header("Authorization", "Bearer " + tokenAdmin))
