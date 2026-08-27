@@ -5,7 +5,15 @@
     return;
   }
 
-  const roleInfo = TRAILERSYS_ROLES[session.role] || TRAILERSYS_ROLES.administrador;
+  // Un rol que no existe en TRAILERSYS_ROLES (sesion corrupta o
+  // desincronizada con el backend) no debe caer en administrador: se
+  // trata como sesion invalida y se cierra, en vez de otorgar acceso total.
+  const roleInfo = TRAILERSYS_ROLES[session.role];
+  if (!roleInfo) {
+    trailersysClearSession();
+    window.location.href = "index.html";
+    return;
+  }
   const navLinks = Array.from(document.querySelectorAll(".nav-link"));
   const modules = Array.from(document.querySelectorAll(".module"));
   const topbarTitle = document.getElementById("topbarTitle");
