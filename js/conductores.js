@@ -87,7 +87,7 @@
   function setFotoPreview(dataUrl) {
     fotoActual = dataUrl || "";
     if (fotoActual) {
-      fotoPreview.innerHTML = `<img src="${fotoActual}" alt="Vista previa del conductor" />`;
+      fotoPreview.innerHTML = `<img src="${escapeHtml(fotoActual)}" alt="Vista previa del conductor" />`;
       btnQuitarFoto.hidden = false;
     } else {
       fotoPreview.innerHTML = `<i class="bi bi-person"></i>`;
@@ -116,7 +116,7 @@
   function renderCard(conductor, canManage) {
     const badgeClass = ESTADO_BADGE[conductor.estado] || "badge-neutral";
     const avatarContent = conductor.foto
-      ? `<img src="${conductor.foto}" alt="Foto de ${escapeHtml(conductor.nombres)}" />`
+      ? `<img src="${escapeHtml(conductor.foto)}" alt="Foto de ${escapeHtml(conductor.nombres)}" />`
       : initials(conductor.nombres);
 
     const licenciaBadge = conductor.licenciaVencida
