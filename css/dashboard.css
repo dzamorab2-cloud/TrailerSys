@@ -1,13 +1,14 @@
 /* Paneles del dashboard (alertas + proximos viajes) */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 18px;
   margin-top: 4px;
 }
 
 .dashboard-panel {
   padding: 20px;
+  min-width: 0;
 }
 
 .dashboard-panel-header {
@@ -65,6 +66,15 @@
   font-size: 0.85rem;
 }
 
+.dashboard-trip > div:first-child {
+  min-width: 0;
+}
+
+.dashboard-trip-route,
+.dashboard-trip-meta {
+  overflow-wrap: anywhere;
+}
+
 .availability-panel { margin-top: 18px; padding: 20px; }
 .availability-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .availability-group h4 { margin-bottom: 12px; font-size: .88rem; color: var(--color-text-muted); }
@@ -77,7 +87,17 @@
 .availability-item.ok > i { color: var(--color-success); }
 .availability-item.warning > i { color: var(--color-warning); }
 .availability-item.danger > i { color: var(--color-danger); }
-@media (max-width: 760px) { .availability-grid { grid-template-columns: 1fr; } .availability-items { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 760px) {
+  .availability-grid { grid-template-columns: 1fr; }
+  .availability-items { grid-template-columns: 1fr 1fr; }
+  .dashboard-trip { align-items: flex-start; flex-direction: column; }
+  .dashboard-trip-when { text-align: left; white-space: normal; }
+}
+
+@media (max-width: 480px) {
+  .availability-items { grid-template-columns: 1fr; }
+  .dashboard-panel, .availability-panel { padding: 16px; }
+}
 
 .stat-card-action { border-left: 3px solid transparent; }
 .stat-card-action.success { border-left-color: var(--color-success); }

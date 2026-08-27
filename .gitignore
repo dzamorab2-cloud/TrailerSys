@@ -8,3 +8,9 @@ reporte-*.csv
 
 # Build del backend
 backend/target/
+
+# Salidas temporales de los servidores locales
+*-run.log
+*-run-error.log
+backend/*-run.log
+backend/*-run-error.log
