@@ -321,7 +321,10 @@
 
   // --- Exportar CSV ---
   function csvEscape(value) {
-    const str = String(value ?? "").replace(/<[^>]*>/g, "");
+    let str = String(value ?? "").replace(/<[^>]*>/g, "");
+    // Neutraliza inyeccion de formulas: Excel/Sheets interpretan como
+    // formula cualquier celda que empiece con =, +, - o @ al abrir el CSV.
+    if (/^[=+\-@]/.test(str)) str = `'${str}`;
     if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
     return str;
   }
