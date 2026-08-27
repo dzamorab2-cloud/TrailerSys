@@ -427,8 +427,8 @@
     const origenLatLng = [viaje.ruta.origenCoords.lat, viaje.ruta.origenCoords.lng];
     const destinoLatLng = [viaje.ruta.destinoCoords.lat, viaje.ruta.destinoCoords.lng];
 
-    L.marker(origenLatLng).addTo(leafletMapInstance).bindPopup(`Origen: ${viaje.origen}`);
-    L.marker(destinoLatLng).addTo(leafletMapInstance).bindPopup(`Destino: ${viaje.destino}`);
+    L.marker(origenLatLng).addTo(leafletMapInstance).bindPopup(`Origen: ${escapeHtml(viaje.origen)}`);
+    L.marker(destinoLatLng).addTo(leafletMapInstance).bindPopup(`Destino: ${escapeHtml(viaje.destino)}`);
 
     if (path && path.length) {
       const polyline = L.polyline(path, { color: "#f2874b", weight: 4 }).addTo(leafletMapInstance);
