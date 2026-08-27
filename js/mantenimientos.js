@@ -171,7 +171,11 @@
 
     let mantenimientos;
     try {
-      pageMeta = await trailersysPagedRequest("mantenimientos", currentPage, 24);
+      pageMeta = await trailersysPagedRequest("mantenimientos", currentPage, 24, {
+        search: inputBuscar.value.trim(),
+        vehiculoId: filtroVehiculo.value,
+        tipo: filtroTipo.value,
+      });
       mantenimientos = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
@@ -183,17 +187,7 @@
     }
     mantenimientosCache = mantenimientos;
 
-    const search = inputBuscar.value.trim().toLowerCase();
-    const vehiculoId = filtroVehiculo.value;
-    const tipo = filtroTipo.value;
-
-    const filtrados = mantenimientos.filter((m) => {
-      const haystack = [m.descripcion, m.vehiculoPlaca].filter(Boolean).join(" ").toLowerCase();
-      const matchesSearch = !search || haystack.includes(search);
-      const matchesVehiculo = !vehiculoId || String(m.vehiculoId) === vehiculoId;
-      const matchesTipo = !tipo || m.tipo === tipo;
-      return matchesSearch && matchesVehiculo && matchesTipo;
-    });
+    const filtrados = mantenimientos;
 
     filtrados.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
@@ -215,7 +209,7 @@
 
     grid.hidden = false;
     emptyState.hidden = true;
-    resultsCount.textContent = `${filtrados.length} de ${mantenimientos.length} mantenimiento${mantenimientos.length === 1 ? "" : "s"}`;
+    resultsCount.textContent = `${Number(pageMeta.totalElements).toLocaleString("es-EC")} mantenimiento${pageMeta.totalElements === 1 ? "" : "s"}`;
     trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((m) => renderCard(m, canManage)).join("");
   }
@@ -429,9 +423,13 @@
   });
 
   // --- Busqueda y filtros ---
-  [inputBuscar, filtroVehiculo, filtroTipo].forEach((el) => {
-    el.addEventListener("input", render);
-    el.addEventListener("change", render);
+  let buscarTimer;
+  inputBuscar.addEventListener("input", () => {
+    clearTimeout(buscarTimer);
+    buscarTimer = setTimeout(() => { currentPage = 0; render(); }, 300);
+  });
+  [filtroVehiculo, filtroTipo].forEach((el) => {
+    el.addEventListener("change", () => { currentPage = 0; render(); });
   });
 
   window.addEventListener("trailersys:module-activated", (event) => {

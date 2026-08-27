@@ -128,7 +128,7 @@
   function setFotoPreview(dataUrl) {
     fotoActual = dataUrl || "";
     if (fotoActual) {
-      fotoPreview.innerHTML = `<img src="${fotoActual}" alt="Vista previa del vehículo" />`;
+      fotoPreview.innerHTML = `<img src="${escapeHtml(fotoActual)}" alt="Vista previa del vehículo" />`;
       btnQuitarFoto.hidden = false;
     } else {
       fotoPreview.innerHTML = `<i class="bi bi-truck"></i>`;
@@ -161,7 +161,7 @@
   function renderCard(vehiculo, canManage) {
     const badgeClass = ESTADO_BADGE[vehiculo.estado] || "badge-neutral";
     const photoContent = vehiculo.foto
-      ? `<img src="${vehiculo.foto}" alt="Foto de ${escapeHtml(vehiculo.placa)}" />`
+      ? `<img src="${escapeHtml(vehiculo.foto)}" alt="Foto de ${escapeHtml(vehiculo.placa)}" />`
       : `<i class="bi bi-truck"></i>`;
 
     const actions = `<div class="vehicle-actions">
@@ -211,7 +211,10 @@
 
     let vehiculos;
     try {
-      pageMeta = await trailersysPagedRequest("vehiculos", currentPage, 24);
+      pageMeta = await trailersysPagedRequest("vehiculos", currentPage, 24, {
+        search: inputBuscar.value.trim(),
+        estado: filtroEstado.value,
+      });
       vehiculos = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
@@ -224,20 +227,16 @@
     vehiculosCache = vehiculos;
     refreshFilterOptions(vehiculos);
 
-    const search = inputBuscar.value.trim().toLowerCase();
-    const estado = filtroEstado.value;
     const tipo = filtroTipo.value;
     const marca = filtroMarca.value;
 
+    // El backend ya filtra por busqueda y estado; tipo/marca se afinan
+    // localmente sobre la pagina ya filtrada (sus opciones se derivan de
+    // los datos cargados, ver refreshFilterOptions).
     const filtrados = vehiculos.filter((v) => {
-      const matchesSearch = !search
-        || v.placa.toLowerCase().includes(search)
-        || v.marca.toLowerCase().includes(search)
-        || v.modelo.toLowerCase().includes(search);
-      const matchesEstado = !estado || v.estado === estado;
       const matchesTipo = !tipo || v.tipo === tipo;
       const matchesMarca = !marca || v.marca === marca;
-      return matchesSearch && matchesEstado && matchesTipo && matchesMarca;
+      return matchesTipo && matchesMarca;
     });
 
     if (filtrados.length === 0) {
@@ -450,8 +449,13 @@
   });
 
   // --- Busqueda y filtros ---
-  [inputBuscar, filtroEstado, filtroTipo, filtroMarca].forEach((el) => {
-    el.addEventListener("input", render);
+  let buscarTimer;
+  inputBuscar.addEventListener("input", () => {
+    clearTimeout(buscarTimer);
+    buscarTimer = setTimeout(() => { currentPage = 0; render(); }, 300);
+  });
+  filtroEstado.addEventListener("change", () => { currentPage = 0; render(); });
+  [filtroTipo, filtroMarca].forEach((el) => {
     el.addEventListener("change", render);
   });
 

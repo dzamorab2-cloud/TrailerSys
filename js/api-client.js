@@ -52,8 +52,12 @@ async function trailersysApiRequest(method, path, body) {
   return data;
 }
 
-async function trailersysPagedRequest(resource, page = 0, size = 24) {
-  return trailersysApiRequest("GET", `/paginas/${resource}?page=${page}&size=${size}`);
+async function trailersysPagedRequest(resource, page = 0, size = 24, extraParams = {}) {
+  const params = new URLSearchParams({ page, size });
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") params.set(key, value);
+  });
+  return trailersysApiRequest("GET", `/paginas/${resource}?${params}`);
 }
 
 function trailersysRenderPager(anchor, data, onPage) {

@@ -176,7 +176,10 @@
 
     let cargas;
     try {
-      pageMeta = await trailersysPagedRequest("cargas", currentPage, 24);
+      pageMeta = await trailersysPagedRequest("cargas", currentPage, 24, {
+        search: inputBuscar.value.trim(),
+        estado: filtroEstado.value,
+      });
       cargas = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
@@ -188,19 +191,7 @@
     }
     cargasCache = cargas;
 
-    const search = inputBuscar.value.trim().toLowerCase();
-    const estado = filtroEstado.value;
-
-    const filtrados = cargas.filter((carga) => {
-      const clienteNombre = (carga.clienteNombre || "").toLowerCase();
-      const matchesSearch = !search
-        || carga.descripcion.toLowerCase().includes(search)
-        || carga.origen.toLowerCase().includes(search)
-        || carga.destino.toLowerCase().includes(search)
-        || clienteNombre.includes(search);
-      const matchesEstado = !estado || carga.estado === estado;
-      return matchesSearch && matchesEstado;
-    });
+    const filtrados = cargas;
 
     if (filtrados.length === 0) {
       grid.hidden = true;
@@ -220,7 +211,7 @@
 
     grid.hidden = false;
     emptyState.hidden = true;
-    resultsCount.textContent = `${filtrados.length} de ${cargas.length} carga${cargas.length === 1 ? "" : "s"}`;
+    resultsCount.textContent = `${Number(pageMeta.totalElements).toLocaleString("es-EC")} carga${pageMeta.totalElements === 1 ? "" : "s"}`;
     trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((c) => renderCard(c, canManage)).join("");
   }
@@ -367,10 +358,12 @@
   });
 
   // --- Busqueda y filtros ---
-  [inputBuscar, filtroEstado].forEach((el) => {
-    el.addEventListener("input", render);
-    el.addEventListener("change", render);
+  let buscarTimer;
+  inputBuscar.addEventListener("input", () => {
+    clearTimeout(buscarTimer);
+    buscarTimer = setTimeout(() => { currentPage = 0; render(); }, 300);
   });
+  filtroEstado.addEventListener("change", () => { currentPage = 0; render(); });
 
   session = trailersysGetSession();
   render();

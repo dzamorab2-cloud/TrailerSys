@@ -307,7 +307,10 @@
 
     let viajes;
     try {
-      pageMeta = await trailersysPagedRequest("viajes", currentPage, 24);
+      pageMeta = await trailersysPagedRequest("viajes", currentPage, 24, {
+        search: inputBuscar.value.trim(),
+        estado: filtroEstado.value,
+      });
       viajes = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
@@ -322,18 +325,7 @@
     });
     viajesCache = viajes;
 
-    const search = inputBuscar.value.trim().toLowerCase();
-    const estado = filtroEstado.value;
-
-    const filtrados = viajes.filter((viaje) => {
-      const haystack = [viaje.origen, viaje.destino, viaje.vehiculoPlaca, viaje.conductorNombres]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = !search || haystack.includes(search);
-      const matchesEstado = !estado || viaje.estado === estado;
-      return matchesSearch && matchesEstado;
-    });
+    const filtrados = viajes;
 
     if (filtrados.length === 0) {
       grid.hidden = true;
@@ -353,7 +345,7 @@
 
     grid.hidden = false;
     emptyState.hidden = true;
-    resultsCount.textContent = `${filtrados.length} de ${viajes.length} viaje${viajes.length === 1 ? "" : "s"}`;
+    resultsCount.textContent = `${Number(pageMeta.totalElements).toLocaleString("es-EC")} viaje${pageMeta.totalElements === 1 ? "" : "s"}`;
     trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((v) => renderCard(v, canManage)).join("");
   }
@@ -573,10 +565,12 @@
   });
 
   // --- Busqueda y filtros ---
-  [inputBuscar, filtroEstado].forEach((el) => {
-    el.addEventListener("input", render);
-    el.addEventListener("change", render);
+  let buscarTimer;
+  inputBuscar.addEventListener("input", () => {
+    clearTimeout(buscarTimer);
+    buscarTimer = setTimeout(() => { currentPage = 0; render(); }, 300);
   });
+  filtroEstado.addEventListener("change", () => { currentPage = 0; render(); });
 
   // --- Visor de mapa ---
   function renderMapaResumen(viaje) {
@@ -620,8 +614,8 @@
     const origenLatLng = [viaje.ruta.origenCoords.lat, viaje.ruta.origenCoords.lng];
     const destinoLatLng = [viaje.ruta.destinoCoords.lat, viaje.ruta.destinoCoords.lng];
 
-    L.marker(origenLatLng).addTo(leafletMapInstance).bindPopup(`Origen: ${viaje.origen}`);
-    L.marker(destinoLatLng).addTo(leafletMapInstance).bindPopup(`Destino: ${viaje.destino}`);
+    L.marker(origenLatLng).addTo(leafletMapInstance).bindPopup(`Origen: ${escapeHtml(viaje.origen)}`);
+    L.marker(destinoLatLng).addTo(leafletMapInstance).bindPopup(`Destino: ${escapeHtml(viaje.destino)}`);
 
     if (viaje.ruta.path && viaje.ruta.path.length) {
       const polyline = L.polyline(viaje.ruta.path, { color: "#f2874b", weight: 4 }).addTo(leafletMapInstance);

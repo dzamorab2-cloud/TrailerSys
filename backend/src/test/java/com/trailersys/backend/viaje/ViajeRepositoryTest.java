@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.PageRequest;
 
 import com.trailersys.backend.cliente.Cliente;
 import com.trailersys.backend.cliente.EstadoCliente;
@@ -48,5 +49,31 @@ class ViajeRepositoryTest {
         assertThat(encontrado.getCliente().getNombre()).isEqualTo("Cliente Repo");
         assertThat(encontrado.getCarga()).isNull();
         assertThat(encontrado.getRutaDistanciaKm()).isEqualTo(123.4);
+    }
+
+    @Test
+    void buscarFiltraPorTextoIncluyendoPlacaYConductorYPorEstadoEnTodaLaTabla() {
+        Vehiculo vehiculo = entityManager.persist(new Vehiculo(
+                "BUS-0001", "Marca", "Modelo", "Tipo", 2020, "Rojo", EstadoVehiculo.DISPONIBLE, 0, 0, null, null));
+        Conductor conductor = entityManager.persist(new Conductor(
+                "Juan Perez", "CI-BUS", "0999999999", null, "LIC-1", "Tipo B",
+                LocalDate.now().plusYears(1), EstadoConductor.DISPONIBLE, null, null, null));
+        Cliente cliente = entityManager.persist(new Cliente(
+                "Cliente Buscar", "CI-BUS-CLI", EstadoCliente.ACTIVO, "0999999999", null, "Direccion", null, null));
+
+        repository.save(new Viaje(vehiculo, conductor, cliente, null, "Quito", "Guayaquil",
+                LocalDateTime.of(2026, 1, 1, 8, 0), EstadoViaje.PROGRAMADO, null));
+        repository.save(new Viaje(vehiculo, conductor, cliente, null, "Cuenca", "Loja",
+                LocalDateTime.of(2026, 2, 1, 8, 0), EstadoViaje.FINALIZADO, null));
+
+        var porPlaca = repository.buscar("bus-0001", null, PageRequest.of(0, 10));
+        assertThat(porPlaca.getTotalElements()).isEqualTo(2);
+
+        var porConductor = repository.buscar("juan perez", null, PageRequest.of(0, 10));
+        assertThat(porConductor.getTotalElements()).isEqualTo(2);
+
+        var porEstado = repository.buscar("", EstadoViaje.FINALIZADO, PageRequest.of(0, 10));
+        assertThat(porEstado.getTotalElements()).isEqualTo(1);
+        assertThat(porEstado.getContent().get(0).getOrigen()).isEqualTo("Cuenca");
     }
 }

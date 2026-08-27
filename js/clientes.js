@@ -121,7 +121,10 @@
 
     let clientes;
     try {
-      pageMeta = await trailersysPagedRequest("clientes", currentPage, 24);
+      pageMeta = await trailersysPagedRequest("clientes", currentPage, 24, {
+        search: inputBuscar.value.trim(),
+        estado: filtroEstado.value,
+      });
       clientes = pageMeta.content;
     } catch (error) {
       grid.hidden = true;
@@ -133,17 +136,7 @@
     }
     clientesCache = clientes;
 
-    const search = inputBuscar.value.trim().toLowerCase();
-    const estado = filtroEstado.value;
-
-    const filtrados = clientes.filter((c) => {
-      const matchesSearch = !search
-        || c.nombre.toLowerCase().includes(search)
-        || c.identificacion.toLowerCase().includes(search)
-        || c.telefono.toLowerCase().includes(search);
-      const matchesEstado = !estado || c.estado === estado;
-      return matchesSearch && matchesEstado;
-    });
+    const filtrados = clientes;
 
     if (filtrados.length === 0) {
       grid.hidden = true;
@@ -163,7 +156,7 @@
 
     grid.hidden = false;
     emptyState.hidden = true;
-    resultsCount.textContent = `${filtrados.length} de ${clientes.length} cliente${clientes.length === 1 ? "" : "s"}`;
+    resultsCount.textContent = `${Number(pageMeta.totalElements).toLocaleString("es-EC")} cliente${pageMeta.totalElements === 1 ? "" : "s"}`;
     trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((c) => renderCard(c, canManage)).join("");
   }
@@ -295,10 +288,12 @@
   });
 
   // --- Busqueda y filtros ---
-  [inputBuscar, filtroEstado].forEach((el) => {
-    el.addEventListener("input", render);
-    el.addEventListener("change", render);
+  let buscarTimer;
+  inputBuscar.addEventListener("input", () => {
+    clearTimeout(buscarTimer);
+    buscarTimer = setTimeout(() => { currentPage = 0; render(); }, 300);
   });
+  filtroEstado.addEventListener("change", () => { currentPage = 0; render(); });
 
   session = trailersysGetSession();
   render();
