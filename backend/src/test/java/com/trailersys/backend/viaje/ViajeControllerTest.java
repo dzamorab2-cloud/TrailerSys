@@ -3,6 +3,7 @@ package com.trailersys.backend.viaje;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -438,6 +439,96 @@ class ViajeControllerTest {
         mockMvc.perform(get("/api/conductores/" + conductorId)
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(jsonPath("$.estado").value("En Ruta"));
+    }
+
+    @Test
+    void actualizarViajeConOtroVehiculoYConductorLiberaLosAnteriores() throws Exception {
+        Long vehiculoOriginal = crearVehiculo("VJE-REAS-01");
+        Long conductorOriginal = crearConductor("CI-VJE-REAS-01");
+        Long vehiculoNuevo = crearVehiculo("VJE-REAS-02");
+        Long conductorNuevo = crearConductor("CI-VJE-REAS-02");
+        Long clienteId = crearCliente("CI-VJE-REAS-CLI");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoOriginal, conductorOriginal, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoOriginal)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+
+        String actualizacion = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoNuevo, conductorNuevo, clienteId);
+        mockMvc.perform(put("/api/viajes/" + viajeId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(actualizacion))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoOriginal)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Disponible"));
+        mockMvc.perform(get("/api/conductores/" + conductorOriginal)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Disponible"));
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoNuevo)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+        mockMvc.perform(get("/api/conductores/" + conductorNuevo)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+    }
+
+    @Test
+    void actualizarViajeConOtraCargaLiberaLaCargaAnterior() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-REAS-03");
+        Long conductorId = crearConductor("CI-VJE-REAS-03");
+        Long clienteId = crearCliente("CI-VJE-REAS-CLI-02");
+        Long cargaOriginal = crearCarga(clienteId, "Reas1");
+        Long cargaNueva = crearCarga(clienteId, "Reas2");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductorId, clienteId, cargaOriginal);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(get("/api/cargas/" + cargaOriginal)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Asignada"));
+
+        String actualizacion = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductorId, clienteId, cargaNueva);
+        mockMvc.perform(put("/api/viajes/" + viajeId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(actualizacion))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/cargas/" + cargaOriginal)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Pendiente"));
+        mockMvc.perform(get("/api/cargas/" + cargaNueva)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Asignada"));
     }
 
     @Test

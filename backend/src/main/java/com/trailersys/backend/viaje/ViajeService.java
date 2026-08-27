@@ -100,6 +100,9 @@ public class ViajeService {
     public Viaje actualizar(Long id, ViajeRequest request) {
         Viaje viaje = obtener(id);
         EstadoViaje estadoAnterior = viaje.getEstado();
+        Carga cargaAnterior = viaje.getCarga();
+        Vehiculo vehiculoAnterior = viaje.getVehiculo();
+        Conductor conductorAnterior = viaje.getConductor();
 
         Cliente cliente = resolverCliente(request.clienteId());
         Carga carga = resolverCarga(request.cargaId());
@@ -125,7 +128,9 @@ public class ViajeService {
             registrarSalidaAutomatica(viaje);
         }
         sincronizarEstadoCarga(viaje);
+        liberarCargaSiCambio(cargaAnterior, carga);
         sincronizarEstadoVehiculoYConductor(viaje);
+        liberarVehiculoYConductorSiCambiaron(vehiculoAnterior, vehiculo, conductorAnterior, conductor);
         return viaje;
     }
 
@@ -249,6 +254,47 @@ public class ViajeService {
         return repository.findByConductor_Id(conductorId).stream()
                 .noneMatch(v -> !v.getId().equals(viajeIdActual)
                         && (v.getEstado() == EstadoViaje.PROGRAMADO || v.getEstado() == EstadoViaje.EN_CURSO));
+    }
+
+    /**
+     * Si actualizar() reasigna el viaje a otra carga, la carga anterior no
+     * queda referenciada por esta fila y sincronizarEstadoCarga() ya no la
+     * toca (opera sobre viaje.getCarga(), que ahora es la nueva). Sin este
+     * metodo, la carga anterior se quedaba "Asignada"/"En Transito" para
+     * siempre aunque ningun viaje activo la citara.
+     */
+    private void liberarCargaSiCambio(Carga cargaAnterior, Carga cargaNueva) {
+        if (cargaAnterior == null || (cargaNueva != null && cargaAnterior.getId().equals(cargaNueva.getId()))) {
+            return;
+        }
+        boolean referenciadaPorOtroViajeActivo = repository.findByCarga_Id(cargaAnterior.getId()).stream()
+                .anyMatch(v -> v.getEstado() == EstadoViaje.PROGRAMADO || v.getEstado() == EstadoViaje.EN_CURSO);
+        if (!referenciadaPorOtroViajeActivo && cargaAnterior.getEstado() != EstadoCarga.ENTREGADA) {
+            cargaAnterior.setEstado(EstadoCarga.PENDIENTE);
+            cargaRepository.save(cargaAnterior);
+        }
+    }
+
+    /**
+     * Mismo problema que liberarCargaSiCambio pero para el vehiculo y el
+     * conductor: si actualizar() les asigna otro vehiculo/conductor al
+     * viaje, el anterior se quedaba en EN_RUTA de forma permanente porque
+     * sincronizarEstadoVehiculoYConductor() ya solo ve al nuevo.
+     */
+    private void liberarVehiculoYConductorSiCambiaron(Vehiculo vehiculoAnterior, Vehiculo vehiculoNuevo,
+                                                       Conductor conductorAnterior, Conductor conductorNuevo) {
+        if (!vehiculoAnterior.getId().equals(vehiculoNuevo.getId())
+                && vehiculoAnterior.getEstado() == EstadoVehiculo.EN_RUTA
+                && vehiculoLibre(vehiculoAnterior.getId(), null)) {
+            vehiculoAnterior.setEstado(EstadoVehiculo.DISPONIBLE);
+            vehiculoRepository.save(vehiculoAnterior);
+        }
+        if (!conductorAnterior.getId().equals(conductorNuevo.getId())
+                && conductorAnterior.getEstado() == EstadoConductor.EN_RUTA
+                && conductorLibre(conductorAnterior.getId(), null)) {
+            conductorAnterior.setEstado(EstadoConductor.DISPONIBLE);
+            conductorRepository.save(conductorAnterior);
+        }
     }
 
     /**
