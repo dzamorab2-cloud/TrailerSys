@@ -32,7 +32,12 @@ async function trailersysApiRequest(method, path, body) {
     throw new TrailersysApiError("No se pudo conectar con el servidor. Verifica tu conexión.", 0);
   }
 
-  if (response.status === 401) {
+  // Un 401 en /auth/login significa credenciales invalidas, no una sesion
+  // expirada: aqui no hay sesion que limpiar ni token que renovar, asi que
+  // se deja caer al manejo generico de abajo para mostrar el mensaje real
+  // del backend ("Usuario o contraseña incorrectos.") en vez de forzar una
+  // redireccion a index.html que interrumpe el propio formulario de login.
+  if (response.status === 401 && path !== "/auth/login") {
     trailersysClearSession();
     window.location.href = "index.html";
     throw new TrailersysApiError("Sesión expirada.", 401);
