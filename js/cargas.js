@@ -102,6 +102,13 @@
 
   function renderCard(carga, canManage) {
     const badgeClass = ESTADO_BADGE[carga.estado] || "badge-neutral";
+    // Una carga Pendiente todavia no tiene viaje asignado (ver
+    // sincronizarEstadoCarga en el backend: pasa a Asignada recien cuando
+    // un Coordinador le crea un viaje). Se resalta para que sea facil de
+    // detectar entre el resto de estados.
+    const sinViajeBadge = carga.estado === "Pendiente"
+      ? `<span class="badge badge-warning"><i class="bi bi-exclamation-circle"></i> Sin viaje asignado</span>`
+      : "";
 
     const actions = `<div class="item-actions">
           <button type="button" class="icon-btn" data-action="guia" data-id="${carga.id}" title="Ver e imprimir guía">
@@ -134,6 +141,7 @@
           </div>
           <div class="item-meta">
             <span class="badge ${badgeClass}">${escapeHtml(carga.estado)}</span>
+            ${sinViajeBadge}
             <span><i class="bi bi-box-seam"></i>${formatPesoDoble(carga.peso)}</span>
           </div>
           ${carga.observaciones ? `<p class="item-observations">${escapeHtml(carga.observaciones)}</p>` : ""}
