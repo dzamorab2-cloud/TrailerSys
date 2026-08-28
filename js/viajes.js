@@ -158,7 +158,11 @@
       trailersysApiRequest("GET", "/paginas/vehiculos?page=0&size=100&estado=Disponible").then((d) => d.content).catch(() => []),
       trailersysApiRequest("GET", "/paginas/conductores?page=0&size=100&estado=Disponible").then((d) => d.content).catch(() => []),
       trailersysPagedRequest("clientes", 0, 100).then((d) => d.content).catch(() => []),
-      trailersysPagedRequest("cargas", 0, 100).then((d) => d.content).catch(() => []),
+      // Filtrado por estado en el propio backend (no en el cliente): antes
+      // se pedian hasta 100 cargas SIN filtrar y se recortaba a "Pendiente"
+      // en el navegador, así que con más de 100 cargas en la tabla podían
+      // quedar pedidos pendientes fuera de este selector sin que se notara.
+      trailersysPagedRequest("cargas", 0, 100, { estado: "Pendiente" }).then((d) => d.content).catch(() => []),
     ]);
   }
 
@@ -178,6 +182,10 @@
     if (viaje?.conductorId && !conductoresCache.some((c) => String(c.id) === String(viaje.conductorId))) {
       const actual = await trailersysApiRequest("GET", `/conductores/${viaje.conductorId}`).catch(() => null);
       if (actual) conductoresCache.push(actual);
+    }
+    if (viaje?.cargaId && !cargasCache.some((c) => String(c.id) === String(viaje.cargaId))) {
+      const actual = await trailersysApiRequest("GET", `/cargas/${viaje.cargaId}`).catch(() => null);
+      if (actual) cargasCache.push(actual);
     }
     fillSelect(selectVehiculo, filtrarDisponibles(vehiculosCache, "Disponible", viaje?.vehiculoId),
       (v) => `${v.placa} · ${v.marca} ${v.modelo} · ${v.estado}`, "Selecciona un vehículo disponible");
