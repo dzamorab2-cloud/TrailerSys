@@ -55,4 +55,24 @@ class CargaRepositoryTest {
         assertThat(porEstado.getTotalElements()).isEqualTo(1);
         assertThat(porEstado.getContent().get(0).getEstado()).isEqualTo(EstadoCarga.ENTREGADA);
     }
+
+    @Test
+    void findByClienteIdSoloDevuelveLasCargasDeEseClienteYFindByIdAndClienteIdAislaEntreClientes() {
+        Cliente clienteA = entityManager.persist(new Cliente("Cliente A", "CI-A01",
+                EstadoCliente.ACTIVO, "0999999999", null, "Direccion", null, null));
+        Cliente clienteB = entityManager.persist(new Cliente("Cliente B", "CI-B01",
+                EstadoCliente.ACTIVO, "0999999999", null, "Direccion", null, null));
+
+        Carga cargaDeA = repository.save(new Carga("Pedido de A", clienteA, "General", 100,
+                "Quito", "Guayaquil", EstadoCarga.PENDIENTE, null));
+        repository.save(new Carga("Pedido de B", clienteB, "General", 200,
+                "Cuenca", "Loja", EstadoCarga.PENDIENTE, null));
+
+        var cargasDeA = repository.findByCliente_IdOrderByIdDesc(clienteA.getId());
+        assertThat(cargasDeA).hasSize(1);
+        assertThat(cargasDeA.get(0).getDescripcion()).isEqualTo("Pedido de A");
+
+        assertThat(repository.findByIdAndCliente_Id(cargaDeA.getId(), clienteA.getId())).isPresent();
+        assertThat(repository.findByIdAndCliente_Id(cargaDeA.getId(), clienteB.getId())).isEmpty();
+    }
 }

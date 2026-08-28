@@ -1,0 +1,103 @@
+package com.trailersys.backend.pedido;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.trailersys.backend.carga.Carga;
+import com.trailersys.backend.carga.CargaRepository;
+import com.trailersys.backend.carga.EstadoCarga;
+import com.trailersys.backend.cliente.Cliente;
+import com.trailersys.backend.common.ConflictException;
+import com.trailersys.backend.common.ResourceNotFoundException;
+import com.trailersys.backend.pedido.dto.PedidoCargaRequest;
+import com.trailersys.backend.usuario.Usuario;
+import com.trailersys.backend.usuario.UsuarioRepository;
+import com.trailersys.backend.viaje.EstadoViaje;
+import com.trailersys.backend.viaje.Viaje;
+import com.trailersys.backend.viaje.ViajeRepository;
+
+/**
+ * Autoservicio del rol CLIENTE: crear pedidos (Cargas en Pendiente),
+ * consultar unicamente sus propias cargas/viajes, y confirmar la
+ * recepcion de una entrega ya Finalizada. Todo se acota al Cliente
+ * vinculado al Usuario autenticado (Usuario.cliente); nunca se confia en
+ * un clienteId que venga del request ni en el id de una carga por si
+ * solo, siempre se verifica la pertenencia primero (ver miCarga()).
+ */
+@Service
+public class PedidoClienteService {
+
+    private final UsuarioRepository usuarioRepository;
+    private final CargaRepository cargaRepository;
+    private final ViajeRepository viajeRepository;
+
+    public PedidoClienteService(UsuarioRepository usuarioRepository, CargaRepository cargaRepository,
+                                 ViajeRepository viajeRepository) {
+        this.usuarioRepository = usuarioRepository;
+        this.cargaRepository = cargaRepository;
+        this.viajeRepository = viajeRepository;
+    }
+
+    private Cliente miCliente(String username) {
+        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username)
+                .filter(Usuario::isActivo)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + username));
+        Cliente cliente = usuario.getCliente();
+        if (cliente == null) {
+            throw new ConflictException("Este usuario no tiene un cliente asociado.");
+        }
+        return cliente;
+    }
+
+    /**
+     * Busca la carga por id exigiendo en la misma consulta que pertenezca
+     * al cliente de "username". Si el id no existe, o existe pero es de
+     * otro cliente, se lanza el mismo 404 en ambos casos: nunca se revela
+     * a un cliente si el id de otro cliente existe o no.
+     */
+    private Carga miCarga(String username, Long cargaId) {
+        Long clienteId = miCliente(username).getId();
+        return cargaRepository.findByIdAndCliente_Id(cargaId, clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado: " + cargaId));
+    }
+
+    public List<Carga> listarMisCargas(String username) {
+        return cargaRepository.findByCliente_IdOrderByIdDesc(miCliente(username).getId());
+    }
+
+    @Transactional
+    public Carga crearPedido(String username, PedidoCargaRequest request) {
+        Cliente cliente = miCliente(username);
+        Carga carga = new Carga(request.descripcion(), cliente, request.tipo(), request.peso(),
+                request.origen(), request.destino(), EstadoCarga.PENDIENTE, request.observaciones());
+        return cargaRepository.save(carga);
+    }
+
+    public Viaje obtenerViajeDeMiCarga(String username, Long cargaId) {
+        Carga carga = miCarga(username, cargaId);
+        return viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId()).orElse(null);
+    }
+
+    @Transactional
+    public Viaje confirmarRecepcion(String username, Long cargaId, String observacion) {
+        Carga carga = miCarga(username, cargaId);
+        Viaje viaje = viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId())
+                .orElseThrow(() -> new ConflictException("Este pedido todavía no tiene un viaje asociado."));
+
+        if (viaje.getEstado() != EstadoViaje.FINALIZADO) {
+            throw new ConflictException("Solo puedes confirmar la recepción de un pedido cuyo viaje ya está Finalizado.");
+        }
+        if (viaje.isEntregaConfirmadaCliente()) {
+            throw new ConflictException("Ya confirmaste la recepción de este pedido.");
+        }
+
+        viaje.setEntregaConfirmadaCliente(true);
+        viaje.setFechaConfirmacionCliente(LocalDateTime.now());
+        viaje.setObservacionConfirmacionCliente(observacion);
+        viaje.setConfirmadoPorCliente(username);
+        return viaje;
+    }
+}

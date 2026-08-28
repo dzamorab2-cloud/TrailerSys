@@ -108,6 +108,24 @@ public class Viaje {
      */
     private Integer paradasSimuladasRegistradas;
 
+    /**
+     * Tercer paso de confirmacion, paralelo a entregaConfirmada (Conductor)
+     * y entregaValidada (Supervisor): el Cliente confirma que recibio su
+     * carga. No cambia el estado del viaje ni depende de los otros dos
+     * pasos. Boolean (no boolean) y sin nullable=false por la misma razon
+     * que paradasSimuladasRegistradas: esta columna se agrega sobre una
+     * tabla que ya tiene filas.
+     */
+    private Boolean entregaConfirmadaCliente;
+
+    private LocalDateTime fechaConfirmacionCliente;
+
+    @Column(columnDefinition = "TEXT")
+    private String observacionConfirmacionCliente;
+
+    @Column(length = 60)
+    private String confirmadoPorCliente;
+
     protected Viaje() {
     }
 
@@ -326,5 +344,37 @@ public class Viaje {
 
     public void setParadasSimuladasRegistradas(int paradasSimuladasRegistradas) {
         this.paradasSimuladasRegistradas = paradasSimuladasRegistradas;
+    }
+
+    public boolean isEntregaConfirmadaCliente() {
+        return entregaConfirmadaCliente != null && entregaConfirmadaCliente;
+    }
+
+    public void setEntregaConfirmadaCliente(boolean entregaConfirmadaCliente) {
+        this.entregaConfirmadaCliente = entregaConfirmadaCliente;
+    }
+
+    public LocalDateTime getFechaConfirmacionCliente() {
+        return fechaConfirmacionCliente;
+    }
+
+    public void setFechaConfirmacionCliente(LocalDateTime fechaConfirmacionCliente) {
+        this.fechaConfirmacionCliente = fechaConfirmacionCliente;
+    }
+
+    public String getObservacionConfirmacionCliente() {
+        return observacionConfirmacionCliente;
+    }
+
+    public void setObservacionConfirmacionCliente(String observacionConfirmacionCliente) {
+        this.observacionConfirmacionCliente = observacionConfirmacionCliente;
+    }
+
+    public String getConfirmadoPorCliente() {
+        return confirmadoPorCliente;
+    }
+
+    public void setConfirmadoPorCliente(String confirmadoPorCliente) {
+        this.confirmadoPorCliente = confirmadoPorCliente;
     }
 }
