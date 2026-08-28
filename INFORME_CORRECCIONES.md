@@ -152,3 +152,76 @@ Durante la revisión se identificaron otros puntos que, por su alcance o riesgo,
 
 **Frontend:**
 - `js/api-client.js`, `js/vehiculos.js`, `js/clientes.js`, `js/cargas.js`, `js/viajes.js`, `js/mantenimientos.js`, `js/conductores.js`, `js/navigation.js`, `js/seguimiento.js`, `js/reportes.js`
+
+---
+
+# Feature: flujo de "pedido de transporte" para Clientes
+
+Nuevo rol **CLIENTE**: un cliente inicia sesión, hace pedidos de transporte (que son Cargas normales, reutilizando el modelo existente), consulta únicamente sus propios pedidos y confirma la recepción cuando el viaje se entrega. No se creó ninguna entidad nueva de "solicitud" — se reutilizó `Carga` (estado `PENDIENTE` = pedido a la espera de que un Coordinador le arme un viaje) tal como se pidió.
+
+## Qué se construyó
+
+### 1. Backend: rol CLIENTE y relación Usuario–Cliente
+
+- [`Rol.java`](backend/src/main/java/com/trailersys/backend/usuario/Rol.java): se agregó el valor `CLIENTE`. Al ser un enum consumido directamente por el JWT (`JwtService.generarToken` guarda `usuario.getRol().name()` como claim, y `JwtAuthenticationFilter` arma la autoridad `ROLE_` + ese claim), esto es lo único que hace falta para que `@PreAuthorize("hasRole('CLIENTE')")` funcione en cualquier controller — no se tocó `SecurityConfig` ni el filtro JWT.
+- [`Usuario.java`](backend/src/main/java/com/trailersys/backend/usuario/Usuario.java): se agregó `@ManyToOne @JoinColumn(name="cliente_id") private Cliente cliente;`, **nullable** (solo aplica a usuarios con rol CLIENTE; el resto del personal interno no tiene cliente asociado). Columna FK nueva y nullable sobre una tabla existente: no necesita `DEFAULT`, no rompe filas existentes.
+- [`UsuarioRequest.java`](backend/src/main/java/com/trailersys/backend/usuario/dto/UsuarioRequest.java) / [`UsuarioResponse.java`](backend/src/main/java/com/trailersys/backend/usuario/dto/UsuarioResponse.java): se agregó `clienteId` (request) y `clienteId`/`clienteNombre` (response). [`UsuarioService.java`](backend/src/main/java/com/trailersys/backend/usuario/UsuarioService.java) valida: si el rol es CLIENTE, `clienteId` es obligatorio y debe existir (si no, `400`); para cualquier otro rol, el `clienteId` del request se ignora y se normaliza a `null` (evita un vínculo inconsistente con personal interno).
+- **Frontend de administración** ([`app.html`](app.html), [`js/admin.js`](js/admin.js)): el formulario "Nuevo/Editar usuario" ahora tiene la opción de rol "Cliente" y, cuando se selecciona, muestra un selector "Cliente asociado" (se ocult/muestra dinámicamente, igual que otros campos condicionales del sistema). Sin esto, un Administrador no habría tenido forma de crear una cuenta CLIENTE desde la interfaz.
+
+### 2. Backend: autoservicio del Cliente (paquete nuevo `com.trailersys.backend.pedido`)
+
+Se creó una API **separada** de la interna (`CargaController`/`ViajeController`, uso exclusivo de Administrador/Coordinador/etc.), montada en `/api/mis-cargas` y protegida con `@PreAuthorize("hasRole('CLIENTE')")` a nivel de clase:
+
+- [`PedidoClienteController.java`](backend/src/main/java/com/trailersys/backend/pedido/PedidoClienteController.java) + [`PedidoClienteService.java`](backend/src/main/java/com/trailersys/backend/pedido/PedidoClienteService.java):
+  - `GET /api/mis-cargas` — lista **solo** las Cargas del Cliente vinculado al usuario autenticado.
+  - `POST /api/mis-cargas` — crea un pedido (`Carga` nueva, `estado=PENDIENTE` siempre, `clienteId` siempre el del usuario autenticado). El DTO [`PedidoCargaRequest.java`](backend/src/main/java/com/trailersys/backend/pedido/dto/PedidoCargaRequest.java) deliberadamente **no tiene** campos `clienteId` ni `estado`: no hay forma de que el cliente los envíe, ni por error ni manipulando el request.
+  - `GET /api/mis-cargas/{id}/viaje` — devuelve el viaje asociado a esa carga (o `204` si todavía no tiene), verificando primero que la carga sea del cliente autenticado.
+  - `POST /api/mis-cargas/{id}/confirmar-recepcion` — el cliente confirma que recibió su carga. Exige que el viaje asociado esté `FINALIZADO` (`409` si no) y que no se haya confirmado ya (`409` si se repite).
+- [`Viaje.java`](backend/src/main/java/com/trailersys/backend/viaje/Viaje.java): se agregó un **tercer paso de confirmación, paralelo** a `entregaConfirmada` (Conductor) y `entregaValidada` (Supervisor): `entregaConfirmadaCliente`, `fechaConfirmacionCliente`, `observacionConfirmacionCliente`, `confirmadoPorCliente`. No se tocó absolutamente nada de la lógica existente de conductor/supervisor ni de `sincronizarEstadoCarga`/`sincronizarEstadoVehiculoYConductor` (`ViajeService.java`) — son columnas y un método enteramente nuevos. Igual que `paradasSimuladasRegistradas` (ya documentado en el propio archivo), el booleano se guarda como `Boolean` **nullable**, no como `boolean` con `nullable=false`: agregar una columna `NOT NULL` sobre la tabla `viajes`, que ya tiene filas, habría fallado en Postgres sin un `DEFAULT` explícito.
+- [`ViajeResponse.java`](backend/src/main/java/com/trailersys/backend/viaje/dto/ViajeResponse.java): expone los 4 campos nuevos, para que tanto el Cliente como el resto de la operación puedan ver si ya se confirmó la recepción.
+- [`CargaRepository.java`](backend/src/main/java/com/trailersys/backend/carga/CargaRepository.java): dos métodos nuevos — `findByCliente_IdOrderByIdDesc` (listado propio) y `findByIdAndCliente_Id` (búsqueda por id **acotada al dueño en la misma consulta**; ver la sección de seguridad más abajo).
+
+### 3. Backend: listar Cargas Pendientes para que el Coordinador les arme un viaje
+
+Ya existía el mecanismo (el formulario de "Nuevo viaje" en `js/viajes.js` tiene un selector de carga), pero pedía hasta 100 cargas **sin filtrar** y recortaba a "Pendiente" en el navegador — el mismo patrón de bug corregido en la sección 1 de este informe, aquí en un selector en vez de en un listado. Se aprovechó el endpoint `/api/paginas/cargas?estado=Pendiente` (ya reforzado en la corrección anterior) para que [`js/viajes.js`](js/viajes.js) pida las cargas Pendientes **filtradas en el backend**, y se agregó la misma resiliencia que ya tenían vehículo/conductor: si se edita un viaje cuya carga ya no está Pendiente, se trae igual por id para no perder la selección.
+
+### 4. Frontend: vista "Mis pedidos" para el rol Cliente
+
+- [`js/roles.js`](js/roles.js): nueva entrada `cliente` en `TRAILERSYS_ROLES`, con `modules: ["pedidos"]` — el Cliente **solo** ve este módulo (no Dashboard, no nada de la operación interna). `js/navigation.js` ya manejaba genéricamente cualquier lista de módulos por rol, así que no necesitó cambios.
+- [`js/auth.js`](js/auth.js): se agregó `CLIENTE: "cliente"` al mapa que traduce el rol del backend (mayúsculas) al frontend (minúsculas).
+- [`app.html`](app.html) + [`js/pedidos.js`](js/pedidos.js) (nuevo): sección "Mis pedidos" con una tarjeta por pedido (mismo estilo visual que Cargas/Viajes: `item-card`, badges de estado, etc.) y un modal "Hacer un pedido" (descripción, tipo, peso con conversión kg/lb, origen/destino tomados del mismo catálogo de ciudades de Ecuador que usa Cargas). Cuando un pedido está "Entregada" (o sea, su viaje llegó a `Finalizado`), la tarjeta muestra un botón "Confirmar recepción"; una vez confirmada, se reemplaza por un badge "Recepción confirmada" con la fecha.
+- [`js/ecuador-locations.js`](js/ecuador-locations.js): se agregaron los ids `pedidoOrigen`/`pedidoDestino` a la lista de selects que se pueblan con el catálogo de ciudades.
+
+### 5. Frontend: hacer evidentes las Cargas Pendientes sin viaje en la vista del Coordinador
+
+[`js/cargas.js`](js/cargas.js): cuando una carga está en estado "Pendiente", su tarjeta ahora muestra además un badge "⚠ Sin viaje asignado" junto al badge de estado, para que sea inmediato identificar cuáles pedidos de clientes están esperando que el Coordinador les arme un viaje.
+
+### 6. Datos de prueba (`DataSeeder.java`)
+
+Se agregó la cuenta `cliente` / `cliente1234`, vinculada a "Comercial Andina S.A." (cliente ya sembrado). Deliberadamente **no** se creó una carga de ejemplo nueva: ese cliente ya tenía sembrada "Lote de telas e insumos textiles" en estado `Pendiente`, que sirve tal cual como el pedido de prueba pedido en el requisito 5. Como respaldo (por si en algún momento esa carga ya no está en `Pendiente`, o la base ya existía de antes sin ese dato), se agregó una comprobación que siembra un pedido de prueba adicional **solo la primera vez** que se crea la cuenta `cliente` y solo si en ese momento no tiene ningún pedido `Pendiente` — para no ir acumulando pedidos de prueba en cada reinicio del backend.
+
+### 7. Hallazgo de seguridad adicional: `/api/dashboard/resumen` quedaba abierto a cualquier autenticado
+
+Al revisar qué otros endpoints podía alcanzar un usuario CLIENTE, se encontró que [`DashboardController.java`](backend/src/main/java/com/trailersys/backend/dashboard/DashboardController.java) tenía `@PreAuthorize("isAuthenticated()")` — es decir, cualquier rol autenticado, sin excepción. Esto era inofensivo mientras todos los roles autenticados eran personal interno, pero el resumen incluye `proximosViajes` con **origen, destino, placa y nombre del conductor de los próximos viajes de todos los clientes**, no solo del propio. Con el rol CLIENTE ahora existiendo, cualquier cliente habría podido leer ese endpoint (aunque el módulo Dashboard nunca aparece en su menú) y ver movimientos de otros clientes. Se restringió a los roles de personal interno (`ADMINISTRADOR`, `COORDINADOR`, `MANTENIMIENTO`, `CONDUCTOR`, `SUPERVISOR`), excluyendo explícitamente a `CLIENTE`. Se agregó [`DashboardControllerTest.java`](backend/src/test/java/com/trailersys/backend/dashboard/DashboardControllerTest.java) para dejarlo comprobado.
+
+## Cómo probarlo paso a paso
+
+1. Levanta el backend (`cd backend && ./mvnw spring-boot:run`, con PostgreSQL corriendo) y el frontend (`node dev/server.js . 5173`).
+2. Abre `http://localhost:5173`, inicia sesión con **`cliente` / `cliente1234`**.
+3. Deberías caer directo en "Mis pedidos" (es el único módulo en el menú) y ver el pedido de ejemplo "Lote de telas e insumos textiles" en estado **Pendiente**, con el aviso "Esperando asignación de viaje".
+4. Haz clic en "Hacer un pedido", completa el formulario (descripción, tipo, peso, origen, destino) y envíalo. Debe aparecer de inmediato en la lista, también en Pendiente.
+5. Cierra sesión e inicia con **`coordinador` / `coordinador1234`**. En el módulo **Cargas** deberías ver ambos pedidos del cliente demo, cada uno con el badge extra "Sin viaje asignado" (punto 5 de este apartado). En el módulo **Viajes**, al crear un viaje nuevo, el selector "Carga asociada" debe ofrecer esas mismas cargas Pendientes.
+6. Crea un viaje para uno de los pedidos del cliente demo (elige un vehículo y conductor disponibles) y ponlo en estado "En Curso".
+7. Cierra sesión e inicia con **`conductor` / `conductor1234`** (o el conductor que hayas asignado) y confirma la entrega del viaje desde el módulo Viajes/Seguimiento. El viaje pasa a **Finalizado** y la carga a **Entregada** (esto ya funcionaba antes, sin cambios).
+8. Vuelve a iniciar sesión con **`cliente` / `cliente1234`**: el pedido debe verse ahora en estado "Entregada" con un botón **"Confirmar recepción"**. Al confirmarlo, se reemplaza por el badge "Recepción confirmada" con la fecha, y si intentas confirmarlo de nuevo (o llamas al endpoint dos veces) debe rechazarse con un error de conflicto.
+9. Como `admin` / `admin1234`, en Configuración → Usuarios y acceso, prueba crear un usuario nuevo con rol "Cliente": debe pedir seleccionar un cliente asociado y fallar con un mensaje claro si lo dejas vacío.
+
+**Nota sobre el entorno de esta sesión:** no fue posible levantar el flujo completo en un navegador real aquí (este entorno no tiene PostgreSQL disponible). La verificación end-to-end de la lógica se hizo con pruebas automatizadas contra una base H2 embebida que ejercitan exactamente esta secuencia (crear pedido → crear viaje → confirmar entrega como Conductor → confirmar recepción como Cliente), más varios intentos deliberados de acceso cruzado entre clientes para comprobar el aislamiento. Antes de dar el flujo por definitivamente cerrado, conviene repetir estos pasos una vez en un navegador con el backend contra PostgreSQL real.
+
+## Cómo se garantiza el aislamiento entre clientes
+
+- **Superficie de API separada.** El Cliente nunca tiene acceso a `CargaController`/`ViajeController` (los endpoints internos): su `@PreAuthorize` de clase no incluye `CLIENTE`, así que cualquier intento de usarlos devuelve `403` sin ni siquiera llegar a la lógica de negocio. Toda su interacción pasa por `/api/mis-cargas`, una API nueva que **por diseño** solo sabe operar sobre "el cliente del usuario autenticado" — no existe ningún parámetro para pasarle otro `clienteId`.
+- **La identidad nunca sale del token.** Todas las operaciones de `PedidoClienteService` parten de `principal.getName()` (el username firmado en el JWT) para resolver, vía `Usuario.cliente`, a qué Cliente pertenece la sesión. El frontend nunca envía un `clienteId`; aunque lo hiciera, el backend lo ignora por completo en este flujo.
+- **Búsqueda por id siempre acotada al dueño, en una sola consulta.** `CargaRepository.findByIdAndCliente_Id(id, clienteId)` combina "existe" y "es mío" en una sola condición `WHERE id = ? AND cliente_id = ?`. Esto evita el patrón, fácil de introducir por error, de "buscar por id y comparar el cliente después en Java" (alguien podría olvidar el `if`). Si el id no existe, o existe pero es de otro cliente, el resultado es exactamente el mismo: vacío → `404 "Pedido no encontrado"`. Nunca se distingue una cosa de la otra en la respuesta, para que un cliente no pueda usar el mensaje de error para averiguar si un id de otro cliente existe.
+- **Probado explícitamente intentando "adivinar" ids ajenos**, no solo confiando en el diseño: [`PedidoClienteControllerTest.clienteNoPuedeVerNiConfirmarCargasDeOtroClienteNiAdivinandoElId`](backend/src/test/java/com/trailersys/backend/pedido/PedidoClienteControllerTest.java) crea dos clientes reales con sus propias cuentas, y desde la cuenta del cliente B intenta (a) ver el listado del cliente A (no aparece), (b) pedir el viaje de una carga del cliente A por su id real (`404`), y (c) confirmar la recepción de una carga del cliente A por su id real (`404`). Los tres deben fallar exactamente así, no con un `200` con datos vacíos ni con un `403` que confirmaría que el id existe.
+- **Ningún otro endpoint expone datos cruzados a través del rol CLIENTE.** Se revisó el `@PreAuthorize` de todos los controllers del backend uno por uno para confirmar que `CLIENTE` está excluido de todos salvo `PedidoClienteController`; el único gap real que apareció fue `DashboardController` (punto 7 arriba), ya corregido y con test.
