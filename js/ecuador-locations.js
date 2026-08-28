@@ -44,7 +44,7 @@ function trailersysPoblarLugaresEcuador(select) {
   if (valorActual) select.value = valorActual;
 }
 
-["cargaOrigen", "cargaDestino", "viajeOrigen", "viajeDestino"]
+["cargaOrigen", "cargaDestino", "viajeOrigen", "viajeDestino", "pedidoOrigen", "pedidoDestino"]
   .forEach((id) => trailersysPoblarLugaresEcuador(document.getElementById(id)));
 
 function trailersysLugarParaGeocodificar(lugar) {

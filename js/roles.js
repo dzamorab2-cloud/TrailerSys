@@ -43,6 +43,14 @@ const TRAILERSYS_ROLES = {
     modules: ["dashboard", "vehiculos", "viajes", "seguimiento", "reportes"],
     manage: [],
   },
+  // Autoservicio: el cliente solo ve "Mis pedidos" (crear pedidos = Cargas
+  // Pendientes a su propio nombre, y confirmar la recepcion de las que ya
+  // se entregaron). Nunca el resto de la operacion interna.
+  cliente: {
+    label: "Cliente",
+    modules: ["pedidos"],
+    manage: ["pedidos"],
+  },
 };
 
 function trailersysCanManage(session, moduleName) {

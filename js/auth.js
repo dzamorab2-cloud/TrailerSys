@@ -13,6 +13,7 @@
     MANTENIMIENTO: "mantenimiento",
     CONDUCTOR: "conductor",
     SUPERVISOR: "supervisor",
+    CLIENTE: "cliente",
   };
 
   const form = document.getElementById("loginForm");

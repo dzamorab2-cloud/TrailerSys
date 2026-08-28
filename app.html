@@ -57,6 +57,11 @@
         <li><button class="nav-link" data-module="configuracion"><i class="bi bi-gear"></i><span class="nav-label">Configuración</span></button></li>
       </ul>
 
+      <p class="nav-section-title">Autoservicio</p>
+      <ul class="nav-list">
+        <li><button class="nav-link" data-module="pedidos"><i class="bi bi-bag-check"></i><span class="nav-label">Mis pedidos</span></button></li>
+      </ul>
+
       <div class="sidebar-footer">
         <p class="nav-section-title">v0.1 · Fase 1</p>
       </div>
@@ -554,6 +559,27 @@
             <div class="section-heading"><div><h2>Usuarios y acceso</h2><p>Administra cuentas, roles y estado de acceso.</p></div><button class="btn btn-primary" id="btnNuevoUsuario"><i class="bi bi-person-plus"></i>Nuevo usuario</button></div>
             <div class="toolbar"><div class="toolbar-search"><i class="bi bi-search"></i><input id="usuarioBuscar" type="search" placeholder="Buscar usuario, nombre o correo" /></div><div class="toolbar-filters"><select id="usuarioRolFiltro" class="select-pill"><option value="">Todos los roles</option><option>ADMINISTRADOR</option><option>COORDINADOR</option><option>MANTENIMIENTO</option><option>CONDUCTOR</option><option>SUPERVISOR</option><option>CLIENTE</option></select></div></div>
             <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="module" id="module-pedidos" data-module="pedidos" hidden>
+          <div class="module-header">
+            <div>
+              <h1>Mis pedidos</h1>
+              <p>Solicita el transporte de tu carga y da seguimiento a tus pedidos.</p>
+            </div>
+            <button class="btn btn-primary" id="btnNuevoPedido">
+              <i class="bi bi-plus-lg"></i>
+              Hacer un pedido
+            </button>
+          </div>
+
+          <p class="results-count" id="pedidoResultsCount"></p>
+          <div class="item-grid" id="pedidoGrid"></div>
+          <div class="module-placeholder card" id="pedidoEmptyState" hidden>
+            <i class="bi bi-bag-check"></i>
+            <h3 id="pedidoEmptyTitle">Todavía no tienes pedidos</h3>
+            <p id="pedidoEmptyText">Usa "Hacer un pedido" para solicitar tu primer transporte.</p>
           </div>
         </section>
       </main>
@@ -1499,6 +1525,90 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="pedidoModalOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Hacer un pedido</h3>
+        <button type="button" class="modal-close" id="pedidoModalClose" aria-label="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <form id="pedidoForm" novalidate>
+        <div class="form-grid">
+          <div class="field field-span-2" id="fieldPedidoDescripcion">
+            <label for="pedidoDescripcion">Descripción</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="pedidoDescripcion" placeholder="Descripción de la mercancía" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldPedidoTipo">
+            <label for="pedidoTipo">Tipo de mercancía</label>
+            <div class="input-wrap">
+              <i class="bi bi-tag"></i>
+              <input type="text" id="pedidoTipo" placeholder="Ej. Textiles, Alimentos..." />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldPedidoPeso">
+            <label for="pedidoPeso">Peso de la carga</label>
+            <div class="input-wrap weight-input">
+              <i class="bi bi-box-seam"></i>
+              <input type="number" id="pedidoPeso" min="0" step="0.01" placeholder="0" />
+              <select id="pedidoPesoUnidad" aria-label="Unidad de peso">
+                <option value="kg">kg</option>
+                <option value="lb">lb</option>
+              </select>
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldPedidoOrigen">
+            <label for="pedidoOrigen">Origen</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt"></i>
+              <select id="pedidoOrigen">
+                <option value="">Selecciona un lugar de origen</option>
+              </select>
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldPedidoDestino">
+            <label for="pedidoDestino">Destino</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt-fill"></i>
+              <select id="pedidoDestino">
+                <option value="">Selecciona un lugar de destino</option>
+              </select>
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="pedidoObservaciones">Observaciones</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="pedidoObservaciones" placeholder="Observaciones opcionales" />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="pedidoCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i>
+            Enviar pedido
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="js/roles.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/api-client.js"></script>
@@ -1508,6 +1618,7 @@
   <script src="js/conductores.js"></script>
   <script src="js/clientes.js"></script>
   <script src="js/cargas.js"></script>
+  <script src="js/pedidos.js"></script>
   <script src="js/vendor/leaflet.js"></script>
   <script src="js/map-service.js"></script>
   <script src="js/viajes.js"></script>
