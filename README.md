@@ -74,6 +74,7 @@ Abre `http://localhost:5173` en el navegador.
 | `mantenimiento` | `mantenimiento1234` | Responsable de Mantenimiento |
 | `conductor` | `conductor1234` | Conductor |
 | `supervisor` | `supervisor1234` | Supervisor / Consulta |
+| `cliente` | `cliente1234` | Cliente (autoservicio de pedidos, vinculado a "Comercial Andina S.A.") |
 
 ## Pruebas automatizadas
 
@@ -82,7 +83,7 @@ cd backend
 ./mvnw test
 ```
 
-78 pruebas contra una base H2 embebida (no necesitas PostgreSQL
+95 pruebas contra una base H2 embebida (no necesitas PostgreSQL
 corriendo para ejecutarlas).
 
 ## Estructura del proyecto

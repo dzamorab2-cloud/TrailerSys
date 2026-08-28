@@ -121,6 +121,15 @@ public class DataSeeder implements CommandLineRunner {
                     "Refrigerados", null));
         }
 
+        // La cuenta de autoservicio se vincula a "Comercial Andina S.A." (ya
+        // sembrado arriba). boolean capturado ANTES de sembrarUsuarioSiNoExiste
+        // para poder usarlo como "es la primera vez que existe esta cuenta"
+        // mas abajo, sin depender de un count() que ya se uso para otra cosa.
+        boolean primeraVezClienteDemo = usuarioRepository.findByUsernameIgnoreCase("cliente").isEmpty();
+        Cliente clienteDemo = clienteRepository.findByIdentificacionIgnoreCase("0992345678001").orElse(null);
+        sembrarUsuarioSiNoExiste("cliente", "cliente1234", "Comercial Andina S.A.",
+                "pedidos@comercialandina.test", Rol.CLIENTE, clienteDemo);
+
         if (cargaRepository.count() == 0) {
             Cliente comercialAndina = clienteRepository.findByIdentificacionIgnoreCase("0992345678001").orElse(null);
             Cliente distribuidoraElRoble = clienteRepository.findByIdentificacionIgnoreCase("0911223344").orElse(null);
@@ -132,6 +141,22 @@ public class DataSeeder implements CommandLineRunner {
             cargaRepository.save(new Carga(
                     "Productos refrigerados para distribución", distribuidoraElRoble, "Refrigerados", 1800,
                     "Ambato", "Riobamba", EstadoCarga.EN_TRANSITO, "Requiere cadena de frío."));
+        }
+
+        // Respaldo para poder probar el flujo de autoservicio de punta a
+        // punta: si por algun motivo el cliente demo no tiene ya un pedido
+        // Pendiente (la carga "Lote de telas..." de arriba deberia serlo en
+        // una base nueva), se siembra uno. Solo la primera vez que se crea
+        // esta cuenta, para no ir acumulando pedidos de prueba en cada
+        // reinicio despues de que el cliente demo use la app y ese pedido
+        // ya haya avanzado de estado.
+        if (primeraVezClienteDemo && clienteDemo != null
+                && cargaRepository.findByCliente_IdOrderByIdDesc(clienteDemo.getId()).stream()
+                        .noneMatch(c -> c.getEstado() == EstadoCarga.PENDIENTE)) {
+            cargaRepository.save(new Carga(
+                    "Pedido de prueba para el cliente demo", clienteDemo, "General", 500,
+                    "Guayaquil", "Quito", EstadoCarga.PENDIENTE,
+                    "Sembrado para probar el flujo de autoservicio del cliente."));
         }
 
         if (viajeRepository.count() == 0) {
@@ -201,15 +226,24 @@ public class DataSeeder implements CommandLineRunner {
      * que se haya sembrado la primera vez.
      */
     private void sembrarUsuarioSiNoExiste(String username, String password, String nombre, String correo, Rol rol) {
+        sembrarUsuarioSiNoExiste(username, password, nombre, correo, rol, null);
+    }
+
+    /** Igual que el metodo anterior, pero vinculando (o no) un Cliente. */
+    private void sembrarUsuarioSiNoExiste(String username, String password, String nombre, String correo, Rol rol,
+                                           Cliente cliente) {
         Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username).orElse(null);
         if (usuario == null) {
-            usuarioRepository.save(new Usuario(username, passwordEncoder.encode(password), nombre, correo, rol));
+            usuario = new Usuario(username, passwordEncoder.encode(password), nombre, correo, rol);
+            usuario.setCliente(cliente);
+            usuarioRepository.save(usuario);
             return;
         }
         usuario.setPasswordHash(passwordEncoder.encode(password));
         usuario.setNombre(nombre);
         usuario.setCorreo(correo);
         usuario.setRol(rol);
+        usuario.setCliente(cliente);
         usuarioRepository.save(usuario);
     }
 }
