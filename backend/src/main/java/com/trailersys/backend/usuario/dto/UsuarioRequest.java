@@ -12,6 +12,8 @@ public record UsuarioRequest(
         @NotBlank @Size(max = 120) String nombre,
         @Email @Size(max = 120) String correo,
         @NotNull Rol rol,
-        @NotNull Boolean activo
+        @NotNull Boolean activo,
+        /** Solo se usa (y se exige) cuando rol es CLIENTE; se ignora para el resto. */
+        Long clienteId
 ) {
 }

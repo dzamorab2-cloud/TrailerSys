@@ -8,5 +8,6 @@ public enum Rol {
     COORDINADOR,
     MANTENIMIENTO,
     CONDUCTOR,
-    SUPERVISOR
+    SUPERVISOR,
+    CLIENTE
 }

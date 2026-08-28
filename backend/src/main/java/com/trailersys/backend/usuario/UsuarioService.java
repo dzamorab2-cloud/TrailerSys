@@ -6,6 +6,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.trailersys.backend.cliente.Cliente;
+import com.trailersys.backend.cliente.ClienteRepository;
 import com.trailersys.backend.common.ConflictException;
 import com.trailersys.backend.common.ResourceNotFoundException;
 import com.trailersys.backend.usuario.dto.UsuarioRequest;
@@ -13,10 +15,13 @@ import com.trailersys.backend.usuario.dto.UsuarioRequest;
 @Service
 public class UsuarioService {
     private final UsuarioRepository repository;
+    private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UsuarioService(UsuarioRepository repository, PasswordEncoder passwordEncoder) {
+    public UsuarioService(UsuarioRepository repository, ClienteRepository clienteRepository,
+                           PasswordEncoder passwordEncoder) {
         this.repository = repository;
+        this.clienteRepository = clienteRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -38,6 +43,7 @@ public class UsuarioService {
         Usuario usuario = new Usuario(request.username().trim(), passwordEncoder.encode(request.password()),
                 request.nombre().trim(), normalizar(request.correo()), request.rol());
         usuario.setActivo(request.activo());
+        usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId()));
         return repository.save(usuario);
     }
 
@@ -51,10 +57,27 @@ public class UsuarioService {
         usuario.setCorreo(normalizar(request.correo()));
         usuario.setRol(request.rol());
         usuario.setActivo(request.activo());
+        usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId()));
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPasswordHash(passwordEncoder.encode(request.password()));
         }
         return usuario;
+    }
+
+    /**
+     * Solo los usuarios con rol CLIENTE quedan vinculados a un Cliente: para
+     * cualquier otro rol se ignora el clienteId del request (se normaliza a
+     * null) en vez de dejar un vinculo inconsistente con personal interno.
+     */
+    private Cliente resolverClienteSiAplica(Rol rol, Long clienteId) {
+        if (rol != Rol.CLIENTE) {
+            return null;
+        }
+        if (clienteId == null) {
+            throw new IllegalArgumentException("Selecciona el cliente asociado a este usuario.");
+        }
+        return clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: " + clienteId));
     }
 
     @Transactional

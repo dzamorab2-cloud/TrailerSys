@@ -1,5 +1,7 @@
 package com.trailersys.backend.usuario;
 
+import com.trailersys.backend.cliente.Cliente;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,6 +9,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -35,6 +39,17 @@ public class Usuario {
 
     @Column(nullable = false)
     private boolean activo = true;
+
+    /**
+     * Solo aplica a usuarios con rol CLIENTE: identifica a que Cliente
+     * pertenece, para que el autoservicio (paquete "pedido") acote todas
+     * sus consultas/creaciones a este registro y nunca confie en un
+     * clienteId que venga del request. Nullable a proposito: el resto de
+     * roles (personal interno) no tiene un cliente asociado.
+     */
+    @ManyToOne
+    @JoinColumn(name = "cliente_id")
+    private Cliente cliente;
 
     protected Usuario() {
     }
@@ -98,5 +113,13 @@ public class Usuario {
 
     public void setActivo(boolean activo) {
         this.activo = activo;
+    }
+
+    public Cliente getCliente() {
+        return cliente;
+    }
+
+    public void setCliente(Cliente cliente) {
+        this.cliente = cliente;
     }
 }
