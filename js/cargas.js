@@ -32,7 +32,9 @@
 
   const inputId = document.getElementById("cargaId");
   const inputDescripcion = document.getElementById("cargaDescripcion");
-  const selectCliente = document.getElementById("cargaCliente");
+  const inputCliente = document.getElementById("cargaCliente");
+  const inputClienteBuscar = document.getElementById("cargaClienteBuscar");
+  const resultadosCliente = document.getElementById("cargaClienteResultados");
   const inputTipo = document.getElementById("cargaTipo");
   const inputPeso = document.getElementById("cargaPeso");
   const selectPesoUnidad = document.getElementById("cargaPesoUnidad");
@@ -56,11 +58,6 @@
     const kilos = Number(kg) || 0;
     return `${kilos.toLocaleString("es-EC")} kg / ${kgToLb(kilos).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
   }
-  // Cache del listado de clientes usado solo para poblar el selector del
-  // formulario; la tarjeta y la búsqueda usan carga.clienteNombre, que ya
-  // viene denormalizado desde el backend.
-  let clientesCache = [];
-
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (char) => ({
       "&": "&amp;",
@@ -83,22 +80,87 @@
       .forEach((id) => setFieldError(id, ""));
   }
 
-  async function refreshClienteOptions() {
-    try {
-      clientesCache = (await trailersysPagedRequest("clientes", 0, 100)).content;
-    } catch {
-      clientesCache = [];
-    }
-    const current = selectCliente.value;
-    selectCliente.innerHTML = '<option value="">Selecciona un cliente</option>';
-    clientesCache.forEach((c) => {
-      const option = document.createElement("option");
-      option.value = c.id;
-      option.textContent = c.nombre;
-      selectCliente.appendChild(option);
-    });
-    if (clientesCache.some((c) => String(c.id) === current)) selectCliente.value = current;
+  // --- Buscador de cliente con autocompletado ---
+  // Con decenas de miles de clientes reales, precargar una lista fija (como
+  // hacia el <select> anterior) es inutil: casi nunca contiene al cliente
+  // que se busca. En su lugar, se consulta al backend a medida que se
+  // escribe (debounced) y se muestran solo las coincidencias.
+  let clienteBuscarTimer;
+  let clienteResultadosActuales = [];
+
+  function limpiarSeleccionCliente() {
+    inputCliente.value = "";
   }
+
+  function ocultarResultadosCliente() {
+    resultadosCliente.hidden = true;
+    resultadosCliente.innerHTML = "";
+    clienteResultadosActuales = [];
+  }
+
+  function seleccionarCliente(cliente) {
+    inputCliente.value = cliente.id;
+    inputClienteBuscar.value = cliente.nombre;
+    setFieldError("fieldCargaCliente", "");
+    ocultarResultadosCliente();
+  }
+
+  function renderResultadosCliente(clientes) {
+    clienteResultadosActuales = clientes;
+    if (!clientes.length) {
+      resultadosCliente.innerHTML = '<div class="autocomplete-empty">Ningún cliente coincide con esa búsqueda.</div>';
+      resultadosCliente.hidden = false;
+      return;
+    }
+    resultadosCliente.innerHTML = clientes
+      .map(
+        (c, index) => `
+      <div class="autocomplete-item" data-index="${index}">
+        <span class="autocomplete-item-name">${escapeHtml(c.nombre)}</span>
+        <span class="autocomplete-item-meta">${escapeHtml(c.identificacion)}${c.telefono ? " · " + escapeHtml(c.telefono) : ""}</span>
+      </div>`
+      )
+      .join("");
+    resultadosCliente.hidden = false;
+  }
+
+  async function buscarClientes(query) {
+    try {
+      const pagina = await trailersysPagedRequest("clientes", 0, 8, { search: query });
+      renderResultadosCliente(pagina.content);
+    } catch {
+      resultadosCliente.innerHTML = '<div class="autocomplete-empty">No se pudo buscar clientes.</div>';
+      resultadosCliente.hidden = false;
+    }
+  }
+
+  inputClienteBuscar.addEventListener("input", () => {
+    limpiarSeleccionCliente();
+    const query = inputClienteBuscar.value.trim();
+    clearTimeout(clienteBuscarTimer);
+    if (!query) {
+      ocultarResultadosCliente();
+      return;
+    }
+    clienteBuscarTimer = setTimeout(() => buscarClientes(query), 250);
+  });
+
+  inputClienteBuscar.addEventListener("focus", () => {
+    if (inputClienteBuscar.value.trim() && !inputCliente.value) buscarClientes(inputClienteBuscar.value.trim());
+  });
+
+  // mousedown (no click) para que dispare antes que el blur del input.
+  resultadosCliente.addEventListener("mousedown", (event) => {
+    const item = event.target.closest(".autocomplete-item");
+    if (!item) return;
+    event.preventDefault();
+    const cliente = clienteResultadosActuales[Number(item.dataset.index)];
+    if (cliente) seleccionarCliente(cliente);
+  });
+
+  inputClienteBuscar.addEventListener("blur", () => {
+    setTimeout(ocultarResultadosCliente, 150);
+  });
 
   function renderCard(carga, canManage) {
     const badgeClass = ESTADO_BADGE[carga.estado] || "badge-neutral";
@@ -231,13 +293,16 @@
     selectEstado.value = "Pendiente";
     selectPesoUnidad.value = "kg";
     pesoUnidadAnterior = "kg";
-    await refreshClienteOptions();
+    ocultarResultadosCliente();
 
     if (carga) {
       modalTitle.textContent = "Editar carga";
       inputId.value = carga.id;
       inputDescripcion.value = carga.descripcion;
-      selectCliente.value = carga.clienteId;
+      // El nombre del cliente ya viene denormalizado en la carga (evita
+      // otra peticion solo para mostrar la seleccion actual al editar).
+      inputCliente.value = carga.clienteId;
+      inputClienteBuscar.value = carga.clienteNombre || "";
       inputTipo.value = carga.tipo;
       inputPeso.value = carga.peso;
       selectEstado.value = carga.estado;
@@ -247,6 +312,8 @@
     } else {
       modalTitle.textContent = "Nueva carga";
       inputId.value = "";
+      inputCliente.value = "";
+      inputClienteBuscar.value = "";
     }
 
     trailersysOpenModal(modalOverlay);
@@ -304,7 +371,7 @@
 
     const data = {
       descripcion: inputDescripcion.value.trim(),
-      clienteId: selectCliente.value ? Number(selectCliente.value) : null,
+      clienteId: inputCliente.value ? Number(inputCliente.value) : null,
       tipo: inputTipo.value.trim(),
       peso: inputPeso.value === "" ? "" : Math.round(valorEnKg(inputPeso.value, selectPesoUnidad.value)),
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],

@@ -108,3 +108,62 @@
   gap: 8px;
   margin-top: 4px;
 }
+
+/*
+ * Buscador con autocompletado (cliente en Cargas): con decenas de miles
+ * de clientes reales, un <select> con todas las opciones es inutilizable.
+ * Este patron reemplaza la lista fija por una busqueda en vivo contra el
+ * backend a medida que se escribe (ver cargaBuscarClientes en cargas.js).
+ */
+.autocomplete-wrap {
+  position: relative;
+}
+
+.autocomplete-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.autocomplete-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.active {
+  background: var(--color-bg);
+}
+
+.autocomplete-item-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.autocomplete-item-meta {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.autocomplete-empty {
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}

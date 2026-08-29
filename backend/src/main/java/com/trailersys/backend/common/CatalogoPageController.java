@@ -67,8 +67,11 @@ public class CatalogoPageController {
         EstadoConductor estadoFiltro = estado == null || estado.isBlank() ? null : EstadoConductor.desdeEtiqueta(estado);
         return conductores.buscar(search.trim(), estadoFiltro, page(page,size)).map(ConductorResponse::from);
     }
+    // Administrador gestiona el modulo Clientes completo; Coordinador no lo
+    // tiene como modulo propio pero necesita buscar clientes aqui mismo para
+    // asignarlos a una Carga (que si gestiona) sin poder editarlos.
     @GetMapping("/clientes")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR')")
     public Page<ClienteResponse> clientes(@RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="24") int size,
             @RequestParam(defaultValue="") String search,

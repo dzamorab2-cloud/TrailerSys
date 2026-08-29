@@ -1064,12 +1064,12 @@
           </div>
 
           <div class="field" id="fieldCargaCliente">
-            <label for="cargaCliente">Cliente</label>
-            <div class="input-wrap">
+            <label for="cargaClienteBuscar">Cliente</label>
+            <div class="input-wrap autocomplete-wrap">
               <i class="bi bi-building"></i>
-              <select id="cargaCliente">
-                <option value="">Selecciona un cliente</option>
-              </select>
+              <input type="text" id="cargaClienteBuscar" placeholder="Escribe un nombre o identificación..." autocomplete="off" />
+              <input type="hidden" id="cargaCliente" />
+              <div class="autocomplete-results" id="cargaClienteResultados" hidden></div>
             </div>
             <span class="field-error"></span>
           </div>
