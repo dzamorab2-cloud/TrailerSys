@@ -126,6 +126,20 @@ public class Viaje {
     @Column(length = 60)
     private String confirmadoPorCliente;
 
+    @Column(length = 40)
+    private String novedadRecepcionCliente;
+
+    @Column(columnDefinition = "TEXT")
+    private String evidenciaRecepcionCliente;
+
+    @Column(length = 20)
+    private String estadoReclamoCliente;
+
+    private LocalDateTime fechaResolucionReclamoCliente;
+
+    @Column(columnDefinition = "TEXT")
+    private String respuestaReclamoCliente;
+
     protected Viaje() {
     }
 
@@ -377,4 +391,15 @@ public class Viaje {
     public void setConfirmadoPorCliente(String confirmadoPorCliente) {
         this.confirmadoPorCliente = confirmadoPorCliente;
     }
+
+    public String getNovedadRecepcionCliente() { return novedadRecepcionCliente; }
+    public void setNovedadRecepcionCliente(String value) { this.novedadRecepcionCliente = value; }
+    public String getEvidenciaRecepcionCliente() { return evidenciaRecepcionCliente; }
+    public void setEvidenciaRecepcionCliente(String value) { this.evidenciaRecepcionCliente = value; }
+    public String getEstadoReclamoCliente() { return estadoReclamoCliente; }
+    public void setEstadoReclamoCliente(String value) { this.estadoReclamoCliente = value; }
+    public LocalDateTime getFechaResolucionReclamoCliente() { return fechaResolucionReclamoCliente; }
+    public void setFechaResolucionReclamoCliente(LocalDateTime value) { this.fechaResolucionReclamoCliente = value; }
+    public String getRespuestaReclamoCliente() { return respuestaReclamoCliente; }
+    public void setRespuestaReclamoCliente(String value) { this.respuestaReclamoCliente = value; }
 }

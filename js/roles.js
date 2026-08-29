@@ -11,17 +11,17 @@ const TRAILERSYS_ROLES = {
     label: "Administrador",
     modules: [
       "dashboard", "vehiculos", "conductores", "clientes", "cargas",
-      "viajes", "seguimiento", "mantenimientos", "reportes", "guias", "auditoria", "configuracion",
+      "viajes", "seguimiento", "mantenimientos", "reportes", "guias", "reclamos", "auditoria", "configuracion",
     ],
     manage: [
       "vehiculos", "conductores", "clientes", "cargas",
-      "viajes", "seguimiento", "mantenimientos", "configuracion",
+      "viajes", "seguimiento", "mantenimientos", "reclamos", "configuracion",
     ],
   },
   coordinador: {
     label: "Coordinador / Operador",
-    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento", "guias"],
-    manage: ["vehiculos", "conductores", "cargas", "viajes", "seguimiento"],
+    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento", "guias", "reclamos"],
+    manage: ["vehiculos", "conductores", "cargas", "viajes", "seguimiento", "reclamos"],
   },
   mantenimiento: {
     label: "Responsable de Mantenimiento",
@@ -48,7 +48,7 @@ const TRAILERSYS_ROLES = {
   // se entregaron). Nunca el resto de la operacion interna.
   cliente: {
     label: "Cliente",
-    modules: ["pedidos"],
+    modules: ["pedidos", "configuracion"],
     manage: ["pedidos"],
   },
 };

@@ -2,10 +2,12 @@ package com.trailersys.backend.config;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.sql.SQLException;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.trailersys.backend.carga.Carga;
 import com.trailersys.backend.carga.CargaRepository;
@@ -50,13 +52,14 @@ public class DataSeeder implements CommandLineRunner {
     private final SeguimientoEventoRepository seguimientoEventoRepository;
     private final MantenimientoRepository mantenimientoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     public DataSeeder(UsuarioRepository usuarioRepository, VehiculoRepository vehiculoRepository,
                        ConductorRepository conductorRepository, ClienteRepository clienteRepository,
                        CargaRepository cargaRepository, ViajeRepository viajeRepository,
                        SeguimientoEventoRepository seguimientoEventoRepository,
                        MantenimientoRepository mantenimientoRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate) {
         this.usuarioRepository = usuarioRepository;
         this.vehiculoRepository = vehiculoRepository;
         this.conductorRepository = conductorRepository;
@@ -66,10 +69,12 @@ public class DataSeeder implements CommandLineRunner {
         this.seguimientoEventoRepository = seguimientoEventoRepository;
         this.mantenimientoRepository = mantenimientoRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     public void run(String... args) {
+        actualizarRestriccionRolesPostgreSql();
         // Cada cuenta se siembra de forma independiente (no todo detras de un
         // solo count()==0) para que agregar una cuenta nueva a este metodo
         // tambien se aplique en una base de datos que ya tenia usuarios.
@@ -217,6 +222,17 @@ public class DataSeeder implements CommandLineRunner {
                     vehiculo1, TipoMantenimiento.PREVENTIVO, LocalDate.of(2026, 6, 10), 78000, 120.0,
                     LocalDate.of(2026, 9, 10), "Cambio de aceite y filtros."));
         }
+    }
+
+    private void actualizarRestriccionRolesPostgreSql() {
+        try (var connection = jdbcTemplate.getDataSource().getConnection()) {
+            if (!"PostgreSQL".equalsIgnoreCase(connection.getMetaData().getDatabaseProductName())) return;
+        } catch (SQLException error) {
+            throw new IllegalStateException("No se pudo verificar el motor de base de datos.", error);
+        }
+        jdbcTemplate.execute("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check");
+        jdbcTemplate.execute("ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN "
+                + "('ADMINISTRADOR','COORDINADOR','MANTENIMIENTO','CONDUCTOR','SUPERVISOR','CLIENTE'))");
     }
 
     /**

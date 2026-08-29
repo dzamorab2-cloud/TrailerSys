@@ -33,7 +33,12 @@ public record ViajeResponse(
         boolean entregaConfirmadaCliente,
         LocalDateTime fechaConfirmacionCliente,
         String observacionConfirmacionCliente,
-        String confirmadoPorCliente
+        String confirmadoPorCliente,
+        String novedadRecepcionCliente,
+        String evidenciaRecepcionCliente,
+        String estadoReclamoCliente,
+        LocalDateTime fechaResolucionReclamoCliente,
+        String respuestaReclamoCliente
 ) {
     public static ViajeResponse from(Viaje v) {
         RutaDto ruta = null;
@@ -54,6 +59,9 @@ public record ViajeResponse(
                 v.isEntregaConfirmada(), v.getFechaEntregaConfirmada(), v.getObservacionEntrega(), v.getConfirmadoPor(),
                 v.isEntregaValidada(), v.getFechaValidacionEntrega(), v.getObservacionValidacion(), v.getValidadoPor(),
                 v.isEntregaConfirmadaCliente(), v.getFechaConfirmacionCliente(),
-                v.getObservacionConfirmacionCliente(), v.getConfirmadoPorCliente());
+                v.getObservacionConfirmacionCliente(), v.getConfirmadoPorCliente(),
+                v.getNovedadRecepcionCliente(), v.getEvidenciaRecepcionCliente(),
+                v.getEstadoReclamoCliente(), v.getFechaResolucionReclamoCliente(),
+                v.getRespuestaReclamoCliente());
     }
 }

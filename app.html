@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="css/configuracion.css" />
   <link rel="stylesheet" href="css/admin.css" />
   <link rel="stylesheet" href="css/mantenimientos.css" />
+  <link rel="stylesheet" href="css/pedidos.css" />
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -53,6 +54,7 @@
         <li><button class="nav-link" data-module="clientes"><i class="bi bi-people"></i><span class="nav-label">Clientes</span></button></li>
         <li><button class="nav-link" data-module="reportes"><i class="bi bi-bar-chart"></i><span class="nav-label">Reportes</span></button></li>
         <li><button class="nav-link" data-module="guias"><i class="bi bi-file-earmark-text"></i><span class="nav-label">Guías</span></button></li>
+        <li><button class="nav-link" data-module="reclamos"><i class="bi bi-chat-square-text"></i><span class="nav-label">Reclamos</span></button></li>
         <li><button class="nav-link" data-module="auditoria"><i class="bi bi-shield-check"></i><span class="nav-label">Auditoría</span></button></li>
         <li><button class="nav-link" data-module="configuracion"><i class="bi bi-gear"></i><span class="nav-label">Configuración</span></button></li>
       </ul>
@@ -499,6 +501,12 @@
           <div class="pagination" id="guiasPager"></div>
         </section>
 
+        <section class="module" id="module-reclamos" data-module="reclamos" hidden>
+          <div class="module-header"><div><h1>Reclamos de clientes</h1><p>Revisa novedades de entrega y responde al cliente.</p></div></div>
+          <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Viaje</th><th>Cliente</th><th>Novedad</th><th>Detalle</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="reclamosBody"></tbody></table></div>
+          <div class="module-placeholder card" id="reclamosEmpty" hidden><i class="bi bi-check-circle"></i><h3>No hay reclamos</h3><p>Las entregas con novedades aparecerán aquí.</p></div>
+        </section>
+
         <section class="module" id="module-auditoria" data-module="auditoria" hidden>
           <div class="module-header">
             <div><h1>Auditoría</h1><p>Historial de operaciones importantes realizadas en el sistema.</p></div>
@@ -549,6 +557,10 @@
               </div>
             </div>
           </div>
+          <div class="card profile-card" id="perfilClienteEmpresa" hidden>
+            <div class="section-heading"><div><h2>Información de la empresa</h2><p>Datos asociados a tu cuenta de cliente.</p></div></div>
+            <div class="route-summary-grid profile-detail-grid" id="perfilClienteEmpresaDatos"></div>
+          </div>
           <div class="module-placeholder card" id="perfilEmptyState" hidden>
             <i class="bi bi-exclamation-circle"></i>
             <h3>No se pudo cargar tu perfil</h3>
@@ -572,6 +584,19 @@
               <i class="bi bi-plus-lg"></i>
               Hacer un pedido
             </button>
+          </div>
+
+          <div class="pedido-kpis" id="pedidoKpis">
+            <article class="card pedido-kpi"><i class="bi bi-box-seam"></i><div><strong id="pedidoKpiActivos">0</strong><span>Pedidos activos</span></div></article>
+            <article class="card pedido-kpi"><i class="bi bi-truck"></i><div><strong id="pedidoKpiTransito">0</strong><span>En tránsito</span></div></article>
+            <article class="card pedido-kpi"><i class="bi bi-check2-circle"></i><div><strong id="pedidoKpiEntregados">0</strong><span>Entregados</span></div></article>
+            <article class="card pedido-kpi pedido-kpi-alert"><i class="bi bi-exclamation-triangle"></i><div><strong id="pedidoKpiReclamos">0</strong><span>Reclamos abiertos</span></div></article>
+          </div>
+
+          <div class="card pedido-notifications" id="pedidoNotifications" hidden></div>
+          <div class="toolbar pedido-toolbar">
+            <div class="toolbar-search"><i class="bi bi-search"></i><input id="pedidoBuscar" type="search" placeholder="Buscar número, carga, origen o destino" /></div>
+            <div class="toolbar-filters"><select id="pedidoEstadoFiltro" class="select-pill"><option value="">Todos los estados</option><option>Pendiente</option><option>Asignada</option><option>En Tránsito</option><option>Entregada</option><option value="RECLAMO">Con reclamo</option></select><input id="pedidoFechaFiltro" class="select-pill" type="date" aria-label="Filtrar por fecha" /></div>
           </div>
 
           <p class="results-count" id="pedidoResultsCount"></p>
@@ -1609,6 +1634,26 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="pedidoDetalleOverlay">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header"><h3>Detalle del pedido</h3><button type="button" class="modal-close" id="pedidoDetalleClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+      <div id="pedidoDetalleContenido" class="pedido-detail"></div>
+      <div class="modal-footer"><button type="button" class="btn btn-ghost" id="pedidoImprimirGuia"><i class="bi bi-printer"></i> Imprimir guía</button><button type="button" class="btn btn-primary" id="pedidoDetalleAceptar">Cerrar</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="pedidoRecepcionOverlay">
+    <div class="modal-dialog">
+      <div class="modal-header"><h3>Confirmar recepción</h3><button type="button" class="modal-close" id="pedidoRecepcionClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+      <form id="pedidoRecepcionForm">
+        <div class="field"><label for="pedidoRecepcionTipo">¿Cómo llegó el pedido?</label><div class="input-wrap"><i class="bi bi-clipboard-check"></i><select id="pedidoRecepcionTipo"><option value="COMPLETO">Completo y en buen estado</option><option value="INCOMPLETO">Producto incompleto</option><option value="DANADO">Producto dañado</option><option value="INCORRECTO">Pedido incorrecto</option><option value="OTRO">Otro problema</option></select></div></div>
+        <div class="field"><label for="pedidoRecepcionObservacion">Detalle</label><textarea id="pedidoRecepcionObservacion" rows="4" placeholder="Describe el problema o deja una observación"></textarea></div>
+        <div class="field"><label for="pedidoRecepcionEvidencia">Fotografía de evidencia (opcional)</label><input id="pedidoRecepcionEvidencia" type="file" accept="image/jpeg,image/png,image/webp" /><small class="field-help">Máximo 4 MB.</small></div>
+        <div class="modal-footer"><button type="button" class="btn btn-ghost" id="pedidoRecepcionCancelar">Cancelar</button><button type="submit" class="btn btn-primary">Guardar recepción</button></div>
+      </form>
+    </div>
+  </div>
+
   <script src="js/roles.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/api-client.js"></script>
@@ -1626,6 +1671,7 @@
   <script src="js/seguimiento.js"></script>
   <script src="js/reportes.js"></script>
   <script src="js/guias.js"></script>
+  <script src="js/reclamos.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/configuracion.js"></script>
   <script src="js/admin.js"></script>

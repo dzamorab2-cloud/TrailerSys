@@ -40,6 +40,19 @@
     correoEl.textContent = me.correo || "Sin correo registrado";
     idEl.textContent = `#${me.id}`;
     sesionEl.textContent = session?.loginAt ? trailersysFormatDateTime(session.loginAt) : "—";
+
+    const empresaCard = document.getElementById("perfilClienteEmpresa");
+    if (session?.role === "cliente") {
+      try {
+        const empresa = await trailersysApiRequest("GET", "/mis-cargas/perfil");
+        empresaCard.hidden = false;
+        document.getElementById("perfilClienteEmpresaDatos").innerHTML = [
+          ["Razón social", empresa.nombre], ["RUC / identificación", empresa.identificacion],
+          ["Teléfono", empresa.telefono], ["Correo", empresa.correo || "Sin registrar"],
+          ["Dirección", empresa.direccion], ["Servicios", empresa.servicios || "Sin registrar"],
+        ].map(([label, value]) => `<div class="route-stat"><div class="route-stat-label">${label}</div><div class="route-stat-value">${String(value ?? "—").replace(/[&<>]/g, "")}</div></div>`).join("");
+      } catch { empresaCard.hidden = true; }
+    }
   }
 
   render();

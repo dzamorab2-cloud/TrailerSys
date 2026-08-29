@@ -41,4 +41,6 @@ public interface ViajeRepository extends JpaRepository<Viaje, Long> {
     List<Viaje> findTop100ByEstadoInOrderByFechaSalidaAsc(Collection<EstadoViaje> estados);
 
     List<Viaje> findTop100ByEntregaConfirmadaTrueAndEntregaValidadaFalseOrderByFechaEntregaConfirmadaDesc();
+
+    List<Viaje> findByEstadoReclamoClienteIsNotNullOrderByFechaConfirmacionClienteDesc();
 }

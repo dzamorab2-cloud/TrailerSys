@@ -17,6 +17,8 @@ import com.trailersys.backend.carga.Carga;
 import com.trailersys.backend.carga.dto.CargaResponse;
 import com.trailersys.backend.pedido.dto.ConfirmarRecepcionClienteRequest;
 import com.trailersys.backend.pedido.dto.PedidoCargaRequest;
+import com.trailersys.backend.pedido.dto.DetallePedidoResponse;
+import com.trailersys.backend.pedido.dto.PerfilClienteResponse;
 import com.trailersys.backend.viaje.Viaje;
 import com.trailersys.backend.viaje.dto.ViajeResponse;
 
@@ -61,6 +63,18 @@ public class PedidoClienteController {
     public ViajeResponse confirmarRecepcion(@PathVariable Long id,
             @RequestBody(required = false) ConfirmarRecepcionClienteRequest request, Principal principal) {
         String observacion = request != null ? request.observacion() : null;
-        return ViajeResponse.from(service.confirmarRecepcion(principal.getName(), id, observacion));
+        String novedad = request != null ? request.novedad() : null;
+        String evidencia = request != null ? request.evidencia() : null;
+        return ViajeResponse.from(service.confirmarRecepcion(principal.getName(), id, observacion, novedad, evidencia));
+    }
+
+    @GetMapping("/perfil")
+    public PerfilClienteResponse perfil(Principal principal) {
+        return service.perfil(principal.getName());
+    }
+
+    @GetMapping("/{id}/detalle")
+    public DetallePedidoResponse detalle(@PathVariable Long id, Principal principal) {
+        return service.detalle(principal.getName(), id);
     }
 }

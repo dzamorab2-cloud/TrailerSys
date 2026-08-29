@@ -1,5 +1,7 @@
 package com.trailersys.backend.carga;
 
+import java.time.LocalDateTime;
+
 import com.trailersys.backend.cliente.Cliente;
 
 import jakarta.persistence.Column;
@@ -53,6 +55,8 @@ public class Carga {
     @Column(columnDefinition = "TEXT")
     private String observaciones;
 
+    private LocalDateTime fechaCreacion;
+
     protected Carga() {
     }
 
@@ -66,6 +70,7 @@ public class Carga {
         this.destino = destino;
         this.estado = estado;
         this.observaciones = observaciones;
+        this.fechaCreacion = LocalDateTime.now();
     }
 
     public Long getId() {
@@ -135,4 +140,6 @@ public class Carga {
     public void setObservaciones(String observaciones) {
         this.observaciones = observaciones;
     }
+
+    public LocalDateTime getFechaCreacion() { return fechaCreacion; }
 }

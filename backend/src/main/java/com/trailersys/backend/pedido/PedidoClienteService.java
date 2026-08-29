@@ -18,6 +18,12 @@ import com.trailersys.backend.usuario.UsuarioRepository;
 import com.trailersys.backend.viaje.EstadoViaje;
 import com.trailersys.backend.viaje.Viaje;
 import com.trailersys.backend.viaje.ViajeRepository;
+import com.trailersys.backend.seguimiento.SeguimientoEventoRepository;
+import com.trailersys.backend.seguimiento.dto.SeguimientoEventoResponse;
+import com.trailersys.backend.pedido.dto.DetallePedidoResponse;
+import com.trailersys.backend.pedido.dto.PerfilClienteResponse;
+import com.trailersys.backend.carga.dto.CargaResponse;
+import com.trailersys.backend.viaje.dto.ViajeResponse;
 
 /**
  * Autoservicio del rol CLIENTE: crear pedidos (Cargas en Pendiente),
@@ -33,12 +39,14 @@ public class PedidoClienteService {
     private final UsuarioRepository usuarioRepository;
     private final CargaRepository cargaRepository;
     private final ViajeRepository viajeRepository;
+    private final SeguimientoEventoRepository seguimientoRepository;
 
     public PedidoClienteService(UsuarioRepository usuarioRepository, CargaRepository cargaRepository,
-                                 ViajeRepository viajeRepository) {
+                                 ViajeRepository viajeRepository, SeguimientoEventoRepository seguimientoRepository) {
         this.usuarioRepository = usuarioRepository;
         this.cargaRepository = cargaRepository;
         this.viajeRepository = viajeRepository;
+        this.seguimientoRepository = seguimientoRepository;
     }
 
     private Cliente miCliente(String username) {
@@ -81,8 +89,21 @@ public class PedidoClienteService {
         return viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId()).orElse(null);
     }
 
+    public PerfilClienteResponse perfil(String username) {
+        return PerfilClienteResponse.from(miCliente(username));
+    }
+
+    public DetallePedidoResponse detalle(String username, Long cargaId) {
+        Carga carga = miCarga(username, cargaId);
+        Viaje viaje = viajeRepository.findFirstByCarga_IdOrderByIdDesc(cargaId).orElse(null);
+        var eventos = viaje == null ? List.<SeguimientoEventoResponse>of()
+                : seguimientoRepository.findByViajeIdOrderByFechaHoraDesc(viaje.getId()).stream()
+                        .map(SeguimientoEventoResponse::from).toList();
+        return new DetallePedidoResponse(CargaResponse.from(carga), viaje == null ? null : ViajeResponse.from(viaje), eventos);
+    }
+
     @Transactional
-    public Viaje confirmarRecepcion(String username, Long cargaId, String observacion) {
+    public Viaje confirmarRecepcion(String username, Long cargaId, String observacion, String novedad, String evidencia) {
         Carga carga = miCarga(username, cargaId);
         Viaje viaje = viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId())
                 .orElseThrow(() -> new ConflictException("Este pedido todavía no tiene un viaje asociado."));
@@ -98,6 +119,19 @@ public class PedidoClienteService {
         viaje.setFechaConfirmacionCliente(LocalDateTime.now());
         viaje.setObservacionConfirmacionCliente(observacion);
         viaje.setConfirmadoPorCliente(username);
+        String tipo = novedad == null || novedad.isBlank() ? "COMPLETO" : novedad.trim().toUpperCase();
+        if (!List.of("COMPLETO", "INCOMPLETO", "DANADO", "INCORRECTO", "OTRO").contains(tipo)) {
+            throw new ConflictException("Tipo de recepción no válido.");
+        }
+        if (!"COMPLETO".equals(tipo) && (observacion == null || observacion.isBlank())) {
+            throw new ConflictException("Describe el problema para registrar el reclamo.");
+        }
+        if (evidencia != null && evidencia.length() > 7_000_000) {
+            throw new ConflictException("La evidencia supera el tamaño permitido.");
+        }
+        viaje.setNovedadRecepcionCliente(tipo);
+        viaje.setEvidenciaRecepcionCliente(evidencia);
+        viaje.setEstadoReclamoCliente("COMPLETO".equals(tipo) ? null : "ABIERTO");
         return viaje;
     }
 }
