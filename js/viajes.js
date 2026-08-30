@@ -58,7 +58,9 @@
   const inputConductor = document.getElementById("viajeConductor");
   const inputConductorBuscar = document.getElementById("viajeConductorBuscar");
   const resultadosConductor = document.getElementById("viajeConductorResultados");
-  const selectCliente = document.getElementById("viajeCliente");
+  const inputCliente = document.getElementById("viajeCliente");
+  const inputClienteBuscar = document.getElementById("viajeClienteBuscar");
+  const resultadosCliente = document.getElementById("viajeClienteResultados");
   const selectCarga = document.getElementById("viajeCarga");
   const inputOrigen = document.getElementById("viajeOrigen");
   const inputDestino = document.getElementById("viajeDestino");
@@ -90,12 +92,12 @@
   let currentPage = 0;
   let pageMeta = null;
 
-  // Caches de los catalogos relacionados, usados solo para poblar los
-  // selectores del formulario de alta/edicion. Vehiculo y conductor ya no
-  // se cachean: con decenas de miles de registros reales, un <select> con
-  // una lista fija es inutil, asi que usan un buscador con autocompletado
-  // (ver trailersysAutocomplete en ui-helpers.js) en vez de precargarse aqui.
-  let clientesCache = [];
+  // Cache del catalogo de cargas, usado solo para poblar el selector de
+  // carga del formulario de alta/edicion. Vehiculo, conductor y cliente ya
+  // no se cachean: con decenas de miles de registros reales, un <select>
+  // con una lista fija es inutil, asi que usan un buscador con
+  // autocompletado (ver trailersysAutocomplete en ui-helpers.js) en vez de
+  // precargarse aqui.
   let cargasCache = [];
 
   const vehiculoAutocomplete = trailersysAutocomplete({
@@ -116,6 +118,15 @@
     etiqueta: (c) => c.nombres,
     detalle: (c) => c.estado,
     extraParams: { estado: "Disponible" },
+  });
+
+  const clienteAutocomplete = trailersysAutocomplete({
+    input: inputClienteBuscar,
+    hidden: inputCliente,
+    resultados: resultadosCliente,
+    recurso: "clientes",
+    etiqueta: (c) => c.nombre,
+    detalle: (c) => (c.telefono ? `${c.identificacion} · ${c.telefono}` : c.identificacion),
   });
 
   function escapeHtml(value) {
@@ -179,14 +190,11 @@
   }
 
   async function refreshCaches() {
-    [clientesCache, cargasCache] = await Promise.all([
-      trailersysPagedRequest("clientes", 0, 100).then((d) => d.content).catch(() => []),
-      // Filtrado por estado en el propio backend (no en el cliente): antes
-      // se pedian hasta 100 cargas SIN filtrar y se recortaba a "Pendiente"
-      // en el navegador, así que con más de 100 cargas en la tabla podían
-      // quedar pedidos pendientes fuera de este selector sin que se notara.
-      trailersysPagedRequest("cargas", 0, 100, { estado: "Pendiente" }).then((d) => d.content).catch(() => []),
-    ]);
+    // Filtrado por estado en el propio backend (no en el cliente): antes
+    // se pedian hasta 100 cargas SIN filtrar y se recortaba a "Pendiente"
+    // en el navegador, así que con más de 100 cargas en la tabla podían
+    // quedar pedidos pendientes fuera de este selector sin que se notara.
+    cargasCache = await trailersysPagedRequest("cargas", 0, 100, { estado: "Pendiente" }).then((d) => d.content).catch(() => []);
   }
 
   // Deja pasar solo los recursos libres (estado === estadoLibre), mas el
@@ -202,11 +210,10 @@
       const actual = await trailersysApiRequest("GET", `/cargas/${viaje.cargaId}`).catch(() => null);
       if (actual) cargasCache.push(actual);
     }
-    // Vehiculo y conductor: el buscador con autocompletado consulta el
-    // backend en vivo (filtrado a "Disponible") en vez de precargarse aqui;
-    // ver openForm(), que muestra la seleccion actual usando los campos ya
-    // denormalizados del propio viaje (vehiculoPlaca/conductorNombres).
-    fillSelect(selectCliente, clientesCache, (c) => c.nombre, "Selecciona un cliente");
+    // Vehiculo, conductor y cliente: el buscador con autocompletado consulta
+    // el backend en vivo en vez de precargarse aqui; ver openForm(), que
+    // muestra la seleccion actual usando los campos ya denormalizados del
+    // propio viaje (vehiculoPlaca/conductorNombres/clienteNombre).
     fillSelect(selectCarga, filtrarDisponibles(cargasCache, "Pendiente", viaje?.cargaId),
       (c) => c.descripcion, "Sin carga asociada");
   }
@@ -380,19 +387,21 @@
     selectEstado.value = "Programado";
     vehiculoAutocomplete.ocultar();
     conductorAutocomplete.ocultar();
+    clienteAutocomplete.ocultar();
     await refreshRelationOptions(viaje);
 
     if (viaje) {
       modalTitle.textContent = "Editar viaje";
       inputId.value = viaje.id;
-      // Vehiculo y conductor ya vienen denormalizados en el viaje
-      // (vehiculoPlaca/conductorNombres), asi que no hace falta otra
-      // peticion para mostrar la seleccion actual al editar.
+      // Vehiculo, conductor y cliente ya vienen denormalizados en el viaje
+      // (vehiculoPlaca/conductorNombres/clienteNombre), asi que no hace
+      // falta otra peticion para mostrar la seleccion actual al editar.
       inputVehiculo.value = viaje.vehiculoId;
       inputVehiculoBuscar.value = viaje.vehiculoPlaca || "";
       inputConductor.value = viaje.conductorId;
       inputConductorBuscar.value = viaje.conductorNombres || "";
-      selectCliente.value = viaje.clienteId;
+      inputCliente.value = viaje.clienteId;
+      inputClienteBuscar.value = viaje.clienteNombre || "";
       selectCarga.value = viaje.cargaId || "";
       inputOrigen.value = viaje.origen;
       inputDestino.value = viaje.destino;
@@ -408,6 +417,8 @@
       inputVehiculoBuscar.value = "";
       inputConductor.value = "";
       inputConductorBuscar.value = "";
+      inputCliente.value = "";
+      inputClienteBuscar.value = "";
       // Solo para viajes nuevos: no tiene sentido bloquear la edicion de
       // uno ya existente (por ejemplo uno Finalizado con fecha pasada).
       inputFechaSalida.min = nowForInput();
@@ -441,7 +452,11 @@
     if (!carga) return;
     inputOrigen.value = carga.origen;
     inputDestino.value = carga.destino;
-    if (carga.clienteId) selectCliente.value = carga.clienteId;
+    if (carga.clienteId) {
+      inputCliente.value = carga.clienteId;
+      inputClienteBuscar.value = carga.clienteNombre || "";
+      clienteAutocomplete.ocultar();
+    }
     rutaCalculada = null;
     setRutaStatus("Origen/destino actualizados desde la carga. Calcula la ruta nuevamente.", null);
   });
@@ -531,7 +546,7 @@
     const data = {
       vehiculoId: inputVehiculo.value ? Number(inputVehiculo.value) : null,
       conductorId: inputConductor.value ? Number(inputConductor.value) : null,
-      clienteId: selectCliente.value ? Number(selectCliente.value) : null,
+      clienteId: inputCliente.value ? Number(inputCliente.value) : null,
       cargaId: selectCarga.value ? Number(selectCarga.value) : null,
       origen: inputOrigen.value.trim(),
       destino: inputDestino.value.trim(),

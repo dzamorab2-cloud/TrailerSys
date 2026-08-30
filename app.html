@@ -1187,12 +1187,12 @@
           </div>
 
           <div class="field" id="fieldViajeCliente">
-            <label for="viajeCliente">Cliente</label>
-            <div class="input-wrap">
+            <label for="viajeClienteBuscar">Cliente</label>
+            <div class="input-wrap autocomplete-wrap">
               <i class="bi bi-building"></i>
-              <select id="viajeCliente">
-                <option value="">Selecciona un cliente</option>
-              </select>
+              <input type="text" id="viajeClienteBuscar" placeholder="Escribe un nombre o identificación..." autocomplete="off" />
+              <input type="hidden" id="viajeCliente" />
+              <div class="autocomplete-results" id="viajeClienteResultados" hidden></div>
             </div>
             <span class="field-error"></span>
           </div>
