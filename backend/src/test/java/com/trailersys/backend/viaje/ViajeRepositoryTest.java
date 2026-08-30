@@ -66,14 +66,45 @@ class ViajeRepositoryTest {
         repository.save(new Viaje(vehiculo, conductor, cliente, null, "Cuenca", "Loja",
                 LocalDateTime.of(2026, 2, 1, 8, 0), EstadoViaje.FINALIZADO, null));
 
-        var porPlaca = repository.buscar("bus-0001", null, PageRequest.of(0, 10));
+        var porPlaca = repository.buscar("bus-0001", null, null, null, PageRequest.of(0, 10));
         assertThat(porPlaca.getTotalElements()).isEqualTo(2);
 
-        var porConductor = repository.buscar("juan perez", null, PageRequest.of(0, 10));
+        var porConductor = repository.buscar("juan perez", null, null, null, PageRequest.of(0, 10));
         assertThat(porConductor.getTotalElements()).isEqualTo(2);
 
-        var porEstado = repository.buscar("", EstadoViaje.FINALIZADO, PageRequest.of(0, 10));
+        var porEstado = repository.buscar("", EstadoViaje.FINALIZADO, null, null, PageRequest.of(0, 10));
         assertThat(porEstado.getTotalElements()).isEqualTo(1);
         assertThat(porEstado.getContent().get(0).getOrigen()).isEqualTo("Cuenca");
+    }
+
+    @Test
+    void buscarFiltraPorRangoDeFechaDeSalida() {
+        Vehiculo vehiculo = entityManager.persist(new Vehiculo(
+                "FEC-0001", "Marca", "Modelo", "Tipo", 2020, "Rojo", EstadoVehiculo.DISPONIBLE, 0, 0, null, null));
+        Conductor conductor = entityManager.persist(new Conductor(
+                "Conductor Fecha", "CI-FEC", "0999999999", null, "LIC-1", "Tipo B",
+                LocalDate.now().plusYears(1), EstadoConductor.DISPONIBLE, null, null, null));
+        Cliente cliente = entityManager.persist(new Cliente(
+                "Cliente Fecha", "CI-FEC-CLI", EstadoCliente.ACTIVO, "0999999999", null, "Direccion", null, null));
+
+        repository.save(new Viaje(vehiculo, conductor, cliente, null, "Enero", "Enero",
+                LocalDateTime.of(2026, 1, 1, 8, 0), EstadoViaje.PROGRAMADO, null));
+        repository.save(new Viaje(vehiculo, conductor, cliente, null, "Febrero", "Febrero",
+                LocalDateTime.of(2026, 2, 15, 8, 0), EstadoViaje.PROGRAMADO, null));
+        repository.save(new Viaje(vehiculo, conductor, cliente, null, "Marzo", "Marzo",
+                LocalDateTime.of(2026, 3, 1, 8, 0), EstadoViaje.PROGRAMADO, null));
+
+        var soloFebrero = repository.buscar("", null,
+                LocalDateTime.of(2026, 2, 1, 0, 0), LocalDateTime.of(2026, 2, 28, 23, 59, 59),
+                PageRequest.of(0, 10));
+        assertThat(soloFebrero.getTotalElements()).isEqualTo(1);
+        assertThat(soloFebrero.getContent().get(0).getOrigen()).isEqualTo("Febrero");
+
+        var desdeFebrero = repository.buscar("", null,
+                LocalDateTime.of(2026, 2, 1, 0, 0), null, PageRequest.of(0, 10));
+        assertThat(desdeFebrero.getTotalElements()).isEqualTo(2);
+
+        var sinFiltroDeFecha = repository.buscar("", null, null, null, PageRequest.of(0, 10));
+        assertThat(sinFiltroDeFecha.getTotalElements()).isEqualTo(3);
     }
 }

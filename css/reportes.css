@@ -156,6 +156,19 @@
   margin-bottom: 16px;
 }
 
+.report-scope-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin: -4px 0 16px;
+}
+
 .print-header .print-title {
   font-size: 1.2rem;
   font-weight: 800;

@@ -17,10 +17,14 @@ public interface MantenimientoRepository extends JpaRepository<Mantenimiento, Lo
                    or lower(m.vehiculo.placa) like lower(concat('%', :search, '%')))
               and (:vehiculoId is null or m.vehiculo.id = :vehiculoId)
               and (:tipo is null or m.tipo = :tipo)
+              and (cast(:desde as date) is null or m.fecha >= :desde)
+              and (cast(:hasta as date) is null or m.fecha <= :hasta)
             """)
     Page<Mantenimiento> buscar(@Param("search") String search,
                                @Param("vehiculoId") Long vehiculoId,
                                @Param("tipo") TipoMantenimiento tipo,
+                               @Param("desde") LocalDate desde,
+                               @Param("hasta") LocalDate hasta,
                                Pageable pageable);
 
     List<Mantenimiento> findByVehiculoIdOrderByFechaDesc(Long vehiculoId);

@@ -20,9 +20,13 @@ public interface ViajeRepository extends JpaRepository<Viaje, Long> {
                    or lower(v.vehiculo.placa) like lower(concat('%', :search, '%'))
                    or lower(v.conductor.nombres) like lower(concat('%', :search, '%')))
               and (:estado is null or v.estado = :estado)
+              and (cast(:desde as timestamp) is null or v.fechaSalida >= :desde)
+              and (cast(:hasta as timestamp) is null or v.fechaSalida <= :hasta)
             """)
     Page<Viaje> buscar(@Param("search") String search,
                        @Param("estado") EstadoViaje estado,
+                       @Param("desde") LocalDateTime desde,
+                       @Param("hasta") LocalDateTime hasta,
                        Pageable pageable);
 
     List<Viaje> findByCarga_Id(Long cargaId);

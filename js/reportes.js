@@ -7,6 +7,7 @@
   const tableWrap = document.getElementById("reportTableWrap");
   const emptyState = document.getElementById("reportEmptyState");
   const printHeader = document.getElementById("reportPrintHeader");
+  const scopeNote = document.getElementById("reportScopeNote");
   const btnExportarCsv = document.getElementById("btnExportarCsv");
   const btnImprimir = document.getElementById("btnImprimirReporte");
 
@@ -30,9 +31,32 @@
     }[char]));
   }
 
+  // OJO: no usar new Date().toISOString().slice(0,10) aqui. toISOString()
+  // convierte a UTC, así que en Ecuador (UTC-5) cualquier hora desde las
+  // 19:00 en adelante ya cae en el dia UTC siguiente: el filtro "Hoy"
+  // terminaba mostrando una fecha que todavia no llegaba localmente.
   function todayIso() {
-    return new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
+
+  // Estado de filtros por pestaña. Se mantiene en variables aparte (en vez
+  // de leerse siempre del DOM) porque el contenedor de filtros se
+  // reconstruye con innerHTML en cada cambio de pestaña: antes, elegir un
+  // estado disparaba el "change", pero el propio handler reconstruia el
+  // <select> desde cero (con "" como unico valor marcado "selected") justo
+  // antes de leer su valor, así que ningún filtro llegaba a aplicarse
+  // realmente. Viajes y Mantenimientos arrancan acotados a "hoy": son
+  // catálogos de decenas o cientos de miles de filas, y sin un rango de
+  // fecha razonable el reporte (y lo que se imprime/exporta) termina
+  // mostrando una muestra arbitraria de 100 registros como si fuera todo.
+  const filtros = {
+    vehiculos: { estado: "" },
+    conductores: { estado: "" },
+    viajes: { estado: "", desde: todayIso(), hasta: todayIso() },
+    mantenimientos: { vehiculoId: "", tipo: "", desde: todayIso(), hasta: todayIso() },
+  };
 
   function formatCosto(value) {
     return `$ ${Number(value).toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -51,6 +75,44 @@
 
   function selectOption(value, label, current) {
     return `<option value="${value}" ${value === current ? "selected" : ""}>${label}</option>`;
+  }
+
+  // Un input de fecha vacio no debe filtrar nada: si el usuario borra el
+  // campo (o nunca lo toca), "" se manda tal cual y trailersysPagedRequest
+  // ya omite los parametros vacios.
+  function dateRangeInputsHtml(desde, hasta) {
+    return `
+      <input type="date" id="reportFiltroDesde" class="select-pill" value="${desde}" title="Desde" />
+      <input type="date" id="reportFiltroHasta" class="select-pill" value="${hasta}" title="Hasta" />
+      <button type="button" class="btn btn-ghost" id="reportFiltroHoy"><i class="bi bi-calendar-day"></i> Hoy</button>
+      <button type="button" class="btn btn-ghost" id="reportFiltroVerTodo"><i class="bi bi-x-circle"></i> Ver todo</button>`;
+  }
+
+  function bindDateRangeEvents(filtro, onChange) {
+    document.getElementById("reportFiltroDesde").addEventListener("change", (event) => {
+      filtro.desde = event.target.value;
+      onChange(false);
+    });
+    document.getElementById("reportFiltroHasta").addEventListener("change", (event) => {
+      filtro.hasta = event.target.value;
+      onChange(false);
+    });
+    document.getElementById("reportFiltroHoy").addEventListener("click", () => {
+      filtro.desde = todayIso();
+      filtro.hasta = todayIso();
+      onChange(true);
+    });
+    document.getElementById("reportFiltroVerTodo").addEventListener("click", () => {
+      filtro.desde = "";
+      filtro.hasta = "";
+      onChange(true);
+    });
+  }
+
+  function descripcionRangoFecha(desde, hasta) {
+    if (!desde && !hasta) return "";
+    if (desde && desde === hasta) return `Fecha: ${desde}`;
+    return `Del ${desde || "inicio"} al ${hasta || "hoy"}`;
   }
 
   // --- Tabla generica ---
@@ -76,29 +138,50 @@
     btnExportarCsv.disabled = rows.length === 0;
   }
 
-  function updatePrintHeader() {
+  // Dejar claro cuando la tabla (y por lo tanto la impresión/CSV) no
+  // alcanza a cubrir todos los registros que coinciden con el filtro: con
+  // catálogos de decenas de miles de filas, mostrar "100" sin más contexto
+  // se leía como si esa fuera la cantidad real. Acotando por fecha (o por
+  // estado) el total casi siempre cabe entero; cuando no, al menos queda
+  // documentado en pantalla y en el propio documento impreso.
+  function updateScopeNote(totalElements, mostrados) {
+    if (totalElements > mostrados) {
+      scopeNote.hidden = false;
+      scopeNote.textContent = `Mostrando los ${mostrados.toLocaleString("es-EC")} registros más recientes de un total de ${totalElements.toLocaleString("es-EC")} que coinciden con el filtro. Acota por fecha para ver el reporte completo.`;
+    } else {
+      scopeNote.hidden = true;
+      scopeNote.textContent = "";
+    }
+  }
+
+  function updatePrintHeader(detalleFiltro) {
     printHeader.innerHTML = `
       <div class="print-title">Reporte de ${TAB_LABELS[currentTab]}</div>
-      <div class="print-meta">TrailerSys · Generado el ${trailersysFormatDateTime(new Date())}</div>`;
+      <div class="print-meta">TrailerSys · Generado el ${trailersysFormatDateTime(new Date())}${detalleFiltro ? ` · ${escapeHtml(detalleFiltro)}` : ""}</div>`;
   }
 
   // --- Reporte: Vehiculos ---
-  async function renderVehiculosReport() {
-    filtersContainer.innerHTML = `
-      <select id="reportFiltroEstado" class="select-pill">
-        ${selectOption("", "Todos los estados", "")}
-        ${["Disponible", "En Ruta", "Mantenimiento", "Fuera de Servicio"].map((e) => selectOption(e, e, "")).join("")}
-      </select>`;
-    document.getElementById("reportFiltroEstado").addEventListener("change", renderVehiculosReport);
-    const estado = document.getElementById("reportFiltroEstado").value;
-
-    let vehiculos;
-    try {
-      vehiculos = (await trailersysPagedRequest("vehiculos", 0, 100)).content;
-    } catch {
-      vehiculos = [];
+  async function renderVehiculosReport({ rebuildFilters = false } = {}) {
+    const f = filtros.vehiculos;
+    if (rebuildFilters) {
+      filtersContainer.innerHTML = `
+        <select id="reportFiltroEstado" class="select-pill">
+          ${selectOption("", "Todos los estados", f.estado)}
+          ${["Disponible", "En Ruta", "Mantenimiento", "Fuera de Servicio"].map((e) => selectOption(e, e, f.estado)).join("")}
+        </select>`;
+      document.getElementById("reportFiltroEstado").addEventListener("change", (event) => {
+        f.estado = event.target.value;
+        renderVehiculosReport();
+      });
     }
-    vehiculos = vehiculos.filter((v) => !estado || v.estado === estado);
+
+    let pagina;
+    try {
+      pagina = await trailersysPagedRequest("vehiculos", 0, 100, { estado: f.estado });
+    } catch {
+      pagina = { content: [], totalElements: 0 };
+    }
+    const vehiculos = pagina.content;
 
     const counts = { Disponible: 0, "En Ruta": 0, Mantenimiento: 0, "Fuera de Servicio": 0 };
     vehiculos.forEach((v) => {
@@ -106,7 +189,7 @@
     });
 
     statsRow.innerHTML = [
-      statCard("bi-truck", vehiculos.length, "Total vehículos"),
+      statCard("bi-truck", pagina.totalElements.toLocaleString("es-EC"), "Total vehículos"),
       statCard("bi-check-circle", counts.Disponible, "Disponibles"),
       statCard("bi-signpost", counts["En Ruta"], "En ruta"),
       statCard("bi-tools", counts.Mantenimiento + counts["Fuera de Servicio"], "En mantenimiento / fuera de servicio"),
@@ -126,26 +209,32 @@
 
     renderTable(headers, rows);
     setExportData(headers, rows, "reporte-vehiculos");
-    updatePrintHeader();
+    updateScopeNote(pagina.totalElements, vehiculos.length);
+    updatePrintHeader(f.estado ? `Estado: ${f.estado}` : "");
   }
 
   // --- Reporte: Conductores ---
-  async function renderConductoresReport() {
-    filtersContainer.innerHTML = `
-      <select id="reportFiltroEstado" class="select-pill">
-        ${selectOption("", "Todos los estados", "")}
-        ${["Disponible", "En Ruta", "Descanso", "Inactivo"].map((e) => selectOption(e, e, "")).join("")}
-      </select>`;
-    document.getElementById("reportFiltroEstado").addEventListener("change", renderConductoresReport);
-    const estado = document.getElementById("reportFiltroEstado").value;
-
-    let conductores;
-    try {
-      conductores = (await trailersysPagedRequest("conductores", 0, 100)).content;
-    } catch {
-      conductores = [];
+  async function renderConductoresReport({ rebuildFilters = false } = {}) {
+    const f = filtros.conductores;
+    if (rebuildFilters) {
+      filtersContainer.innerHTML = `
+        <select id="reportFiltroEstado" class="select-pill">
+          ${selectOption("", "Todos los estados", f.estado)}
+          ${["Disponible", "En Ruta", "Descanso", "Inactivo"].map((e) => selectOption(e, e, f.estado)).join("")}
+        </select>`;
+      document.getElementById("reportFiltroEstado").addEventListener("change", (event) => {
+        f.estado = event.target.value;
+        renderConductoresReport();
+      });
     }
-    conductores = conductores.filter((c) => !estado || c.estado === estado);
+
+    let pagina;
+    try {
+      pagina = await trailersysPagedRequest("conductores", 0, 100, { estado: f.estado });
+    } catch {
+      pagina = { content: [], totalElements: 0 };
+    }
+    const conductores = pagina.content;
 
     const en30Dias = new Date();
     en30Dias.setDate(en30Dias.getDate() + 30);
@@ -158,7 +247,7 @@
     ).length;
 
     statsRow.innerHTML = [
-      statCard("bi-person-badge", conductores.length, "Total conductores"),
+      statCard("bi-person-badge", pagina.totalElements.toLocaleString("es-EC"), "Total conductores"),
       statCard("bi-check-circle", activos, "Activos (disponible / en ruta)"),
       statCard("bi-exclamation-triangle", vencidas, "Licencias vencidas"),
       statCard("bi-alarm", porVencer, "Licencias por vencer (30 días)"),
@@ -178,26 +267,34 @@
 
     renderTable(headers, rows);
     setExportData(headers, rows, "reporte-conductores");
-    updatePrintHeader();
+    updateScopeNote(pagina.totalElements, conductores.length);
+    updatePrintHeader(f.estado ? `Estado: ${f.estado}` : "");
   }
 
   // --- Reporte: Viajes ---
-  async function renderViajesReport() {
-    filtersContainer.innerHTML = `
-      <select id="reportFiltroEstado" class="select-pill">
-        ${selectOption("", "Todos los estados", "")}
-        ${["Programado", "En Curso", "Finalizado", "Cancelado"].map((e) => selectOption(e, e, "")).join("")}
-      </select>`;
-    document.getElementById("reportFiltroEstado").addEventListener("change", renderViajesReport);
-    const estado = document.getElementById("reportFiltroEstado").value;
-
-    let viajes;
-    try {
-      viajes = (await trailersysPagedRequest("viajes", 0, 100)).content;
-    } catch {
-      viajes = [];
+  async function renderViajesReport({ rebuildFilters = false } = {}) {
+    const f = filtros.viajes;
+    if (rebuildFilters) {
+      filtersContainer.innerHTML = `
+        <select id="reportFiltroEstado" class="select-pill">
+          ${selectOption("", "Todos los estados", f.estado)}
+          ${["Programado", "En Curso", "Finalizado", "Cancelado"].map((e) => selectOption(e, e, f.estado)).join("")}
+        </select>
+        ${dateRangeInputsHtml(f.desde, f.hasta)}`;
+      document.getElementById("reportFiltroEstado").addEventListener("change", (event) => {
+        f.estado = event.target.value;
+        renderViajesReport();
+      });
+      bindDateRangeEvents(f, (rebuild) => renderViajesReport({ rebuildFilters: rebuild }));
     }
-    viajes = viajes.filter((v) => !estado || v.estado === estado);
+
+    let pagina;
+    try {
+      pagina = await trailersysPagedRequest("viajes", 0, 100, { estado: f.estado, desde: f.desde, hasta: f.hasta });
+    } catch {
+      pagina = { content: [], totalElements: 0 };
+    }
+    const viajes = pagina.content;
 
     const counts = { Programado: 0, "En Curso": 0, Finalizado: 0, Cancelado: 0 };
     let kmTotales = 0;
@@ -207,7 +304,7 @@
     });
 
     statsRow.innerHTML = [
-      statCard("bi-signpost-split", viajes.length, "Total viajes"),
+      statCard("bi-signpost-split", pagina.totalElements.toLocaleString("es-EC"), "Total viajes"),
       statCard("bi-hourglass-split", counts.Programado, "Programados"),
       statCard("bi-arrow-repeat", counts["En Curso"], "En curso"),
       statCard("bi-flag", counts.Finalizado, "Finalizados"),
@@ -234,42 +331,51 @@
 
     renderTable(headers, rows);
     setExportData(headers, rows, "reporte-viajes");
-    updatePrintHeader();
+    updateScopeNote(pagina.totalElements, viajes.length);
+    updatePrintHeader([descripcionRangoFecha(f.desde, f.hasta), f.estado ? `Estado: ${f.estado}` : ""].filter(Boolean).join(" · "));
   }
 
   // --- Reporte: Mantenimientos ---
-  async function renderMantenimientosReport() {
-    let vehiculos;
-    try {
-      vehiculos = (await trailersysPagedRequest("vehiculos", 0, 100)).content;
-    } catch {
-      vehiculos = [];
+  async function renderMantenimientosReport({ rebuildFilters = false } = {}) {
+    const f = filtros.mantenimientos;
+    if (rebuildFilters) {
+      let vehiculos;
+      try {
+        vehiculos = (await trailersysPagedRequest("vehiculos", 0, 100)).content;
+      } catch {
+        vehiculos = [];
+      }
+      filtersContainer.innerHTML = `
+        <select id="reportFiltroVehiculo" class="select-pill">
+          ${selectOption("", "Todos los vehículos", f.vehiculoId)}
+          ${vehiculos.map((v) => selectOption(v.id, `${v.placa} · ${v.marca} ${v.modelo}`, f.vehiculoId)).join("")}
+        </select>
+        <select id="reportFiltroTipo" class="select-pill">
+          ${selectOption("", "Todos los tipos", f.tipo)}
+          ${selectOption("Preventivo", "Preventivo", f.tipo)}
+          ${selectOption("Correctivo", "Correctivo", f.tipo)}
+        </select>
+        ${dateRangeInputsHtml(f.desde, f.hasta)}`;
+      document.getElementById("reportFiltroVehiculo").addEventListener("change", (event) => {
+        f.vehiculoId = event.target.value;
+        renderMantenimientosReport();
+      });
+      document.getElementById("reportFiltroTipo").addEventListener("change", (event) => {
+        f.tipo = event.target.value;
+        renderMantenimientosReport();
+      });
+      bindDateRangeEvents(f, (rebuild) => renderMantenimientosReport({ rebuildFilters: rebuild }));
     }
-    filtersContainer.innerHTML = `
-      <select id="reportFiltroVehiculo" class="select-pill">
-        ${selectOption("", "Todos los vehículos", "")}
-        ${vehiculos.map((v) => selectOption(v.id, `${v.placa} · ${v.marca} ${v.modelo}`, "")).join("")}
-      </select>
-      <select id="reportFiltroTipo" class="select-pill">
-        ${selectOption("", "Todos los tipos", "")}
-        ${selectOption("Preventivo", "Preventivo", "")}
-        ${selectOption("Correctivo", "Correctivo", "")}
-      </select>`;
-    document.getElementById("reportFiltroVehiculo").addEventListener("change", renderMantenimientosReport);
-    document.getElementById("reportFiltroTipo").addEventListener("change", renderMantenimientosReport);
-    const vehiculoId = document.getElementById("reportFiltroVehiculo").value;
-    const tipo = document.getElementById("reportFiltroTipo").value;
 
-    let mantenimientos;
+    let pagina;
     try {
-      mantenimientos = (await trailersysPagedRequest("mantenimientos", 0, 100)).content;
+      pagina = await trailersysPagedRequest("mantenimientos", 0, 100, {
+        vehiculoId: f.vehiculoId, tipo: f.tipo, desde: f.desde, hasta: f.hasta,
+      });
     } catch {
-      mantenimientos = [];
+      pagina = { content: [], totalElements: 0 };
     }
-    mantenimientos = mantenimientos
-      .filter((m) => !vehiculoId || String(m.vehiculoId) === vehiculoId)
-      .filter((m) => !tipo || m.tipo === tipo)
-      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+    const mantenimientos = pagina.content;
 
     const preventivos = mantenimientos.filter((m) => m.tipo === "Preventivo").length;
     const correctivos = mantenimientos.filter((m) => m.tipo === "Correctivo").length;
@@ -277,7 +383,7 @@
     const costoTotal = mantenimientos.reduce((sum, m) => sum + Number(m.costo || 0), 0);
 
     statsRow.innerHTML = [
-      statCard("bi-tools", mantenimientos.length, "Total registros"),
+      statCard("bi-tools", pagina.totalElements.toLocaleString("es-EC"), "Total registros"),
       statCard("bi-cash-coin", formatCosto(costoTotal), "Costo total"),
       statCard("bi-arrow-repeat", preventivos, "Preventivos"),
       statCard("bi-exclamation-triangle", correctivos, "Correctivos"),
@@ -285,19 +391,23 @@
     ].join("");
 
     const headers = ["Vehículo", "Tipo", "Fecha", "Kilometraje", "Costo", "Próximo servicio", "Descripción"];
-    const rows = mantenimientos.map((m) => [
-      escapeHtml(m.vehiculoPlaca),
-      escapeHtml(m.tipo),
-      escapeHtml(m.fecha),
-      `${Number(m.kilometraje).toLocaleString("es-EC")} km`,
-      formatCosto(m.costo),
-      m.proximoServicio ? escapeHtml(m.proximoServicio) : "—",
-      escapeHtml(m.descripcion),
-    ]);
+    const rows = mantenimientos
+      .slice()
+      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+      .map((m) => [
+        escapeHtml(m.vehiculoPlaca),
+        escapeHtml(m.tipo),
+        escapeHtml(m.fecha),
+        `${Number(m.kilometraje).toLocaleString("es-EC")} km`,
+        formatCosto(m.costo),
+        m.proximoServicio ? escapeHtml(m.proximoServicio) : "—",
+        escapeHtml(m.descripcion),
+      ]);
 
     renderTable(headers, rows);
     setExportData(headers, rows, "reporte-mantenimientos");
-    updatePrintHeader();
+    updateScopeNote(pagina.totalElements, mantenimientos.length);
+    updatePrintHeader([descripcionRangoFecha(f.desde, f.hasta), f.tipo ? `Tipo: ${f.tipo}` : ""].filter(Boolean).join(" · "));
   }
 
   const RENDERERS = {
@@ -310,7 +420,7 @@
   async function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll(".report-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
-    await RENDERERS[tab]();
+    await RENDERERS[tab]({ rebuildFilters: true });
   }
 
   tabsContainer.addEventListener("click", (event) => {

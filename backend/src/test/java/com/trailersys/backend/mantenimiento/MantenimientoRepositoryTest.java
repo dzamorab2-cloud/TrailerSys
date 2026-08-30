@@ -51,16 +51,41 @@ class MantenimientoRepositoryTest {
         repository.save(new Mantenimiento(vehiculoB, TipoMantenimiento.CORRECTIVO,
                 LocalDate.of(2026, 2, 1), 2000, 150.0, null, "Reparacion de frenos"));
 
-        var porTexto = repository.buscar("aceite", null, null, PageRequest.of(0, 10));
+        var porTexto = repository.buscar("aceite", null, null, null, null, PageRequest.of(0, 10));
         assertThat(porTexto.getTotalElements()).isEqualTo(1);
         assertThat(porTexto.getContent().get(0).getDescripcion()).isEqualTo("Cambio de aceite");
 
-        var porVehiculo = repository.buscar("", vehiculoB.getId(), null, PageRequest.of(0, 10));
+        var porVehiculo = repository.buscar("", vehiculoB.getId(), null, null, null, PageRequest.of(0, 10));
         assertThat(porVehiculo.getTotalElements()).isEqualTo(1);
         assertThat(porVehiculo.getContent().get(0).getVehiculo().getId()).isEqualTo(vehiculoB.getId());
 
-        var porTipo = repository.buscar("", null, TipoMantenimiento.CORRECTIVO, PageRequest.of(0, 10));
+        var porTipo = repository.buscar("", null, TipoMantenimiento.CORRECTIVO, null, null, PageRequest.of(0, 10));
         assertThat(porTipo.getTotalElements()).isEqualTo(1);
         assertThat(porTipo.getContent().get(0).getTipo()).isEqualTo(TipoMantenimiento.CORRECTIVO);
+    }
+
+    @Test
+    void buscarFiltraPorRangoDeFecha() {
+        Vehiculo vehiculo = entityManager.persist(new Vehiculo(
+                "MNT-FEC1", "Marca", "Modelo", "Tipo", 2020, "Rojo", EstadoVehiculo.DISPONIBLE, 0, 0, null, null));
+
+        repository.save(new Mantenimiento(vehiculo, TipoMantenimiento.PREVENTIVO,
+                LocalDate.of(2026, 1, 1), 1000, 50.0, null, "Enero"));
+        repository.save(new Mantenimiento(vehiculo, TipoMantenimiento.PREVENTIVO,
+                LocalDate.of(2026, 2, 15), 2000, 80.0, null, "Febrero"));
+        repository.save(new Mantenimiento(vehiculo, TipoMantenimiento.PREVENTIVO,
+                LocalDate.of(2026, 3, 1), 3000, 100.0, null, "Marzo"));
+
+        var soloFebrero = repository.buscar("", null, null,
+                LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28), PageRequest.of(0, 10));
+        assertThat(soloFebrero.getTotalElements()).isEqualTo(1);
+        assertThat(soloFebrero.getContent().get(0).getDescripcion()).isEqualTo("Febrero");
+
+        var desdeFebrero = repository.buscar("", null, null,
+                LocalDate.of(2026, 2, 1), null, PageRequest.of(0, 10));
+        assertThat(desdeFebrero.getTotalElements()).isEqualTo(2);
+
+        var sinFiltroDeFecha = repository.buscar("", null, null, null, null, PageRequest.of(0, 10));
+        assertThat(sinFiltroDeFecha.getTotalElements()).isEqualTo(3);
     }
 }
