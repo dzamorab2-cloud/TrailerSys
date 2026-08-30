@@ -210,13 +210,21 @@
 }
 
 /* Horizontal: los reportes con muchas columnas (ej. Viajes tiene 10) casi
-   nunca entran en una hoja vertical. */
-@page {
+   nunca entran en una hoja vertical. Nombrada (en vez de @page a secas) y
+   asignada solo a #reportePrintArea: un @page sin nombre es global a TODA
+   la app (tambien afecta a la guia de Cargas/Viajes, que es un documento
+   angosto donde el horizontal solo resta alto y la hace mas propensa a
+   partirse en 2 hojas). */
+@page trailersys-reporte {
   size: landscape;
   margin: 12mm;
 }
 
 @media print {
+  #reportePrintArea {
+    page: trailersys-reporte;
+  }
+
   .sidebar,
   .sidebar-backdrop,
   .topbar,

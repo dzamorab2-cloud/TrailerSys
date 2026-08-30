@@ -149,9 +149,23 @@
   body:has(#guiaModalOverlay.open) #guiaModalOverlay,
   body:has(#guiaModalOverlay.open) #guiaModalOverlay * { visibility: visible !important; }
   #guiaModalOverlay.open { position: absolute; inset: 0; display: block; padding: 0; background: white; opacity: 1; }
-  #guiaModalOverlay.open .modal-dialog { max-width: none; max-height: none; overflow: visible; box-shadow: none; transform: none; padding: 18px; }
+  #guiaModalOverlay.open .modal-dialog { max-width: none; max-height: none; overflow: visible; box-shadow: none; transform: none; padding: 12px; }
   #guiaModalOverlay .no-print { display: none !important; }
   .guia-section { break-inside: avoid; }
+
+  /* Compactado para que la guia (un documento corto: encabezado + 3-4
+     secciones + firmas) quepa en una sola hoja en vez de dejar unas pocas
+     lineas sueltas en una segunda pagina. Medido con el contenido real de
+     una guia de viaje (la mas larga, 4 secciones): sin esto ocupaba ~1216px
+     de alto sobre un ancho de pagina tipo carta/A4 vertical (~725px de
+     ancho util), mas de lo que entra en una hoja; con esto queda en ~860px.
+     No cambia nada en pantalla, solo en el documento impreso/PDF. */
+  #guiaModalOverlay .modal-header { margin-bottom: 8px; }
+  #guiaModalOverlay .guia-summary { padding: 8px 10px; gap: 6px; margin-bottom: 2px; }
+  #guiaModalOverlay .guia-section { margin-top: 8px; }
+  #guiaModalOverlay .guia-section h4 { padding: 5px 12px; }
+  #guiaModalOverlay .guia-fields { padding: 8px 12px; gap: 8px; }
+  #guiaModalOverlay .guia-signatures { margin-top: 18px; }
 }
 
 .photo-upload-actions {
