@@ -279,28 +279,32 @@
   }
 
   async function showViajeGuide(viaje) {
-    const [conductor, vehiculo, carga] = await Promise.all([
-      trailersysApiRequest("GET", `/conductores/${viaje.conductorId}`).catch(() => null),
-      trailersysApiRequest("GET", `/vehiculos/${viaje.vehiculoId}`).catch(() => null),
-      viaje.cargaId ? trailersysApiRequest("GET", `/cargas/${viaje.cargaId}`).catch(() => null) : Promise.resolve(null)
-    ]);
+    // Los datos de conductor/vehiculo/carga vienen ya incluidos en el propio
+    // viaje (el backend los denormaliza en ViajeResponse) en vez de pedirse
+    // por separado a /conductores/{id}, /vehiculos/{id} y /cargas/{id}: esos
+    // 3 endpoints solo permiten Administrador/Coordinador (vehiculos ademas
+    // Mantenimiento/Supervisor), asi que para los roles Conductor y
+    // Supervisor -que si pueden ver este viaje- esas llamadas devolvian 403
+    // en silencio y la guia salia casi vacia (solo "—" en la mayoria de
+    // campos). Usando los campos del propio viaje, la guia sale completa
+    // sin importar el rol de quien la abra.
     trailersysShowGuide({
       tipo: "Viaje", id: viaje.id, estado: viaje.estado,
       secciones: [
         { titulo: "Conductor", icono: "bi-person-badge", campos: [
-          ["Nombre completo", conductor?.nombres || viaje.conductorNombres],
-          ["Identificación", conductor?.identificacion], ["Teléfono", conductor?.telefono],
-          ["Licencia", conductor?.licenciaNumero], ["Categoría", conductor?.licenciaCategoria],
-          ["Vencimiento", conductor?.licenciaVencimiento]
+          ["Nombre completo", viaje.conductorNombres],
+          ["Identificación", viaje.conductorIdentificacion], ["Teléfono", viaje.conductorTelefono],
+          ["Licencia", viaje.conductorLicenciaNumero], ["Categoría", viaje.conductorLicenciaCategoria],
+          ["Vencimiento", viaje.conductorLicenciaVencimiento]
         ] },
         { titulo: "Vehículo", icono: "bi-truck", campos: [
-          ["Placa", vehiculo?.placa || viaje.vehiculoPlaca], ["Marca", vehiculo?.marca],
-          ["Modelo", vehiculo?.modelo], ["Tipo", vehiculo?.tipo], ["Año", vehiculo?.anio],
-          ["Color", vehiculo?.color], ["Capacidad", vehiculo ? formatPesoDoble(vehiculo.capacidad) : "—"]
+          ["Placa", viaje.vehiculoPlaca], ["Marca", viaje.vehiculoMarca],
+          ["Modelo", viaje.vehiculoModelo], ["Tipo", viaje.vehiculoTipo], ["Año", viaje.vehiculoAnio],
+          ["Color", viaje.vehiculoColor], ["Capacidad", viaje.vehiculoCapacidad != null ? formatPesoDoble(viaje.vehiculoCapacidad) : "—"]
         ] },
         { titulo: "Carga transportada", icono: "bi-box-seam", campos: [
-          ["Mercancía", carga?.descripcion || viaje.cargaDescripcion || "Viaje sin carga asociada"],
-          ["Tipo", carga?.tipo], ["Peso", carga ? formatPesoDoble(carga.peso) : "—"],
+          ["Mercancía", viaje.cargaDescripcion || "Viaje sin carga asociada"],
+          ["Tipo", viaje.cargaTipo], ["Peso", viaje.cargaPeso != null ? formatPesoDoble(viaje.cargaPeso) : "—"],
           ["Cliente", viaje.clienteNombre]
         ] },
         { titulo: "Ruta y despacho", icono: "bi-signpost-split", campos: [

@@ -197,11 +197,26 @@
   }
 
   async function showVehiculoGuide(vehiculo) {
-    const conductor = await trailersysApiRequest("GET", `/conductores/por-vehiculo/${vehiculo.id}`).catch(() => null);
+    // GET /conductores/por-vehiculo/{id} solo lo permite Administrador/
+    // Coordinador; para Mantenimiento y Supervisor (que si pueden ver esta
+    // guia) esa llamada devuelve 403, no un "no hay conductor". Antes ambos
+    // casos caian en el mismo .catch(() => null) y mostraban el mismo
+    // "Sin conductor asignado" - enganoso, porque un vehiculo SI podia tener
+    // conductor asignado y solo no se le mostraba a ese rol. Aqui se
+    // distingue: 204 (backend confirma que no hay conductor) vs 403
+    // (backend lo oculta por rol).
+    let conductor = null;
+    let sinPermiso = false;
+    try {
+      conductor = await trailersysApiRequest("GET", `/conductores/por-vehiculo/${vehiculo.id}`);
+    } catch (error) {
+      if (error?.status === 403) sinPermiso = true;
+    }
+    const textoConductor = conductor?.nombres || (sinPermiso ? "No disponible para tu rol" : "Sin conductor asignado");
     trailersysShowGuide({ tipo: "Vehículo", codigo: "VEH", id: vehiculo.id, estado: vehiculo.estado, secciones: [
       { titulo: "Ficha técnica", icono: "bi-truck", campos: [["Placa", vehiculo.placa], ["Marca", vehiculo.marca], ["Modelo", vehiculo.modelo], ["Tipo", vehiculo.tipo], ["Año", vehiculo.anio], ["Color", vehiculo.color]] },
       { titulo: "Operación", icono: "bi-speedometer2", campos: [["Kilometraje", `${Number(vehiculo.kilometraje).toLocaleString("es-EC")} km`], ["Capacidad", formatPesoDoble(vehiculo.capacidad)], ["Estado", vehiculo.estado], ["Observaciones", vehiculo.observaciones || "Sin observaciones"]] },
-      { titulo: "Conductor asignado", icono: "bi-person-badge", campos: [["Nombre", conductor?.nombres || "Sin conductor asignado"], ["Identificación", conductor?.identificacion], ["Licencia", conductor?.licenciaNumero], ["Categoría", conductor?.licenciaCategoria], ["Vencimiento", conductor?.licenciaVencimiento]] }
+      { titulo: "Conductor asignado", icono: "bi-person-badge", campos: [["Nombre", textoConductor], ["Identificación", conductor?.identificacion], ["Licencia", conductor?.licenciaNumero], ["Categoría", conductor?.licenciaCategoria], ["Vencimiento", conductor?.licenciaVencimiento]] }
     ] });
   }
 
