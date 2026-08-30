@@ -1,5 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
+const { evidencia } = require('./helpers');
 
 /**
  * Suite E2E del login de TrailerSys (index.html -> js/auth.js).
@@ -86,5 +87,37 @@ test.describe('Login', () => {
     // Y localStorage se mantiene intacto: la sesion vive en sessionStorage, no ahi.
     const localStorageVacio = await page.evaluate(() => localStorage.getItem('trailersys_session'));
     expect(localStorageVacio).toBeNull();
+  });
+});
+
+/**
+ * CP-01 y CP-02: casos de login redactados para la actividad de la
+ * asignatura (ver enunciado). Se agregan como casos propios ademas de los
+ * 4 anteriores (que ya cubrian el mismo flujo con otro enfoque) para no
+ * alterar el diseño de ninguno de los dos.
+ */
+test.describe('Casos de la actividad: Login', () => {
+  test('CP-01 Login exitoso: admin/admin1234 redirige a app.html y muestra el Dashboard', async ({ page }) => {
+    await login(page, USUARIO_VALIDO, PASSWORD_VALIDO);
+
+    await expect(page).toHaveURL(/\/app\.html$/);
+    await expect(page.locator('#module-dashboard')).toBeVisible();
+    await expect(page.locator('#module-dashboard h1')).toHaveText('Dashboard');
+
+    await evidencia(page, 'CP-01-login-exitoso');
+  });
+
+  test('CP-02 Login con clave incorrecta: muestra "Usuario o contraseña incorrectos" sin recargar la pagina', async ({ page }) => {
+    await login(page, USUARIO_VALIDO, 'claveMala');
+
+    const alert = page.locator('#loginAlert');
+    await expect(alert).toBeVisible();
+    await expect(page.locator('#loginAlertText')).toHaveText(/usuario o contraseña incorrectos/i);
+
+    // "Sin recargar la pagina": sigue en index.html con el formulario intacto.
+    await expect(page).toHaveURL(/\/index\.html$/);
+    await expect(page.locator('#loginForm')).toBeVisible();
+
+    await evidencia(page, 'CP-02-login-clave-incorrecta');
   });
 });

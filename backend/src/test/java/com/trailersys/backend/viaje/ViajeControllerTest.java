@@ -490,6 +490,62 @@ class ViajeControllerTest {
     }
 
     @Test
+    void actualizarViajeEnCursoReasignandoSoloElVehiculoMantieneElMismoConductor() throws Exception {
+        // Regresion del bug encontrado por el test E2E de Playwright CP-06:
+        // reasignar SOLO el vehiculo de un viaje En Curso, dejando el mismo
+        // conductor (el caso tipico de "cambiar la unidad asignada"), daba
+        // 409 "El conductor seleccionado no esta disponible" porque el
+        // bypass de validarDisponibilidad exigia que vehiculo Y conductor
+        // coincidieran a la vez con los actuales del viaje para no revisar
+        // su estado; al cambiar solo el vehiculo, se volvia a exigir que el
+        // conductor estuviera Disponible, cuando seguia En Ruta por este
+        // mismo viaje.
+        Long vehiculoOriginal = crearVehiculo("VJE-REAS-04");
+        Long vehiculoNuevo = crearVehiculo("VJE-REAS-05");
+        Long conductorId = crearConductor("CI-VJE-REAS-04");
+        Long clienteId = crearCliente("CI-VJE-REAS-CLI-03");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoOriginal, conductorId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        // El conductor queda En Ruta por este mismo viaje (no cambia en esta prueba).
+        mockMvc.perform(get("/api/conductores/" + conductorId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+
+        String actualizacion = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoNuevo, conductorId, clienteId);
+        mockMvc.perform(put("/api/viajes/" + viajeId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(actualizacion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.vehiculoPlaca").value("VJE-REAS-05"))
+                .andExpect(jsonPath("$.conductorId").value(conductorId));
+
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoOriginal)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Disponible"));
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoNuevo)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+        mockMvc.perform(get("/api/conductores/" + conductorId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+    }
+
+    @Test
     void actualizarViajeConOtraCargaLiberaLaCargaAnterior() throws Exception {
         Long vehiculoId = crearVehiculo("VJE-REAS-03");
         Long conductorId = crearConductor("CI-VJE-REAS-03");
