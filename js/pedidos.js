@@ -79,7 +79,17 @@
   }
 
   function imprimirGuia() {
-    if (!detalleActual) return; const w = window.open("", "_blank", "width=900,height=700");
+    if (!detalleActual) return;
+    // window.open puede devolver null si el navegador bloquea la ventana
+    // emergente (bloqueador de pop-ups activo, o el permiso no se concedio
+    // para este sitio): sin esta comprobacion, w.document.write revienta
+    // con un error silencioso y el usuario se queda sin poder imprimir ni
+    // saber por que.
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (!w) {
+      alert("El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.");
+      return;
+    }
     w.document.write(`<!doctype html><html><head><title>Guía TS-${detalleActual.carga.id}</title><link rel="stylesheet" href="css/variables.css"><link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/components.css"><link rel="stylesheet" href="css/pedidos.css"><style>body{padding:32px}.pedido-detail{max-width:900px;margin:auto}</style></head><body><div class="pedido-detail"><h1>TrailerSys · Guía de transporte</h1>${$("pedidoDetalleContenido").innerHTML}<p>Documento generado el ${new Date().toLocaleString("es-EC")}</p></div><script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
   }
 
