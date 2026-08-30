@@ -16,6 +16,7 @@
     conductores: "Conductores",
     viajes: "Viajes",
     mantenimientos: "Mantenimientos",
+    clientes: "Clientes",
   };
 
   let currentTab = "vehiculos";
@@ -56,6 +57,7 @@
     conductores: { estado: "" },
     viajes: { estado: "", desde: todayIso(), hasta: todayIso() },
     mantenimientos: { vehiculoId: "", tipo: "", desde: todayIso(), hasta: todayIso() },
+    clientes: { estado: "" },
   };
 
   function formatCosto(value) {
@@ -410,11 +412,63 @@
     updatePrintHeader([descripcionRangoFecha(f.desde, f.hasta), f.tipo ? `Tipo: ${f.tipo}` : ""].filter(Boolean).join(" · "));
   }
 
+  // --- Reporte: Clientes ---
+  async function renderClientesReport({ rebuildFilters = false } = {}) {
+    const f = filtros.clientes;
+    if (rebuildFilters) {
+      filtersContainer.innerHTML = `
+        <select id="reportFiltroEstado" class="select-pill">
+          ${selectOption("", "Todos los estados", f.estado)}
+          ${["Activo", "Inactivo"].map((e) => selectOption(e, e, f.estado)).join("")}
+        </select>`;
+      document.getElementById("reportFiltroEstado").addEventListener("change", (event) => {
+        f.estado = event.target.value;
+        renderClientesReport();
+      });
+    }
+
+    let pagina;
+    try {
+      pagina = await trailersysPagedRequest("clientes", 0, 100, { estado: f.estado });
+    } catch {
+      pagina = { content: [], totalElements: 0 };
+    }
+    const clientes = pagina.content;
+
+    const activos = clientes.filter((c) => c.estado === "Activo").length;
+    const inactivos = clientes.filter((c) => c.estado === "Inactivo").length;
+    const conCorreo = clientes.filter((c) => c.correo).length;
+
+    statsRow.innerHTML = [
+      statCard("bi-building", pagina.totalElements.toLocaleString("es-EC"), "Total clientes"),
+      statCard("bi-check-circle", activos, "Activos"),
+      statCard("bi-x-circle", inactivos, "Inactivos"),
+      statCard("bi-envelope", conCorreo, "Con correo registrado"),
+    ].join("");
+
+    const headers = ["Nombre", "Identificación", "Estado", "Teléfono", "Correo", "Dirección", "Servicios"];
+    const rows = clientes.map((c) => [
+      escapeHtml(c.nombre),
+      escapeHtml(c.identificacion),
+      escapeHtml(c.estado),
+      escapeHtml(c.telefono),
+      c.correo ? escapeHtml(c.correo) : "—",
+      c.direccion ? escapeHtml(c.direccion) : "—",
+      c.servicios ? escapeHtml(c.servicios) : "—",
+    ]);
+
+    renderTable(headers, rows);
+    setExportData(headers, rows, "reporte-clientes");
+    updateScopeNote(pagina.totalElements, clientes.length);
+    updatePrintHeader(f.estado ? `Estado: ${f.estado}` : "");
+  }
+
   const RENDERERS = {
     vehiculos: renderVehiculosReport,
     conductores: renderConductoresReport,
     viajes: renderViajesReport,
     mantenimientos: renderMantenimientosReport,
+    clientes: renderClientesReport,
   };
 
   async function switchTab(tab) {
