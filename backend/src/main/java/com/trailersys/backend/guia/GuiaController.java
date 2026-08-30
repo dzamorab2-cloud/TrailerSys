@@ -42,10 +42,26 @@ public class GuiaController {
                  JOIN vehiculos ve ON ve.id=v.vehiculo_id LEFT JOIN cargas ca ON ca.id=v.carga_id
             UNION ALL
             SELECT 'GUIA-CAR-' || lpad(c.id::text, 6, '0'), 'CARGA', c.id, NULL::timestamp,
-                   c.descripcion, cl.nombre, NULL, NULL, c.origen, c.destino,
+                   c.descripcion, cl.nombre, co.nombres, ve.placa, c.origen, c.destino,
                    CASE c.estado WHEN 'EN_TRANSITO' THEN 'En Tránsito' WHEN 'ENTREGADA' THEN 'Entregada'
                      WHEN 'ASIGNADA' THEN 'Asignada' ELSE 'Pendiente' END
             FROM cargas c JOIN clientes cl ON cl.id=c.cliente_id
+                 -- El conductor/placa de una carga no son un dato propio: se toman
+                 -- del ultimo viaje que la transporto (mismo criterio que
+                 -- ViajeService.buscarUltimoPorCarga: el viaje con mayor id para
+                 -- esa carga). Antes esta rama del UNION traia NULL a proposito
+                 -- para "conductor" y "placa" - eso dejaba el listado de Guias
+                 -- mostrando siempre "Pendiente de asignar / Sin vehiculo" para
+                 -- TODAS las cargas, incluso las que ya iban en camino con un
+                 -- conductor y vehiculo asignados (la propia guia, al abrirla,
+                 -- si mostraba el dato bien porque hace su propia consulta -
+                 -- pero la fila de la tabla no).
+                 LEFT JOIN LATERAL (
+                     SELECT v.conductor_id, v.vehiculo_id FROM viajes v
+                     WHERE v.carga_id = c.id ORDER BY v.id DESC LIMIT 1
+                 ) uv ON true
+                 LEFT JOIN conductores co ON co.id = uv.conductor_id
+                 LEFT JOIN vehiculos ve ON ve.id = uv.vehiculo_id
             """;
         String where = """
             WHERE (? = '' OR tipo = ?) AND (? = '' OR estado = ?)
