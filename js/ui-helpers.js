@@ -47,6 +47,108 @@ const trailersysConfirm = (function () {
   };
 })();
 
+/**
+ * Convierte un input de texto en un buscador con autocompletado contra un
+ * endpoint paginado del backend (trailersysPagedRequest de api-client.js).
+ * Pensado para catalogos demasiado grandes para precargar en un <select>
+ * (decenas de miles de vehiculos/conductores/clientes reales): en vez de
+ * una lista fija de las primeras N filas, busca en el backend a medida
+ * que se escribe y solo muestra las coincidencias.
+ *
+ * Requiere en el HTML: el input visible, un input[type=hidden] junto a el
+ * (donde queda el id elegido) y un contenedor .autocomplete-results (ver
+ * css/cargas.css) posicionado dentro de un .autocomplete-wrap.
+ *
+ * @param {Object} opts
+ * @param {HTMLInputElement} opts.input - campo de texto visible.
+ * @param {HTMLInputElement} opts.hidden - campo oculto con el id elegido.
+ * @param {HTMLElement} opts.resultados - contenedor de la lista de coincidencias.
+ * @param {string} opts.recurso - nombre para trailersysPagedRequest (ej. "vehiculos").
+ * @param {(item:any) => string} opts.etiqueta - texto principal de cada resultado
+ *   (y valor que queda en el input al elegirlo).
+ * @param {(item:any) => string} [opts.detalle] - texto secundario opcional.
+ * @param {Object|() => Object} [opts.extraParams] - parametros fijos de busqueda
+ *   (ej. {estado: "Disponible"}); puede ser una funcion si dependen de otro campo.
+ * @param {(item:any) => void} [opts.onSeleccionar] - callback extra al elegir.
+ * @returns {{ seleccionar(item), limpiar(), ocultar() }}
+ */
+function trailersysAutocomplete({ input, hidden, resultados, recurso, etiqueta, detalle, extraParams = {}, onSeleccionar }) {
+  const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[char]));
+
+  let timer;
+  let actuales = [];
+
+  function ocultar() {
+    resultados.hidden = true;
+    resultados.innerHTML = "";
+    actuales = [];
+  }
+
+  function limpiar() {
+    hidden.value = "";
+  }
+
+  function seleccionar(item) {
+    hidden.value = item.id;
+    input.value = etiqueta(item);
+    ocultar();
+    if (onSeleccionar) onSeleccionar(item);
+  }
+
+  function render(items) {
+    actuales = items;
+    resultados.innerHTML = items.length
+      ? items.map((item, index) => `
+        <div class="autocomplete-item" data-index="${index}">
+          <span class="autocomplete-item-name">${escape(etiqueta(item))}</span>
+          ${detalle ? `<span class="autocomplete-item-meta">${escape(detalle(item))}</span>` : ""}
+        </div>`).join("")
+      : '<div class="autocomplete-empty">Ninguna coincidencia.</div>';
+    resultados.hidden = false;
+  }
+
+  async function buscar(query) {
+    const params = typeof extraParams === "function" ? extraParams() : extraParams;
+    try {
+      const pagina = await trailersysPagedRequest(recurso, 0, 12, { ...params, search: query });
+      render(pagina.content);
+    } catch {
+      resultados.innerHTML = '<div class="autocomplete-empty">No se pudo buscar.</div>';
+      resultados.hidden = false;
+    }
+  }
+
+  input.addEventListener("input", () => {
+    limpiar();
+    const query = input.value.trim();
+    clearTimeout(timer);
+    if (!query) {
+      ocultar();
+      return;
+    }
+    timer = setTimeout(() => buscar(query), 250);
+  });
+
+  input.addEventListener("focus", () => {
+    if (input.value.trim() && !hidden.value) buscar(input.value.trim());
+  });
+
+  // mousedown (no click) para que dispare antes que el blur del input.
+  resultados.addEventListener("mousedown", (event) => {
+    const item = event.target.closest(".autocomplete-item");
+    if (!item) return;
+    event.preventDefault();
+    const elegido = actuales[Number(item.dataset.index)];
+    if (elegido) seleccionar(elegido);
+  });
+
+  input.addEventListener("blur", () => setTimeout(ocultar, 150));
+
+  return { seleccionar, limpiar, ocultar };
+}
+
 const trailersysShowGuide = (function () {
   const overlay = document.getElementById("guiaModalOverlay");
   const titleEl = document.getElementById("guiaModalTitle");

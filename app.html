@@ -915,12 +915,12 @@
           </div>
 
           <div class="field field-span-2" id="fieldConductorVehiculo">
-            <label for="conductorVehiculo">Vehículo asignado (opcional)</label>
-            <div class="input-wrap">
+            <label for="conductorVehiculoBuscar">Vehículo asignado (opcional)</label>
+            <div class="input-wrap autocomplete-wrap">
               <i class="bi bi-truck"></i>
-              <select id="conductorVehiculo">
-                <option value="">Sin asignar</option>
-              </select>
+              <input type="text" id="conductorVehiculoBuscar" placeholder="Escribe una placa, marca o modelo..." autocomplete="off" />
+              <input type="hidden" id="conductorVehiculo" />
+              <div class="autocomplete-results" id="conductorVehiculoResultados" hidden></div>
             </div>
           </div>
 
@@ -1165,23 +1165,23 @@
 
         <div class="form-grid">
           <div class="field" id="fieldViajeVehiculo">
-            <label for="viajeVehiculo">Vehículo</label>
-            <div class="input-wrap">
+            <label for="viajeVehiculoBuscar">Vehículo</label>
+            <div class="input-wrap autocomplete-wrap">
               <i class="bi bi-truck"></i>
-              <select id="viajeVehiculo">
-                <option value="">Selecciona un vehículo</option>
-              </select>
+              <input type="text" id="viajeVehiculoBuscar" placeholder="Escribe una placa, marca o modelo..." autocomplete="off" />
+              <input type="hidden" id="viajeVehiculo" />
+              <div class="autocomplete-results" id="viajeVehiculoResultados" hidden></div>
             </div>
             <span class="field-error"></span>
           </div>
 
           <div class="field" id="fieldViajeConductor">
-            <label for="viajeConductor">Conductor</label>
-            <div class="input-wrap">
+            <label for="viajeConductorBuscar">Conductor</label>
+            <div class="input-wrap autocomplete-wrap">
               <i class="bi bi-person-badge"></i>
-              <select id="viajeConductor">
-                <option value="">Selecciona un conductor</option>
-              </select>
+              <input type="text" id="viajeConductorBuscar" placeholder="Escribe un nombre..." autocomplete="off" />
+              <input type="hidden" id="viajeConductor" />
+              <div class="autocomplete-results" id="viajeConductorResultados" hidden></div>
             </div>
             <span class="field-error"></span>
           </div>
@@ -1394,12 +1394,12 @@
 
         <div class="form-grid">
           <div class="field field-span-2" id="fieldMantenimientoVehiculo">
-            <label for="mantenimientoVehiculo">Vehículo</label>
-            <div class="input-wrap">
+            <label for="mantenimientoVehiculoBuscar">Vehículo</label>
+            <div class="input-wrap autocomplete-wrap">
               <i class="bi bi-truck"></i>
-              <select id="mantenimientoVehiculo">
-                <option value="">Selecciona un vehículo</option>
-              </select>
+              <input type="text" id="mantenimientoVehiculoBuscar" placeholder="Escribe una placa, marca o modelo..." autocomplete="off" />
+              <input type="hidden" id="mantenimientoVehiculo" />
+              <div class="autocomplete-results" id="mantenimientoVehiculoResultados" hidden></div>
             </div>
             <span class="field-error"></span>
           </div>

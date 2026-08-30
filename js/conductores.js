@@ -41,7 +41,9 @@
   const inputLicenciaCategoria = document.getElementById("conductorLicenciaCategoria");
   const inputLicenciaVencimiento = document.getElementById("conductorLicenciaVencimiento");
   const selectEstado = document.getElementById("conductorEstado");
-  const selectVehiculo = document.getElementById("conductorVehiculo");
+  const inputVehiculo = document.getElementById("conductorVehiculo");
+  const inputVehiculoBuscar = document.getElementById("conductorVehiculoBuscar");
+  const resultadosVehiculo = document.getElementById("conductorVehiculoResultados");
   const inputObservaciones = document.getElementById("conductorObservaciones");
 
   const inputFoto = document.getElementById("conductorFoto");
@@ -95,23 +97,17 @@
     }
   }
 
-  async function refreshVehiculoOptions() {
-    let vehiculos;
-    try {
-      vehiculos = (await trailersysPagedRequest("vehiculos", 0, 100)).content;
-    } catch {
-      vehiculos = [];
-    }
-    const current = selectVehiculo.value;
-    selectVehiculo.innerHTML = '<option value="">Sin asignar</option>';
-    vehiculos.forEach((v) => {
-      const option = document.createElement("option");
-      option.value = v.id;
-      option.textContent = `${v.placa} · ${v.marca} ${v.modelo}`;
-      selectVehiculo.appendChild(option);
-    });
-    if (vehiculos.some((v) => String(v.id) === current)) selectVehiculo.value = current;
-  }
+  // Con decenas de miles de vehiculos reales, un <select> con una lista fija
+  // es inutil. Se busca en el backend a medida que se escribe (ver
+  // trailersysAutocomplete en ui-helpers.js).
+  const vehiculoAutocomplete = trailersysAutocomplete({
+    input: inputVehiculoBuscar,
+    hidden: inputVehiculo,
+    resultados: resultadosVehiculo,
+    recurso: "vehiculos",
+    etiqueta: (v) => `${v.placa} · ${v.marca} ${v.modelo}`,
+    detalle: (v) => v.estado,
+  });
 
   function renderCard(conductor, canManage) {
     const badgeClass = ESTADO_BADGE[conductor.estado] || "badge-neutral";
@@ -221,7 +217,7 @@
     clearFieldErrors();
     form.reset();
     selectEstado.value = "Disponible";
-    await refreshVehiculoOptions();
+    vehiculoAutocomplete.ocultar();
 
     if (conductor) {
       modalTitle.textContent = "Editar conductor";
@@ -234,12 +230,17 @@
       inputLicenciaCategoria.value = conductor.licenciaCategoria;
       inputLicenciaVencimiento.value = conductor.licenciaVencimiento;
       selectEstado.value = conductor.estado;
-      selectVehiculo.value = conductor.vehiculoId || "";
+      // El vehiculo ya viene denormalizado en el conductor (vehiculoPlaca),
+      // asi que no hace falta otra peticion para mostrar la seleccion actual.
+      inputVehiculo.value = conductor.vehiculoId || "";
+      inputVehiculoBuscar.value = conductor.vehiculoPlaca || "";
       inputObservaciones.value = conductor.observaciones || "";
       setFotoPreview(conductor.foto);
     } else {
       modalTitle.textContent = "Nuevo conductor";
       inputId.value = "";
+      inputVehiculo.value = "";
+      inputVehiculoBuscar.value = "";
       setFotoPreview("");
     }
 
@@ -315,7 +316,7 @@
       licenciaCategoria: inputLicenciaCategoria.value.trim(),
       licenciaVencimiento: inputLicenciaVencimiento.value,
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],
-      vehiculoId: selectVehiculo.value ? Number(selectVehiculo.value) : null,
+      vehiculoId: inputVehiculo.value ? Number(inputVehiculo.value) : null,
       observaciones: inputObservaciones.value.trim(),
       foto: fotoActual,
     };

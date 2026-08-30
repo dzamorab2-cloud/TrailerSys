@@ -26,7 +26,9 @@
   const btnCancelar = document.getElementById("mantenimientoCancelar");
 
   const inputId = document.getElementById("mantenimientoId");
-  const selectVehiculo = document.getElementById("mantenimientoVehiculo");
+  const inputVehiculo = document.getElementById("mantenimientoVehiculo");
+  const inputVehiculoBuscar = document.getElementById("mantenimientoVehiculoBuscar");
+  const resultadosVehiculo = document.getElementById("mantenimientoVehiculoResultados");
   const selectTipo = document.getElementById("mantenimientoTipo");
   const inputFecha = document.getElementById("mantenimientoFecha");
   const inputKilometraje = document.getElementById("mantenimientoKilometraje");
@@ -100,6 +102,20 @@
       "fieldMantenimientoCosto", "fieldMantenimientoDescripcion"]
       .forEach((id) => setFieldError(id, ""));
   }
+
+  // Buscador con autocompletado para el campo "Vehiculo" del formulario: con
+  // decenas de miles de vehiculos reales, un <select> con una lista fija es
+  // inutil (ver trailersysAutocomplete en ui-helpers.js). El filtro de la
+  // lista (mas abajo) es un caso aparte y sigue usando el <select> con
+  // vehiculosCache, que ya trae como maximo 100 vehiculos.
+  const vehiculoAutocomplete = trailersysAutocomplete({
+    input: inputVehiculoBuscar,
+    hidden: inputVehiculo,
+    resultados: resultadosVehiculo,
+    recurso: "vehiculos",
+    etiqueta: (v) => `${v.placa} · ${v.marca} ${v.modelo}`,
+    detalle: (v) => v.estado,
+  });
 
   // --- Selects relacionados ---
   async function refreshVehiculosCache() {
@@ -219,13 +235,15 @@
     clearFieldErrors();
     form.reset();
     selectTipo.value = "Preventivo";
-    await refreshVehiculosCache();
-    fillVehiculoSelect(selectVehiculo, "Selecciona un vehículo");
+    vehiculoAutocomplete.ocultar();
 
     if (mantenimiento) {
       modalTitle.textContent = "Editar mantenimiento";
       inputId.value = mantenimiento.id;
-      selectVehiculo.value = mantenimiento.vehiculoId;
+      // El vehiculo ya viene denormalizado en el mantenimiento
+      // (vehiculoPlaca), asi que no hace falta otra peticion.
+      inputVehiculo.value = mantenimiento.vehiculoId;
+      inputVehiculoBuscar.value = mantenimiento.vehiculoPlaca || "";
       selectTipo.value = mantenimiento.tipo;
       inputFecha.value = mantenimiento.fecha;
       inputKilometraje.value = mantenimiento.kilometraje;
@@ -235,12 +253,14 @@
     } else {
       modalTitle.textContent = "Nuevo mantenimiento";
       inputId.value = "";
+      inputVehiculo.value = "";
+      inputVehiculoBuscar.value = "";
       inputFecha.value = fechaLocalHoy();
       inputProximoServicio.value = sumarUnMes(inputFecha.value);
     }
 
     trailersysOpenModal(modalOverlay);
-    selectVehiculo.focus();
+    inputVehiculoBuscar.focus();
   }
 
   function closeForm() {
@@ -363,7 +383,7 @@
     event.preventDefault();
 
     const data = {
-      vehiculoId: selectVehiculo.value ? Number(selectVehiculo.value) : null,
+      vehiculoId: inputVehiculo.value ? Number(inputVehiculo.value) : null,
       tipo: TIPOS.includes(selectTipo.value) ? selectTipo.value : TIPOS[0],
       fecha: inputFecha.value,
       kilometraje: inputKilometraje.value === "" ? "" : Number(inputKilometraje.value),
