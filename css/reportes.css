@@ -209,27 +209,29 @@
   margin-top: 4px;
 }
 
-/* Horizontal: los reportes con muchas columnas (ej. Viajes tiene 10) casi
-   nunca entran en una hoja vertical. Nombrada (en vez de @page a secas) y
-   asignada solo a #reportePrintArea: un @page sin nombre es global a TODA
-   la app (tambien afecta a la guia de Cargas/Viajes, que es un documento
-   angosto donde el horizontal solo resta alto y la hace mas propensa a
-   partirse en 2 hojas). */
-@page trailersys-reporte {
-  size: landscape;
-  margin: 12mm;
-}
+/* NOTA: se probo un @page con nombre asignado solo a #reportePrintArea
+   para imprimir en horizontal sin afectar a la guia (que necesita hoja
+   vertical). Se revirtio: cuando una pagina cambia de tipo (vertical a
+   horizontal) a mitad del documento, el navegador inserta un salto de
+   pagina ANTES para arrancar la pagina nueva - como #module-reportes
+   trae de por si un .module-header visible antes de #reportePrintArea,
+   ese salto dejaba una primera hoja casi vacia (solo el titulo del
+   modulo) y el reporte recien empezaba en la hoja 2. En vez de forzar
+   horizontal, la tabla ya se ajusta al ancho normal de la hoja dejando
+   que el texto salte de linea (mas abajo en este mismo @media print);
+   quien quiera horizontal lo puede elegir en el dialogo de impresion. */
 
 @media print {
-  #reportePrintArea {
-    page: trailersys-reporte;
-  }
-
   .sidebar,
   .sidebar-backdrop,
   .topbar,
   .report-tabs,
   .report-actions,
+  /* El titulo y subtitulo del modulo ("Reportes / Consultas e
+     indicadores...") quedan reemplazados por el membrete propio del
+     documento (ver #reportPrintHeader mas abajo); mostrar ambos a la vez
+     se veia redundante y descuadrado. */
+  .module-header,
   /* :not(#guiaModalOverlay): esta regla es para tapar un modal que haya
      quedado abierto de fondo al imprimir un Reporte, pero #guiaModalOverlay
      TAMBIEN tiene la clase .modal-overlay - sin esta excepcion, imprimir
