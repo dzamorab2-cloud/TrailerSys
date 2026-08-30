@@ -181,8 +181,9 @@
 
   function updatePrintHeader(detalleFiltro) {
     printHeader.innerHTML = `
+      <div class="print-kicker"><span class="print-brand-mark">TS</span> TrailerSys · Reporte operativo</div>
       <div class="print-title">Reporte de ${TAB_LABELS[currentTab]}</div>
-      <div class="print-meta">TrailerSys · Generado el ${trailersysFormatDateTime(new Date())}${detalleFiltro ? ` · ${escapeHtml(detalleFiltro)}` : ""}</div>`;
+      <div class="print-meta">Generado el ${trailersysFormatDateTime(new Date())}${detalleFiltro ? ` · ${escapeHtml(detalleFiltro)}` : ""}</div>`;
   }
 
   // --- Reporte: Vehiculos ---
@@ -512,12 +513,21 @@
   });
 
   // --- Exportar CSV ---
+  // Separador ";" en vez de ",": con la configuracion regional en español
+  // (Ecuador y la mayoria de Latinoamerica usan la coma como separador
+  // decimal), Excel espera punto y coma entre columnas. Si el archivo trae
+  // comas, Excel no reconoce columnas y mete cada fila entera en una sola
+  // celda: eso es lo que se veia "muy desorganizado" al abrirlo.
+  const CSV_SEP = ";";
+
   function csvEscape(value) {
     let str = String(value ?? "").replace(/<[^>]*>/g, "");
     // Neutraliza inyeccion de formulas: Excel/Sheets interpretan como
     // formula cualquier celda que empiece con =, +, - o @ al abrir el CSV.
     if (/^[=+\-@]/.test(str)) str = `'${str}`;
-    if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+    if (str.includes('"') || str.includes(CSV_SEP) || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
     return str;
   }
 
@@ -525,9 +535,11 @@
     const { headers, rows, filenamePrefix } = currentExport;
     if (!rows.length) return;
 
-    const lines = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\r\n");
+    const lines = [headers, ...rows].map((row) => row.map(csvEscape).join(CSV_SEP)).join("\r\n");
     const bom = String.fromCharCode(0xfeff);
-    const blob = new Blob([bom + lines], { type: "text/csv;charset=utf-8;" });
+    // La linea "sep=;" le dice a Excel explicitamente que separador usar,
+    // sin depender de adivinar la configuracion regional de quien lo abre.
+    const blob = new Blob([`${bom}sep=${CSV_SEP}\r\n${lines}`], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;

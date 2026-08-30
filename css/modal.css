@@ -140,11 +140,16 @@
   .guia-signatures { grid-template-columns: 1fr; }
 }
 
+/* OJO: "body *" sin acotar por :has(#guiaModalOverlay.open) ocultaba TODA
+   la pagina al imprimir, incluso cuando la guia no estaba abierta (ej. al
+   imprimir el modulo Reportes): el documento salia en blanco porque esta
+   regla es global a toda la app, no solo a esta guia. */
 @media print {
-  body * { visibility: hidden !important; }
-  #guiaModalOverlay, #guiaModalOverlay * { visibility: visible !important; }
-  #guiaModalOverlay { position: absolute; inset: 0; display: block; padding: 0; background: white; opacity: 1; }
-  #guiaModalOverlay .modal-dialog { max-width: none; max-height: none; overflow: visible; box-shadow: none; transform: none; padding: 18px; }
+  body:has(#guiaModalOverlay.open) * { visibility: hidden !important; }
+  body:has(#guiaModalOverlay.open) #guiaModalOverlay,
+  body:has(#guiaModalOverlay.open) #guiaModalOverlay * { visibility: visible !important; }
+  #guiaModalOverlay.open { position: absolute; inset: 0; display: block; padding: 0; background: white; opacity: 1; }
+  #guiaModalOverlay.open .modal-dialog { max-width: none; max-height: none; overflow: visible; box-shadow: none; transform: none; padding: 18px; }
   #guiaModalOverlay .no-print { display: none !important; }
   .guia-section { break-inside: avoid; }
 }

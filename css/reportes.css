@@ -152,10 +152,6 @@
   display: none;
 }
 
-.print-header {
-  margin-bottom: 16px;
-}
-
 .report-scope-note {
   display: flex;
   align-items: flex-start;
@@ -169,15 +165,55 @@
   margin: -4px 0 16px;
 }
 
-.print-header .print-title {
-  font-size: 1.2rem;
+/* Membrete del documento impreso/PDF: nombre de la empresa arriba de todo,
+   despues el titulo del reporte y los metadatos (fecha, filtro activo). */
+.print-header {
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.print-header .print-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+  font-size: 0.78rem;
   font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.print-header .print-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: normal;
+}
+
+.print-header .print-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin-top: 6px;
 }
 
 .print-header .print-meta {
   font-size: 0.8rem;
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: 4px;
+}
+
+/* Horizontal: los reportes con muchas columnas (ej. Viajes tiene 10) casi
+   nunca entran en una hoja vertical. */
+@page {
+  size: landscape;
+  margin: 12mm;
 }
 
 @media print {
@@ -215,5 +251,37 @@
 
   .report-table tbody tr:hover {
     background: transparent;
+  }
+
+  /* En pantalla el texto no salta de linea (nowrap) y la tabla se ve
+     completa gracias al scroll horizontal de .table-wrap; en una hoja
+     impresa no hay forma de "hacer scroll", asi que esas mismas reglas
+     dejaban columnas enteras fuera de la pagina (se veian cortadas /
+     descentradas). Para imprimir, se deja que el texto salte de linea y
+     la tabla ocupe solo el ancho real de la hoja. */
+  .table-wrap {
+    overflow: visible !important;
+    width: auto !important;
+  }
+
+  .report-table {
+    width: 100% !important;
+    table-layout: fixed;
+    font-size: 0.72rem;
+  }
+
+  .report-table th,
+  .report-table td {
+    white-space: normal !important;
+    overflow-wrap: break-word;
+    padding: 6px 8px;
+  }
+
+  .stats-row {
+    break-inside: avoid;
+  }
+
+  .report-table tr {
+    break-inside: avoid;
   }
 }
