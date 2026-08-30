@@ -8,6 +8,8 @@
   };
   const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Celular ecuatoriano: 10 digitos que empiezan en 09.
+  const TELEFONO_REGEX = /^09\d{8}$/;
 
   // Cache del ultimo listado cargado desde la API, para que los botones de
   // editar/eliminar de cada tarjeta no dependan de una segunda peticion.
@@ -45,6 +47,11 @@
   const inputVehiculoBuscar = document.getElementById("conductorVehiculoBuscar");
   const resultadosVehiculo = document.getElementById("conductorVehiculoResultados");
   const inputObservaciones = document.getElementById("conductorObservaciones");
+
+  // Solo digitos: evita que se puedan escribir letras o simbolos en estos
+  // dos campos (ver trailersysSoloDigitos en ui-helpers.js).
+  trailersysSoloDigitos(inputIdentificacion);
+  trailersysSoloDigitos(inputTelefono, 10);
 
   const inputFoto = document.getElementById("conductorFoto");
   const fotoPreview = document.getElementById("conductorFotoPreview");
@@ -289,7 +296,11 @@
 
     if (!data.nombres) fail("fieldConductorNombres", "El nombre es obligatorio.");
     if (!data.identificacion) fail("fieldConductorIdentificacion", "La identificación es obligatoria.");
-    if (!data.telefono) fail("fieldConductorTelefono", "El teléfono es obligatorio.");
+    if (!data.telefono) {
+      fail("fieldConductorTelefono", "El teléfono es obligatorio.");
+    } else if (!TELEFONO_REGEX.test(data.telefono)) {
+      fail("fieldConductorTelefono", "El teléfono debe tener 10 dígitos y empezar con 09.");
+    }
 
     if (data.correo && !EMAIL_REGEX.test(data.correo)) {
       fail("fieldConductorCorreo", "Ingresa un correo válido.");

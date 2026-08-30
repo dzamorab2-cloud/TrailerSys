@@ -149,6 +149,37 @@ function trailersysAutocomplete({ input, hidden, resultados, recurso, etiqueta, 
   return { seleccionar, limpiar, ocultar };
 }
 
+/**
+ * Restringe un input de texto a solo digitos mientras se escribe o se pega
+ * (telefono, cedula/RUC): borra cualquier caracter que no sea 0-9 en cuanto
+ * aparece, en vez de dejar que se guarde con letras o simbolos y recien
+ * avisar al enviar el formulario. No toca el valor si se precarga por
+ * codigo (ej. al abrir un formulario de edicion), porque asignar
+ * input.value = ... no dispara "input": solo actua sobre lo que la persona
+ * realmente escribe o pega desde ese momento.
+ *
+ * @param {HTMLInputElement} input
+ * @param {number} [maxLength] - longitud maxima opcional (ej. 10 para un
+ *   celular ecuatoriano).
+ */
+function trailersysSoloDigitos(input, maxLength) {
+  input.addEventListener("input", () => {
+    const cursor = input.selectionStart;
+    const limpio = input.value.replace(/\D/g, "");
+    const recortado = maxLength ? limpio.slice(0, maxLength) : limpio;
+    if (recortado !== input.value) {
+      const diferencia = input.value.length - recortado.length;
+      input.value = recortado;
+      // Mantiene el cursor donde estaba en vez de mandarlo al final, para
+      // no molestar si se está corrigiendo un caracter en medio del texto.
+      if (cursor !== null) {
+        const nuevaPos = Math.max(0, cursor - diferencia);
+        input.setSelectionRange(nuevaPos, nuevaPos);
+      }
+    }
+  });
+}
+
 const trailersysShowGuide = (function () {
   const overlay = document.getElementById("guiaModalOverlay");
   const titleEl = document.getElementById("guiaModalTitle");

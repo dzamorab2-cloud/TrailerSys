@@ -6,6 +6,8 @@
   const tableBody = document.getElementById("reportTableBody");
   const tableWrap = document.getElementById("reportTableWrap");
   const emptyState = document.getElementById("reportEmptyState");
+  const emptyTitle = document.getElementById("reportEmptyTitle");
+  const emptyText = document.getElementById("reportEmptyText");
   const printHeader = document.getElementById("reportPrintHeader");
   const scopeNote = document.getElementById("reportScopeNote");
   const btnExportarCsv = document.getElementById("btnExportarCsv");
@@ -124,6 +126,10 @@
     if (rows.length === 0) {
       tableWrap.hidden = true;
       emptyState.hidden = false;
+      // Vuelve al mensaje generico por si la pestaña venia de mostrar el
+      // error de permisos de mostrarErrorPermiso() en una consulta anterior.
+      emptyTitle.textContent = "Sin datos para mostrar";
+      emptyText.textContent = "Ningún registro coincide con el filtro aplicado.";
       tableBody.innerHTML = "";
       return;
     }
@@ -133,6 +139,23 @@
     tableBody.innerHTML = rows
       .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`)
       .join("");
+  }
+
+  // Antes, si el backend devolvia 403 (rol sin permiso para este catalogo,
+  // ej. Supervisor viendo Conductores) el error se tragaba en silencio y el
+  // reporte quedaba en "0 total / sin datos", indistinguible de un catalogo
+  // realmente vacio. Ahora se muestra con claridad que fue un problema de
+  // permisos (o de conexion) y no que no hay registros.
+  function mostrarErrorPermiso(error) {
+    statsRow.innerHTML = "";
+    scopeNote.hidden = true;
+    printHeader.innerHTML = "";
+    renderTable([], []);
+    emptyTitle.textContent = "No se pudo cargar este reporte";
+    emptyText.textContent = error?.status === 403
+      ? "No tienes permiso para ver este reporte."
+      : (error?.message || "Ocurrió un error al conectar con el servidor.");
+    setExportData([], [], "reporte");
   }
 
   function setExportData(headers, rows, filenamePrefix) {
@@ -180,8 +203,9 @@
     let pagina;
     try {
       pagina = await trailersysPagedRequest("vehiculos", 0, 100, { estado: f.estado });
-    } catch {
-      pagina = { content: [], totalElements: 0 };
+    } catch (error) {
+      mostrarErrorPermiso(error);
+      return;
     }
     const vehiculos = pagina.content;
 
@@ -233,8 +257,9 @@
     let pagina;
     try {
       pagina = await trailersysPagedRequest("conductores", 0, 100, { estado: f.estado });
-    } catch {
-      pagina = { content: [], totalElements: 0 };
+    } catch (error) {
+      mostrarErrorPermiso(error);
+      return;
     }
     const conductores = pagina.content;
 
@@ -293,8 +318,9 @@
     let pagina;
     try {
       pagina = await trailersysPagedRequest("viajes", 0, 100, { estado: f.estado, desde: f.desde, hasta: f.hasta });
-    } catch {
-      pagina = { content: [], totalElements: 0 };
+    } catch (error) {
+      mostrarErrorPermiso(error);
+      return;
     }
     const viajes = pagina.content;
 
@@ -374,8 +400,9 @@
       pagina = await trailersysPagedRequest("mantenimientos", 0, 100, {
         vehiculoId: f.vehiculoId, tipo: f.tipo, desde: f.desde, hasta: f.hasta,
       });
-    } catch {
-      pagina = { content: [], totalElements: 0 };
+    } catch (error) {
+      mostrarErrorPermiso(error);
+      return;
     }
     const mantenimientos = pagina.content;
 
@@ -430,8 +457,9 @@
     let pagina;
     try {
       pagina = await trailersysPagedRequest("clientes", 0, 100, { estado: f.estado });
-    } catch {
-      pagina = { content: [], totalElements: 0 };
+    } catch (error) {
+      mostrarErrorPermiso(error);
+      return;
     }
     const clientes = pagina.content;
 

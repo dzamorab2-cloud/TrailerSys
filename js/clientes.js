@@ -38,6 +38,11 @@
   const inputServicios = document.getElementById("clienteServicios");
   const inputObservaciones = document.getElementById("clienteObservaciones");
 
+  // Solo digitos: evita que se puedan escribir letras o simbolos en estos
+  // dos campos (ver trailersysSoloDigitos en ui-helpers.js).
+  trailersysSoloDigitos(inputIdentificacion);
+  trailersysSoloDigitos(inputTelefono, 10);
+
   let session = null;
 
   function escapeHtml(value) {

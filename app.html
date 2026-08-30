@@ -478,8 +478,8 @@
             </div>
             <div class="module-placeholder card" id="reportEmptyState" hidden>
               <i class="bi bi-bar-chart"></i>
-              <h3>Sin datos para mostrar</h3>
-              <p>Ningún registro coincide con el filtro aplicado.</p>
+              <h3 id="reportEmptyTitle">Sin datos para mostrar</h3>
+              <p id="reportEmptyText">Ningún registro coincide con el filtro aplicado.</p>
             </div>
           </div>
         </section>
@@ -842,7 +842,7 @@
             <label for="conductorIdentificacion">Identificación</label>
             <div class="input-wrap">
               <i class="bi bi-person-vcard"></i>
-              <input type="text" id="conductorIdentificacion" placeholder="Cédula o documento" />
+              <input type="text" id="conductorIdentificacion" placeholder="Cédula o documento" inputmode="numeric" />
             </div>
             <span class="field-error"></span>
           </div>
@@ -851,7 +851,7 @@
             <label for="conductorTelefono">Teléfono</label>
             <div class="input-wrap">
               <i class="bi bi-telephone"></i>
-              <input type="text" id="conductorTelefono" placeholder="09XXXXXXXX" />
+              <input type="text" id="conductorTelefono" placeholder="09XXXXXXXX" inputmode="numeric" maxlength="10" />
             </div>
             <span class="field-error"></span>
           </div>
@@ -974,7 +974,7 @@
             <label for="clienteIdentificacion">Identificación</label>
             <div class="input-wrap">
               <i class="bi bi-person-vcard"></i>
-              <input type="text" id="clienteIdentificacion" placeholder="Cédula o RUC" />
+              <input type="text" id="clienteIdentificacion" placeholder="Cédula o RUC" inputmode="numeric" maxlength="13" />
             </div>
             <span class="field-error"></span>
           </div>
@@ -994,7 +994,7 @@
             <label for="clienteTelefono">Teléfono</label>
             <div class="input-wrap">
               <i class="bi bi-telephone"></i>
-              <input type="text" id="clienteTelefono" placeholder="09XXXXXXXX" />
+              <input type="text" id="clienteTelefono" placeholder="Ej. 0912345678 o 042345678" inputmode="numeric" maxlength="10" />
             </div>
             <span class="field-error"></span>
           </div>
