@@ -222,7 +222,13 @@
   .topbar,
   .report-tabs,
   .report-actions,
-  .modal-overlay {
+  /* :not(#guiaModalOverlay): esta regla es para tapar un modal que haya
+     quedado abierto de fondo al imprimir un Reporte, pero #guiaModalOverlay
+     TAMBIEN tiene la clase .modal-overlay - sin esta excepcion, imprimir
+     una guia (Cargas, Viajes, Conductores...) quedaba en blanco porque
+     esta regla la ocultaba a ella tambien, sin importar en que pantalla
+     se disparara la impresion (el CSS de toda la app esta siempre activo). */
+  .modal-overlay:not(#guiaModalOverlay) {
     display: none !important;
   }
 
