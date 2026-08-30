@@ -6,6 +6,7 @@ import com.trailersys.backend.seguimiento.TipoEvento;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 
 /**
  * No incluye vehiculoId a proposito: igual que en el frontend, el
@@ -14,7 +15,8 @@ import jakarta.validation.constraints.NotNull;
  */
 public record SeguimientoEventoRequest(
         @NotNull(message = "Selecciona un viaje") Long viajeId,
-        @NotNull(message = "La fecha y hora son obligatorias") LocalDateTime fechaHora,
+        @NotNull(message = "La fecha y hora son obligatorias")
+        @PastOrPresent(message = "La fecha y hora no pueden ser futuras") LocalDateTime fechaHora,
         @NotNull(message = "El tipo de evento es obligatorio") TipoEvento evento,
         @NotBlank(message = "La ubicación es obligatoria") String ubicacion,
         String observacion

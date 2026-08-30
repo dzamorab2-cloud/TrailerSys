@@ -529,6 +529,10 @@
     eventoForm.hidden = !canManage;
     eventoForm.reset();
     inputFecha.value = nowForInput();
+    // Un evento de seguimiento (Salida, Llegada, Incidente...) describe algo
+    // que ya esta pasando o ya paso; no tiene sentido registrar uno con
+    // fecha futura, asi que se bloquea tambien a nivel de input nativo.
+    inputFecha.max = nowForInput();
     setFieldError("fieldSeguimientoFecha", "");
     setFieldError("fieldSeguimientoUbicacion", "");
 
@@ -562,6 +566,9 @@
     if (!inputFecha.value) {
       setFieldError("fieldSeguimientoFecha", "La fecha y hora son obligatorias.");
       valid = false;
+    } else if (new Date(inputFecha.value) > new Date()) {
+      setFieldError("fieldSeguimientoFecha", "La fecha y hora no pueden ser futuras.");
+      valid = false;
     } else {
       setFieldError("fieldSeguimientoFecha", "");
     }
@@ -587,6 +594,7 @@
       });
       eventoForm.reset();
       inputFecha.value = nowForInput();
+      inputFecha.max = nowForInput();
       eventosCache = (await trailersysPagedRequest("eventos", 0, 100)).content;
       renderTimeline(viajeActualId);
       await render();
