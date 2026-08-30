@@ -138,20 +138,53 @@
     if (vehiculosCache.some((v) => String(v.id) === current)) select.value = current;
   }
 
+  async function showMantenimientoGuide(mantenimiento) {
+    const vehiculo = await trailersysApiRequest("GET", `/vehiculos/${mantenimiento.vehiculoId}`).catch(() => null);
+    const estadoProximo = !mantenimiento.proximoServicio
+      ? "Sin definir"
+      : (mantenimiento.proximoServicioVencido ? "Vencido" : "Al día");
+    trailersysShowGuide({
+      tipo: "Mantenimiento", codigo: "MNT", id: mantenimiento.id, estado: mantenimiento.tipo,
+      secciones: [
+        { titulo: "Datos del mantenimiento", icono: "bi-tools", campos: [
+          ["Tipo", mantenimiento.tipo],
+          ["Fecha", mantenimiento.fecha],
+          ["Kilometraje", `${Number(mantenimiento.kilometraje).toLocaleString("es-EC")} km`],
+          ["Costo", formatCosto(mantenimiento.costo)],
+          ["Descripción", mantenimiento.descripcion],
+        ] },
+        { titulo: "Vehículo", icono: "bi-truck", campos: [
+          ["Placa", vehiculo?.placa || mantenimiento.vehiculoPlaca],
+          ["Marca", vehiculo?.marca],
+          ["Modelo", vehiculo?.modelo],
+          ["Tipo", vehiculo?.tipo],
+          ["Año", vehiculo?.anio],
+        ] },
+        { titulo: "Próximo servicio", icono: "bi-calendar-check", campos: [
+          ["Próximo mantenimiento", mantenimiento.proximoServicio || "Sin definir"],
+          ["Estado", estadoProximo],
+        ] },
+      ],
+    });
+  }
+
   function renderCard(mantenimiento, canManage) {
     const estadoProximo = estadoProximoServicio(mantenimiento.proximoServicio);
 
-    const actions = canManage
-      ? `<div class="maintenance-card-actions" aria-label="Acciones del mantenimiento">
+    // "Guía" queda fuera del if(canManage), igual que en Cargas/Viajes/
+    // Vehiculos/Conductores: es una accion de solo lectura (ver e imprimir),
+    // no de gestion, asi que cualquiera con acceso al modulo deberia verla.
+    const actions = `<div class="maintenance-card-actions" aria-label="Acciones del mantenimiento">
+          <button type="button" class="maintenance-action" data-action="guia" data-id="${mantenimiento.id}" title="Ver e imprimir guía del mantenimiento"><i class="bi bi-file-earmark-text"></i><span>Guía</span></button>
+          ${canManage ? `
           <button type="button" class="maintenance-action" data-action="evidencias" data-id="${mantenimiento.id}" title="Documentos y evidencias"><i class="bi bi-paperclip"></i><span>Evidencias</span></button>
           <button type="button" class="maintenance-action" data-action="editar" data-id="${mantenimiento.id}" title="Editar mantenimiento">
             <i class="bi bi-pencil"></i><span>Editar</span>
           </button>
           <button type="button" class="maintenance-action danger" data-action="eliminar" data-id="${mantenimiento.id}" title="Eliminar mantenimiento">
             <i class="bi bi-trash3"></i><span>Eliminar</span>
-          </button>
-        </div>`
-      : "";
+          </button>` : ""}
+        </div>`;
 
     return `
       <article class="card item-card">
@@ -420,7 +453,9 @@
     const mantenimiento = mantenimientosCache.find((m) => String(m.id) === id);
     if (!mantenimiento) return;
 
-    if (action === "editar") {
+    if (action === "guia") {
+      showMantenimientoGuide(mantenimiento).catch((error) => alert(error.message || "No se pudo generar la guía."));
+    } else if (action === "editar") {
       openForm(mantenimiento);
     } else if (action === "evidencias") {
       openEvidencias(mantenimiento);
