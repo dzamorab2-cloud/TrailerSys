@@ -32,6 +32,12 @@
   // Caches del ultimo listado cargado desde la API.
   let viajesCache = [];
   let eventosCache = [];
+  // Total de viajes SIN busqueda ni filtro de estado aplicados - se
+  // actualiza solo cuando se refresca sin ninguno de los dos, para poder
+  // distinguir en render() "no hay ningun viaje todavia" (formulario vacio,
+  // 0 en total) de "ninguno coincide con lo que buscaste" (0 filtrados,
+  // pero el sistema si tiene viajes).
+  let totalSinFiltro = 0;
 
   // --- Referencias del DOM ---
   const alertasList = document.getElementById("alertasList");
@@ -147,16 +153,27 @@
   // poder refrescar solo el modal de detalle (actualizacion periodica del
   // vehiculo simulado) sin repintar toda la grilla de tarjetas.
   async function refrescarDatos() {
-    let viajes;
+    // search/estado se mandan al backend (igual que Vehiculos, Cargas,
+    // etc.): antes esto SIEMPRE pedia la pagina 0 sin filtro alguno y
+    // la busqueda/el filtro de estado se aplicaban despues en el
+    // navegador solo sobre esos 24 viajes - con 250.000+ viajes en la
+    // base, buscar "SYN-049869" (que existe pero no esta entre los 24
+    // mas recientes) daba "Sin resultados" aunque el viaje si existiera.
+    let pagina;
     try {
-      viajes = (await trailersysPagedRequest("viajes", 0, 24)).content;
+      pagina = await trailersysPagedRequest("viajes", 0, 24, {
+        search: inputBuscar.value.trim(),
+        estado: filtroEstado.value,
+      });
     } catch (error) {
       return { ok: false, error };
     }
+    const viajes = pagina.content;
     viajes.forEach((viaje) => {
       viaje.ruta = fromApiRuta(viaje.ruta);
     });
     viajesCache = viajes;
+    totalSinFiltro = inputBuscar.value.trim() || filtroEstado.value ? totalSinFiltro : pagina.totalElements;
 
     // OJO: antes esto traia "los ultimos 100 eventos de TODO el sistema"
     // (/paginas/eventos, sin filtro por viaje) y de ahi se filtraba en el
@@ -191,26 +208,17 @@
       emptyText.textContent = resultado.error?.message || "Ocurrió un error al conectar con el servidor.";
       return;
     }
-    const viajes = viajesCache;
-
-    const search = inputBuscar.value.trim().toLowerCase();
-    const estado = filtroEstado.value;
-
-    const filtrados = viajes.filter((viaje) => {
-      const haystack = [viaje.origen, viaje.destino, viaje.vehiculoPlaca, viaje.conductorNombres]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = !search || haystack.includes(search);
-      const matchesEstado = !estado || viaje.estado === estado;
-      return matchesSearch && matchesEstado;
-    });
+    // viajesCache ya viene filtrado por el backend (refrescarDatos manda
+    // search/estado en la propia peticion), asi que aqui ya no hace falta
+    // volver a filtrar en el navegador.
+    const filtrados = viajesCache;
+    const hayFiltroActivo = Boolean(inputBuscar.value.trim() || filtroEstado.value);
 
     if (filtrados.length === 0) {
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
-      if (viajes.length === 0) {
+      if (!hayFiltroActivo && totalSinFiltro === 0) {
         emptyTitle.textContent = "Todavía no hay viajes para seguir";
         emptyText.textContent = "Los viajes registrados en el módulo Viajes aparecerán aquí.";
       } else {
@@ -222,7 +230,9 @@
 
     grid.hidden = false;
     emptyState.hidden = true;
-    resultsCount.textContent = `${filtrados.length} de ${viajes.length} viaje${viajes.length === 1 ? "" : "s"}`;
+    resultsCount.textContent = hayFiltroActivo
+      ? `${filtrados.length} viaje${filtrados.length === 1 ? "" : "s"} encontrado${filtrados.length === 1 ? "" : "s"}`
+      : `${filtrados.length} de ${totalSinFiltro.toLocaleString("es-EC")} viajes`;
     grid.innerHTML = filtrados.map((v) => renderCard(v)).join("");
   }
 

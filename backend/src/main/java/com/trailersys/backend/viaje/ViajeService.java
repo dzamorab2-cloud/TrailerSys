@@ -395,12 +395,43 @@ public class ViajeService {
         return viaje;
     }
 
+    /**
+     * A diferencia de actualizar(), que sincroniza y libera recursos cuando
+     * el viaje deja de citarlos, eliminar() solo borraba la fila - si el
+     * viaje borrado estaba Programado/En Curso, su vehiculo/conductor (y su
+     * carga) se quedaban en EN_RUTA / ASIGNADA para siempre, porque ningun
+     * otro codigo vuelve a mirarlos una vez que el viaje ya no existe.
+     * Se libera cada uno DESPUES de borrar (para que las consultas de
+     * "sigue habiendo otro viaje activo con este recurso" ya no cuenten al
+     * propio viaje borrado), igual que hacen liberarCargaSiCambio() /
+     * liberarVehiculoYConductorSiCambiaron() al reasignar.
+     */
     @Transactional
     public void eliminar(Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResourceNotFoundException("Viaje no encontrado: " + id);
-        }
+        Viaje viaje = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Viaje no encontrado: " + id));
+        Vehiculo vehiculo = viaje.getVehiculo();
+        Conductor conductor = viaje.getConductor();
+        Carga carga = viaje.getCarga();
+
         repository.deleteById(id);
+
+        if (vehiculo.getEstado() == EstadoVehiculo.EN_RUTA && vehiculoLibre(vehiculo.getId(), null)) {
+            vehiculo.setEstado(EstadoVehiculo.DISPONIBLE);
+            vehiculoRepository.save(vehiculo);
+        }
+        if (conductor.getEstado() == EstadoConductor.EN_RUTA && conductorLibre(conductor.getId(), null)) {
+            conductor.setEstado(EstadoConductor.DISPONIBLE);
+            conductorRepository.save(conductor);
+        }
+        if (carga != null) {
+            boolean referenciadaPorOtroViajeActivo = repository.findByCarga_Id(carga.getId()).stream()
+                    .anyMatch(v -> v.getEstado() == EstadoViaje.PROGRAMADO || v.getEstado() == EstadoViaje.EN_CURSO);
+            if (!referenciadaPorOtroViajeActivo && carga.getEstado() != EstadoCarga.ENTREGADA) {
+                carga.setEstado(EstadoCarga.PENDIENTE);
+                cargaRepository.save(carga);
+            }
+        }
     }
 
     private void aplicarRuta(Viaje viaje, RutaDto ruta) {
