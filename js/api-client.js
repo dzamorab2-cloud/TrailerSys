@@ -4,7 +4,22 @@
  * ApiError} del backend), para que cada modulo solo llame a
  * trailersysApiRequest() en vez de repetir fetch() + manejo de errores.
  */
-const TRAILERSYS_API_BASE_URL = "http://localhost:8080/api";
+// En desarrollo local el backend siempre esta en localhost:8080. Pero al
+// compartir la app por un Dev Tunnel de VS Code (Terminal > PORTS > reenviar
+// puerto), el navegador de quien abre el link NO tiene nada en su propio
+// localhost:8080 - hay que apuntar al tunel del BACKEND, no al del frontend.
+// Un Dev Tunnel tiene la forma https://<id>-<puerto>.<region>.devtunnels.ms;
+// el <id> y la <region> son iguales para los dos puertos reenviados de la
+// misma sesion, asi que basta con cambiar "-5500." (frontend) por "-8080."
+// (backend) en el propio hostname para armar la URL del backend sin tener
+// que configurarla a mano cada vez que se genera un link nuevo.
+const TRAILERSYS_API_BASE_URL = (() => {
+  const { protocol, hostname } = window.location;
+  if (hostname.endsWith(".devtunnels.ms")) {
+    return `${protocol}//${hostname.replace(/-\d+\./, "-8080.")}/api`;
+  }
+  return "http://localhost:8080/api";
+})();
 
 class TrailersysApiError extends Error {
   constructor(message, status) {

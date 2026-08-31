@@ -61,7 +61,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:*"));
+        // "https://*.devtunnels.ms": permite abrir la app desde un Dev Tunnel
+        // de VS Code (Terminal > PORTS > reenviar puerto, visibilidad
+        // Publica) para que alguien fuera de esta maquina pueda probarla -
+        // sin esto, el navegador de esa persona recibe el origen del tunel
+        // (no localhost) y el backend lo rechaza antes de llegar al login.
+        config.setAllowedOriginPatterns(List.of("http://localhost:*", "https://*.devtunnels.ms"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

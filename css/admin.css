@@ -27,7 +27,14 @@
   .main-content { overflow-x:hidden; }
   .module-header { align-items:flex-start; flex-direction:column; gap:12px; }
   .toolbar,.toolbar-filters { align-items:stretch; flex-direction:column; width:100%; }
-  .toolbar-search,.select-pill { width:100%; }
+  /* flex:1 1 240px (definido en vehiculos.css para el layout de escritorio,
+     donde .toolbar es una fila) se hereda tal cual aqui. Como arriba
+     .toolbar pasa a flex-direction:column, esos 240px de flex-basis pasan
+     a aplicarse al ALTO en vez del ancho: el buscador quedaba con una caja
+     de 240px de alto (el input real mide ~40px), y el icono de lupa -
+     centrado verticalmente dentro de esa caja inflada - aparecia flotando
+     muy por debajo del campo de texto en vez de pegado a el. */
+  .toolbar-search,.select-pill { width:100%; flex:1 1 auto; }
   .modal-overlay { padding:8px; align-items:flex-end; }
   .modal-dialog { max-height:94vh; border-radius:18px 18px 0 0; padding:20px; }
 }
