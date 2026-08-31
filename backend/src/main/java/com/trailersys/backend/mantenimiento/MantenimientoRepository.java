@@ -31,5 +31,15 @@ public interface MantenimientoRepository extends JpaRepository<Mantenimiento, Lo
 
     List<Mantenimiento> findTop100ByProximoServicioLessThanEqualOrderByProximoServicioAsc(LocalDate fecha);
 
+    /**
+     * Usado por SeguimientoService.obtenerAlertas() para poder diversificar
+     * antes de quedarse con las 100 alertas finales: se trae un lote mas
+     * grande (2.000) porque en la practica muchos vehiculos comparten la
+     * misma fecha de proximo servicio (mas de 100 por dia en el peor caso),
+     * asi que tomar directo "los primeros 100" ordenados por fecha deja una
+     * sola fecha repetida 100 veces en vez de una mezcla de vehiculos/dias.
+     */
+    List<Mantenimiento> findTop2000ByProximoServicioLessThanEqualOrderByProximoServicioAsc(LocalDate fecha);
+
     List<Mantenimiento> findByProximoServicioBetweenOrderByProximoServicioAsc(LocalDate desde, LocalDate hasta);
 }

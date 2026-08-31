@@ -111,7 +111,22 @@ public class SeguimientoService {
                         "El viaje de %s a %s está \"En Curso\" pero no tiene una ruta calculada todavía.",
                         v.getOrigen(), v.getDestino()))));
 
-        mantenimientoRepository.findTop100ByProximoServicioLessThanEqualOrderByProximoServicioAsc(hoy.plusDays(7)).stream()
+        // Diversifica antes de cortar en 100: en la practica muchos vehiculos
+        // comparten la misma fecha de proximo servicio (una flota grande
+        // suele agendar mantenimientos por lotes), asi que tomar directo
+        // "los primeros 100 ordenados por fecha" dejaba una sola fecha
+        // repetida 100 veces en vez de un panorama util. Se limita a un
+        // vehiculo por alerta (el mas urgente que tenga) y a MAX_POR_FECHA
+        // por cada fecha exacta, avanzando a la siguiente fecha una vez
+        // cubierta esa cuota - conserva el orden "mas vencido primero" pero
+        // sin ahogar el panel en duplicados del mismo dia.
+        final int MAX_POR_FECHA = 10;
+        java.util.Set<Long> vehiculosConAlerta = new java.util.HashSet<>();
+        java.util.Map<LocalDate, Integer> alertasPorFecha = new java.util.HashMap<>();
+        mantenimientoRepository.findTop2000ByProximoServicioLessThanEqualOrderByProximoServicioAsc(hoy.plusDays(7)).stream()
+                .filter(m -> vehiculosConAlerta.add(m.getVehiculo().getId()))
+                .filter(m -> alertasPorFecha.merge(m.getProximoServicio(), 1, Integer::sum) <= MAX_POR_FECHA)
+                .limit(100)
                 .forEach(m -> {
                     boolean vencido = m.getProximoServicio().isBefore(hoy);
                     alertas.add(new AlertaDto(vencido ? "danger" : "warning", "bi-tools", String.format(
