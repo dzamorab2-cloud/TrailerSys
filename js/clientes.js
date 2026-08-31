@@ -135,6 +135,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       emptyTitle.textContent = "No se pudo cargar los clientes";
       emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
       return;
@@ -147,6 +148,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       if (clientes.length === 0) {
         emptyTitle.textContent = "Todavía no hay clientes registrados";
         emptyText.textContent = canManage

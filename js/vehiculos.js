@@ -235,6 +235,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       emptyTitle.textContent = "No se pudo cargar la flota";
       emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
       return;
@@ -258,6 +259,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       if (vehiculos.length === 0) {
         emptyTitle.textContent = "Todavía no hay vehículos registrados";
         emptyText.textContent = canManage

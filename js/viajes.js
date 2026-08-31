@@ -350,6 +350,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       emptyTitle.textContent = "No se pudo cargar los viajes";
       emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
       return;
@@ -365,6 +366,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       if (viajes.length === 0) {
         emptyTitle.textContent = "Todavía no hay viajes registrados";
         emptyText.textContent = canManage

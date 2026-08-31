@@ -188,6 +188,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       emptyTitle.textContent = "No se pudo cargar los conductores";
       emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
       return;
@@ -200,6 +201,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       if (conductores.length === 0) {
         emptyTitle.textContent = "Todavía no hay conductores registrados";
         emptyText.textContent = canManage

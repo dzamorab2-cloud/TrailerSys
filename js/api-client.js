@@ -84,6 +84,14 @@ function trailersysRenderPager(anchor, data, onPage) {
   const anchorEl = typeof anchor === "string" ? document.getElementById(anchor) : anchor;
   if (!anchorEl) return;
   let pager = anchorEl.nextElementSibling;
+  if (!data) {
+    // Sin datos (lista vacia, sin resultados de busqueda, o error de carga):
+    // si quedo un paginador de un render anterior con resultados, hay que
+    // quitarlo - si no, se ve un "X registros - Pagina Y de Z" residual que
+    // ya no corresponde a nada visible en pantalla.
+    if (pager && pager.classList.contains("pagination")) pager.remove();
+    return;
+  }
   if (!pager || !pager.classList.contains("pagination")) {
     pager = document.createElement("div"); pager.className = "pagination"; anchorEl.after(pager);
   }

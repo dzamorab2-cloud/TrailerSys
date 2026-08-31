@@ -230,6 +230,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       emptyTitle.textContent = "No se pudo cargar los mantenimientos";
       emptyText.textContent = error.message || "Ocurrió un error al conectar con el servidor.";
       return;
@@ -244,6 +245,7 @@
       grid.hidden = true;
       emptyState.hidden = false;
       resultsCount.textContent = "";
+      trailersysRenderPager(resultsCount, null);
       if (mantenimientos.length === 0) {
         emptyTitle.textContent = "Todavía no hay mantenimientos registrados";
         emptyText.textContent = canManage
