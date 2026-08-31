@@ -272,7 +272,17 @@
 
     grid.hidden = false;
     emptyState.hidden = true;
-    resultsCount.textContent = `${filtrados.length} de ${vehiculos.length} vehículo${vehiculos.length === 1 ? "" : "s"}`;
+    // vehiculos.length es solo el tamaño de la página actual (tipo/marca se
+    // filtran localmente, ver comentario mas arriba) - comparar el conteo
+    // filtrado contra eso, y no contra pageMeta.totalElements, hacia que el
+    // texto dijera "24 de 24 vehículos" pareciendo el total de la flota
+    // (contradiciendo el paginador justo debajo, que sí muestra el total
+    // real). Se usa pageMeta.totalElements como en el resto de módulos, y
+    // solo se aclara "en esta página" cuando tipo/marca redujo lo mostrado.
+    const totalTexto = `${Number(pageMeta.totalElements).toLocaleString("es-EC")} vehículo${pageMeta.totalElements === 1 ? "" : "s"}`;
+    resultsCount.textContent = filtrados.length === vehiculos.length
+      ? totalTexto
+      : `${filtrados.length} de ${vehiculos.length} en esta página · ${totalTexto} en total`;
     trailersysRenderPager(resultsCount, pageMeta, (page) => { currentPage = page; render(); });
     grid.innerHTML = filtrados.map((v) => renderCard(v, canManage)).join("");
   }

@@ -21,6 +21,22 @@
     clientes: "Clientes",
   };
 
+  // Espeja los @PreAuthorize de GET /api/paginas/* en CatalogoPageController
+  // (unica fuente real de verdad del permiso). De los roles con acceso al
+  // modulo "reportes" (administrador y supervisor, ver roles.js), supervisor
+  // no tiene permiso de backend para conductores/mantenimientos/clientes:
+  // esas pestañas quedaban visibles pero siempre devolvian 403 ("No tienes
+  // permiso para ver este reporte") apenas se hacia clic - un callejon sin
+  // salida en vez de simplemente no ofrecer una pestaña que ese rol nunca
+  // podra usar.
+  const TAB_ROLES = {
+    vehiculos: ["administrador", "coordinador", "mantenimiento", "supervisor"],
+    conductores: ["administrador", "coordinador"],
+    viajes: ["administrador", "coordinador", "conductor", "supervisor"],
+    mantenimientos: ["administrador", "mantenimiento"],
+    clientes: ["administrador", "coordinador"],
+  };
+
   let currentTab = "vehiculos";
   let currentExport = { headers: [], rows: [], filenamePrefix: "reporte" };
 
@@ -562,5 +578,17 @@
     if (event.detail?.module === "reportes") RENDERERS[currentTab]();
   });
 
-  switchTab("vehiculos");
+  const session = trailersysGetSession();
+  const tabsPermitidas = Object.keys(TAB_LABELS).filter((tab) => TAB_ROLES[tab].includes(session?.role));
+  document.querySelectorAll(".report-tab").forEach((btn) => {
+    if (!tabsPermitidas.includes(btn.dataset.tab)) btn.hidden = true;
+  });
+
+  // Este script se carga siempre (junto con el resto de modulos) aunque el
+  // rol actual no tenga "reportes" en sus modulos (roles.js) y nunca vaya a
+  // ver esta pantalla - en ese caso tabsPermitidas queda vacio y no hay
+  // nada que inicializar aqui.
+  if (tabsPermitidas.length > 0) {
+    switchTab(tabsPermitidas.includes("vehiculos") ? "vehiculos" : tabsPermitidas[0]);
+  }
 })();
