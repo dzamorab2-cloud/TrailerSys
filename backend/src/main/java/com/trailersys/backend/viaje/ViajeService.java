@@ -220,16 +220,28 @@ public class ViajeService {
     /**
      * Evita asignar a un viaje un vehiculo o conductor que ya esta en otro
      * viaje activo (Programado/En Curso). Mismo patron que validarCarga.
+     *
+     * El vehiculo y el conductor se evaluan de forma INDEPENDIENTE al
+     * decidir si hace falta revisar su estado actual: si el vehiculo nuevo
+     * es el mismo que ya tenia este viaje, no se revalida su estado (esta
+     * en EN_RUTA precisamente porque este viaje lo esta usando), sin
+     * importar si el conductor cambio o no, y viceversa con el conductor.
+     * Antes una sola bandera "mismosRecursos" exigia que AMBOS coincidieran
+     * a la vez para saltarse la revalidacion, lo que rechazaba con un 409
+     * incorrecto el caso normal de "cambiar solo la unidad asignada"
+     * (mismo conductor, otro vehiculo): al no coincidir el vehiculo, se
+     * volvia a exigir tambien que el conductor estuviera Disponible, y el
+     * conductor seguia EN_RUTA en la base por este mismo viaje.
      */
     private void validarDisponibilidad(Vehiculo vehiculo, Conductor conductor, Long viajeIdActual) {
-        boolean mismosRecursos = viajeIdActual != null && repository.findById(viajeIdActual)
-                .map(v -> v.getVehiculo().getId().equals(vehiculo.getId())
-                        && v.getConductor().getId().equals(conductor.getId()))
-                .orElse(false);
-        if (!mismosRecursos && vehiculo.getEstado() != EstadoVehiculo.DISPONIBLE) {
+        Viaje viajeActual = viajeIdActual == null ? null : repository.findById(viajeIdActual).orElse(null);
+        boolean vehiculoSinCambios = viajeActual != null && viajeActual.getVehiculo().getId().equals(vehiculo.getId());
+        boolean conductorSinCambios = viajeActual != null && viajeActual.getConductor().getId().equals(conductor.getId());
+
+        if (!vehiculoSinCambios && vehiculo.getEstado() != EstadoVehiculo.DISPONIBLE) {
             throw new ConflictException("El vehículo seleccionado no está disponible.");
         }
-        if (!mismosRecursos && conductor.getEstado() != EstadoConductor.DISPONIBLE) {
+        if (!conductorSinCambios && conductor.getEstado() != EstadoConductor.DISPONIBLE) {
             throw new ConflictException("El conductor seleccionado no está disponible.");
         }
         if (!estaDisponible(vehiculo, conductor, viajeIdActual)) {
