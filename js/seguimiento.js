@@ -158,8 +158,21 @@
     });
     viajesCache = viajes;
 
+    // OJO: antes esto traia "los ultimos 100 eventos de TODO el sistema"
+    // (/paginas/eventos, sin filtro por viaje) y de ahi se filtraba en el
+    // navegador por viajeId - con miles de viajes y cientos de miles de
+    // eventos en la base, casi ningun viaje individual tenia alguno de sus
+    // propios eventos entre esos 100 globales, asi que la tarjeta y el
+    // detalle mostraban "sin eventos" para viajes que si tenian historial.
+    // Se pide, en paralelo, SOLO los eventos de los viajes que estan
+    // visibles en esta pagina (maximo 24), usando el endpoint que ya existe
+    // filtrado por viaje (/seguimiento/eventos?viajeId=), asi el conteo y el
+    // ultimo evento de cada tarjeta son siempre los reales de ESE viaje.
     try {
-      eventosCache = (await trailersysPagedRequest("eventos", 0, 100)).content;
+      const porViaje = await Promise.all(
+        viajes.map((v) => trailersysApiRequest("GET", `/seguimiento/eventos?viajeId=${v.id}`).catch(() => []))
+      );
+      eventosCache = porViaje.flat();
     } catch {
       eventosCache = [];
     }
@@ -444,11 +457,20 @@
     }, 200);
   }
 
-  function renderTimeline(viajeId) {
+  async function renderTimeline(viajeId) {
     const canManage = trailersysCanManage(session, MODULE_KEY);
-    const eventos = eventosCache
-      .filter((e) => String(e.viajeId) === String(viajeId))
-      .sort((a, b) => (a.fechaHora < b.fechaHora ? 1 : -1));
+    // Se pide directo al endpoint filtrado por viaje (no eventosCache, que
+    // solo trae los viajes de la pagina actual) para que el detalle de UN
+    // viaje muestre siempre TODO su historial, sin importar cuantos eventos
+    // tenga ni si ese viaje sigue visible en la lista de fondo.
+    let eventos;
+    try {
+      eventos = (await trailersysApiRequest("GET", `/seguimiento/eventos?viajeId=${viajeId}`))
+        .sort((a, b) => (a.fechaHora < b.fechaHora ? 1 : -1));
+    } catch {
+      timelineContainer.innerHTML = `<div class="events-empty">No se pudo cargar el historial de este viaje.</div>`;
+      return;
+    }
 
     if (!eventos.length) {
       timelineContainer.innerHTML = `<div class="events-empty">Todavía no hay eventos registrados para este viaje.</div>`;
@@ -486,7 +508,7 @@
         try {
           await trailersysApiRequest("DELETE", `/seguimiento/eventos/${id}`);
           eventosCache = eventosCache.filter((e) => String(e.id) !== id);
-          renderTimeline(viajeActualId);
+          await renderTimeline(viajeActualId);
           render();
         } catch (error) {
           alert(error.message || "No se pudo eliminar el evento.");
@@ -516,7 +538,7 @@
       if (!viaje) return;
       renderResumen(viaje);
       renderReporteEntrega(viaje);
-      renderTimeline(viaje.id);
+      await renderTimeline(viaje.id);
       actualizarMarcadorVehiculo(viaje);
     }, 10000);
   }
@@ -595,8 +617,10 @@
       eventoForm.reset();
       inputFecha.value = nowForInput();
       inputFecha.max = nowForInput();
-      eventosCache = (await trailersysPagedRequest("eventos", 0, 100)).content;
-      renderTimeline(viajeActualId);
+      // render() ya refresca eventosCache (para las tarjetas de la lista);
+      // el timeline del modal abierto se trae aparte porque renderTimeline
+      // pide directo el historial de ESTE viaje, no depende de esa cache.
+      await renderTimeline(viajeActualId);
       await render();
     } catch (error) {
       alert(error.message || "No se pudo registrar el evento.");

@@ -1,6 +1,18 @@
 # Nota para Umaginga: conflictos en los datos masivos de prueba
 
-## Qué pasa
+> **RESUELTO** (30/ago) con
+> [`05_limpieza_datos_volumen.sql`](05_limpieza_datos_volumen.sql): se
+> pasaron a `FINALIZADO` los ~175.000 viajes sintéticos que seguían
+> "Programado"/"En Curso" con una fecha de salida ya vencida, así que ya no
+> quedan dos viajes activos compitiendo por la misma carga/vehículo/
+> conductor. Ese mismo script de paso corrigió las fechas (estaban todas
+> entre ene-jun 2024) y reemplazó la ruta ficticia (origen/destino
+> "SYN-ORIGEN-N" con una única coordenada fija para las 250.000 filas) por
+> ciudades reales de Ecuador con distancia real. El resto de esta nota queda
+> como registro de la causa raíz, por si hace falta re-generar el dataset
+> desde cero más adelante (opción 2 más abajo).
+
+## Qué pasaba
 
 Al editar viajes (y en menor medida vehículos/conductores/cargas) del set de
 datos sintético "de volumen" (placas/identificaciones que empiezan con
