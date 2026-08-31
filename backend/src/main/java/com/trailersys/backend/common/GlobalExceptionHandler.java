@@ -1,5 +1,6 @@
 package com.trailersys.backend.common;
 
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -53,6 +55,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "El cuerpo de la solicitud no es valido.", request);
+    }
+
+    /**
+     * Cuando un @RequestParam no se puede convertir al tipo esperado (ej.
+     * "?estado=Disponible" contra un enum cuya constante real es
+     * "DISPONIBLE"), Spring lanza esto ANTES de llegar al controlador. Sin
+     * este handler caia en handleGeneric() y devolvia 500 "Ocurrio un error
+     * inesperado" - un dato mal escrito en la URL no es un error del
+     * servidor, es un 400 con un mensaje que diga que se esperaba.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        Class<?> tipo = ex.getRequiredType();
+        String valoresValidos = tipo != null && tipo.isEnum()
+                ? " Valores validos: " + Arrays.stream(tipo.getEnumConstants())
+                        .map(Object::toString).collect(Collectors.joining(", "))
+                : "";
+        String mensaje = "El parametro '" + ex.getName() + "' no admite el valor '" + ex.getValue() + "'." + valoresValidos;
+        return build(HttpStatus.BAD_REQUEST, mensaje, request);
     }
 
     /**
