@@ -25,6 +25,7 @@
 
 .dashboard-panel-header h3 {
   font-size: 1rem;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-trip {
@@ -135,13 +136,30 @@
 .conductor-vehicle-header {
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   margin-bottom: 16px;
+}
+
+/* El segundo hijo (foto/photo-upload es el primero) es donde va el nombre
+   y la placa/badge. Nombres cortos ("Luis Herrera") quedan junto a la foto
+   en la misma fila; nombres largos como los de las cuentas de demo por rol
+   ("Responsable de Mantenimiento", "Supervisor de Operaciones") ya no caben
+   ahi (la foto+boton "Cambiar foto" ocupan ~200px fijos) - antes se
+   encogian a una columna angosta y el texto terminaba partido letra por
+   letra. flex-basis:140px fuerza que, cuando no entra junto a la foto,
+   flex-wrap lo baje a su propia fila con el ancho completo de la tarjeta
+   en vez de aplastarse; min-width:0 sigue evitando que se salga si aun asi
+   le toca poco espacio. */
+.dashboard-profile-header > div:last-child,
+.conductor-vehicle-header > div:last-child {
+  min-width: 0;
+  flex: 1 1 140px;
 }
 
 .dashboard-photo-upload { margin-bottom: 0; }
 .dashboard-profile-header h3,
-.conductor-vehicle-header h3 { font-size: 1rem; margin-bottom: 6px; }
+.conductor-vehicle-header h3 { font-size: 1rem; margin-bottom: 6px; overflow-wrap: anywhere; }
 
 .conductor-vehicle-photo { width: 72px; height: 72px; font-size: 1.4rem; }
 
@@ -152,16 +170,18 @@
   font-size: 0.85rem;
 }
 
-.dashboard-profile-fields > div { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+.dashboard-profile-fields > div { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; min-width: 0; }
 .dashboard-profile-fields i { color: var(--color-primary); }
 
 .dashboard-chart-card h3,
-.dashboard-map-card h3 {
+.dashboard-map-card h3,
+.dashboard-ring-card h3 {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.92rem;
   margin-bottom: 16px;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
@@ -173,7 +193,7 @@
 }
 
 .dashboard-donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 140px; }
-.dashboard-donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+.dashboard-donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; overflow-wrap: anywhere; }
 .dashboard-donut-legend-item strong { margin-left: auto; }
 .dashboard-donut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
