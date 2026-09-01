@@ -1,6 +1,12 @@
 package com.trailersys.backend.dashboard;
 
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -50,5 +56,31 @@ public class DashboardController {
         String sql = "SELECT count(*) FROM " + table + (condition == null ? "" : " WHERE " + condition);
         Long value = jdbc.queryForObject(sql, Long.class);
         return value == null ? 0 : value;
+    }
+
+    /**
+     * Viajes por dia de los ultimos 7 dias (hoy incluido), para la grafica de
+     * tendencia del Dashboard. Una consulta por dia (parametrizada, no un
+     * "date_trunc" especifico de Postgres) para que funcione igual en la
+     * suite de pruebas (H2) y en produccion.
+     */
+    @GetMapping("/tendencia")
+    public TendenciaResponse tendencia() {
+        DateTimeFormatter etiquetaFmt = DateTimeFormatter.ofPattern("EEE d", new Locale("es", "EC"));
+        List<TendenciaResponse.Punto> puntos = new ArrayList<>();
+        for (int i = 6; i >= 0; i--) {
+            LocalDate dia = LocalDate.now().minusDays(i);
+            long cantidad = contarViajesEntre(dia.atStartOfDay(), dia.plusDays(1).atStartOfDay());
+            String etiqueta = dia.format(etiquetaFmt);
+            puntos.add(new TendenciaResponse.Punto(etiqueta.substring(0, 1).toUpperCase() + etiqueta.substring(1), cantidad));
+        }
+        return new TendenciaResponse(puntos);
+    }
+
+    private long contarViajesEntre(LocalDateTime desde, LocalDateTime hasta) {
+        Long valor = jdbc.queryForObject(
+                "SELECT count(*) FROM viajes WHERE fecha_salida >= ? AND fecha_salida < ?",
+                Long.class, Timestamp.valueOf(desde), Timestamp.valueOf(hasta));
+        return valor == null ? 0 : valor;
     }
 }

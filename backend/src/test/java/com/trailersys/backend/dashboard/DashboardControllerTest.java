@@ -136,4 +136,54 @@ class DashboardControllerTest {
         assertThat(origenes).contains("Futuro");
         assertThat(origenes).doesNotContain("Atrasado");
     }
+
+    @Test
+    void tendenciaDevuelveSieteDias() throws Exception {
+        String token = tokenPara("admindashboard3", Rol.ADMINISTRADOR);
+        String body = mockMvc.perform(get("/api/dashboard/tendencia").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        var puntos = objectMapper.readTree(body).get("viajesPorDia");
+        assertThat(puntos).hasSize(7);
+    }
+
+    @Test
+    void tendenciaCuentaSoloLosViajesDelDiaCorrespondiente() throws Exception {
+        Vehiculo vehiculo = vehiculoRepository.save(new Vehiculo(
+                "DASH-0002", "Marca", "Modelo", "Tipo", 2020, "Rojo", EstadoVehiculo.DISPONIBLE, 0, 0, null, null));
+        Conductor conductor = conductorRepository.save(new Conductor(
+                "Conductor Dashboard Tendencia", "CI-DASH-TEND", "0999999999", null, "LIC-TEND", "Tipo B",
+                LocalDate.now().plusYears(1), EstadoConductor.DISPONIBLE, null, null, null));
+        Cliente cliente = clienteRepository.save(new Cliente(
+                "Cliente Dashboard Tendencia", "CI-DASH-TEND", EstadoCliente.ACTIVO, "0999999999", null, "Direccion", null, null));
+
+        // "Hoy" a mediodia: cae dentro de la ventana [hoy 00:00, mañana 00:00)
+        // que usa tendencia(), asi que debe sumar al ultimo punto.
+        viajeRepository.save(new Viaje(vehiculo, conductor, cliente, null, "Hoy", "Hoy",
+                LocalDateTime.now().withHour(12).withMinute(0), EstadoViaje.PROGRAMADO, null));
+
+        String token = tokenPara("admindashboard4", Rol.ADMINISTRADOR);
+        String body = mockMvc.perform(get("/api/dashboard/tendencia").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        var puntos = objectMapper.readTree(body).get("viajesPorDia");
+        long ultimoDia = puntos.get(puntos.size() - 1).get("cantidad").asLong();
+        assertThat(ultimoDia).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void supervisorPuedeVerLaTendencia() throws Exception {
+        String token = tokenPara("supervisordashboard", Rol.SUPERVISOR);
+        mockMvc.perform(get("/api/dashboard/tendencia").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void conductorNoPuedeVerLaTendenciaDeLaOperacion() throws Exception {
+        String token = tokenPara("conductordashboardtend", Rol.CONDUCTOR);
+        mockMvc.perform(get("/api/dashboard/tendencia").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
 }

@@ -145,7 +145,8 @@
   function renderFinalizadosRing(resumen) {
     const pct = resumen.totalViajes > 0 ? (resumen.viajesFinalizados / resumen.totalViajes) * 100 : 0;
     trailersysRenderProgressRing($("conductorFinalizadosRing"),
-      { valor: pct, etiqueta: "Viajes finalizados", color: "var(--color-success)" });
+      { valor: pct, etiqueta: "Del total de viajes", color: "var(--color-success)" });
+    $("conductorKmRecorridos").textContent = `${Math.round(resumen.kmRecorridos).toLocaleString("es-EC")} km recorridos en total`;
   }
 
   // --- Viajes recientes ---

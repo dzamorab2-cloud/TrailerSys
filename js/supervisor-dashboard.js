@@ -133,14 +133,19 @@
 
       trailersysRenderProgressRing($("supervisorFlotaRing"), {
         valor: totalVehiculos > 0 ? (disponibilidad.vehiculosDisponibles / totalVehiculos) * 100 : 0,
-        etiqueta: "Flota disponible",
+        etiqueta: "Vehículos disponibles",
         color: "var(--color-success)",
       });
       trailersysRenderProgressRing($("supervisorLicenciasRing"), {
         valor: totalConductores > 0 ? ((totalConductores - disponibilidad.licenciasVencidas) / totalConductores) * 100 : 0,
-        etiqueta: "Licencias vigentes",
+        etiqueta: "Conductores al día",
         color: "var(--color-info)",
       });
+
+      const tendencia = await trailersysApiRequest("GET", "/dashboard/tendencia");
+      trailersysRenderAreaChart($("supervisorTendenciaChart"),
+        tendencia.viajesPorDia.map((p) => ({ label: p.etiqueta, value: p.cantidad })),
+        { color: "var(--color-primary)" });
     } catch (error) {
       $("supervisorPerfilNombre").textContent = error.message || "No se pudo cargar tu perfil.";
     }

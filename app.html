@@ -106,9 +106,20 @@
 
             <div class="stats-row" id="dashboardStats"></div>
 
+            <div class="dashboard-panel card" id="dashboardTendenciaPanel">
+              <div class="dashboard-panel-header"><i class="bi bi-graph-up"></i><h3>Viajes de los últimos 7 días</h3></div>
+              <div id="dashboardTendenciaChart"></div>
+            </div>
+
             <div class="dashboard-cards-grid dashboard-rings-row">
-              <article class="card dashboard-ring-card" id="dashboardFlotaRing"></article>
-              <article class="card dashboard-ring-card" id="dashboardConductoresRing"></article>
+              <article class="card dashboard-ring-card">
+                <h3><i class="bi bi-truck"></i> Flota disponible</h3>
+                <div id="dashboardFlotaRing"></div>
+              </article>
+              <article class="card dashboard-ring-card">
+                <h3><i class="bi bi-person-badge"></i> Conductores activos</h3>
+                <div id="dashboardConductoresRing"></div>
+              </article>
             </div>
 
             <div class="dashboard-grid">
@@ -211,7 +222,9 @@
               </article>
 
               <article class="card dashboard-ring-card">
-                <div class="progress-ring-wrap-outer" id="conductorFinalizadosRing"></div>
+                <h3><i class="bi bi-check2-circle"></i> Viajes finalizados</h3>
+                <div id="conductorFinalizadosRing"></div>
+                <p class="dashboard-ring-substat" id="conductorKmRecorridos"></p>
               </article>
 
               <article class="card dashboard-map-card">
@@ -282,8 +295,19 @@
             </div>
 
             <div class="dashboard-cards-grid">
-              <article class="card dashboard-ring-card" id="supervisorFlotaRing"></article>
-              <article class="card dashboard-ring-card" id="supervisorLicenciasRing"></article>
+              <article class="card dashboard-ring-card">
+                <h3><i class="bi bi-truck"></i> Flota disponible</h3>
+                <div id="supervisorFlotaRing"></div>
+              </article>
+              <article class="card dashboard-ring-card">
+                <h3><i class="bi bi-person-vcard"></i> Licencias vigentes</h3>
+                <div id="supervisorLicenciasRing"></div>
+              </article>
+            </div>
+
+            <div class="dashboard-panel card" id="supervisorTendenciaPanel">
+              <div class="dashboard-panel-header"><i class="bi bi-graph-up"></i><h3>Viajes de la operación · últimos 7 días</h3></div>
+              <div id="supervisorTendenciaChart"></div>
             </div>
           </div>
         </section>

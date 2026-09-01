@@ -245,6 +245,7 @@
 .progress-ring-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .progress-ring-center strong { font-size: 1.35rem; font-weight: 800; }
 .progress-ring-label { display: block; margin-top: 12px; font-size: 0.82rem; color: var(--color-text-muted); font-weight: 600; }
+.dashboard-ring-substat { margin-top: 10px; font-size: 0.78rem; color: var(--color-text-muted); text-align: center; }
 
 /* Grafica de area con curva suave (trailersysRenderAreaChart). */
 .area-chart-svg { width: 100%; height: 130px; display: block; }
