@@ -236,6 +236,63 @@
   color: var(--color-danger);
 }
 
+/* Layout especial cuando el viaje esta "En Curso" (ver openDetailModal()
+   en js/seguimiento.js): ahi es cuando de verdad importa ver el mapa
+   grande (la simulacion del vehiculo moviendose), asi que se agranda y
+   toda la info del viaje (resumen + vehiculo/conductor/cliente/carga) se
+   pasa a una columna angosta al costado en vez de apilada arriba. Por
+   defecto (viaje no en curso) el wrapper es "display:contents" - no
+   afecta en nada el diseño de siempre (todo sigue apilado igual). */
+.seguimiento-layout {
+  display: contents;
+}
+
+#seguimientoModalOverlay.seguimiento-en-curso .modal-dialog {
+  max-width: 1240px;
+}
+
+#seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: 22px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+#seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout-info {
+  max-height: 640px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+#seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout-info .route-summary-grid,
+#seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout-info .guia-fields {
+  grid-template-columns: 1fr 1fr;
+}
+
+#seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout-map .route-map {
+  height: 640px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 960px) {
+  #seguimientoModalOverlay.seguimiento-en-curso .modal-dialog {
+    max-width: 680px;
+  }
+  #seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout {
+    grid-template-columns: 1fr;
+  }
+  #seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout-info {
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+  #seguimientoModalOverlay.seguimiento-en-curso .seguimiento-layout-map .route-map {
+    height: 320px;
+    margin-bottom: 18px;
+  }
+}
+
 .events-empty {
   text-align: center;
   padding: 20px;

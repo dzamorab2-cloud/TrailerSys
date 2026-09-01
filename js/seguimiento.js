@@ -559,6 +559,11 @@
   function openDetailModal(viaje) {
     viajeActualId = viaje.id;
     modalTitle.textContent = `${viaje.origen} → ${viaje.destino}`;
+    // Un viaje En Curso es el unico caso con la simulacion del vehiculo
+    // moviendose sobre el mapa (ver actualizarMarcadorVehiculo()) - ahi el
+    // mapa es lo que de verdad importa ver, asi que el modal pasa a un
+    // layout mas ancho con el mapa grande al costado (ver css/seguimiento.css).
+    modalOverlay.classList.toggle("seguimiento-en-curso", viaje.estado === "En Curso");
 
     const canManage = trailersysCanManage(session, MODULE_KEY);
     eventoForm.hidden = !canManage;
