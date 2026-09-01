@@ -1,4 +1,9 @@
 (function(){
+ // El conductor tiene su propio Dashboard personalizado (ver
+ // js/conductor-dashboard.js) y ya no tiene permiso sobre /dashboard/resumen
+ // (ver DashboardController) - sin esta guarda, este IIFE pediria ese
+ // endpoint igual y pintaria el panel generico encima del suyo.
+ if(trailersysGetSession()?.role==="conductor")return;
  const stats=document.getElementById("dashboardStats"),alerts=document.getElementById("dashboardAlertas"),trips=document.getElementById("dashboardViajes");
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const card=(icon,value,label,tone="")=>`<div class="stat-card stat-card-action ${tone}"><div class="stat-card-icon"><i class="bi ${icon}"></i></div><div><div class="stat-card-value">${Number(value).toLocaleString("es-EC")}</div><div class="stat-card-label">${label}</div></div></div>`;

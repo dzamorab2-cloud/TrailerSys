@@ -37,6 +37,27 @@ public interface ViajeRepository extends JpaRepository<Viaje, Long> {
 
     List<Viaje> findByConductor_Id(Long conductorId);
 
+    // Para "Mis viajes" (autoservicio del conductor): historial paginado con
+    // el mismo buscador+filtro de estado que ya usa /api/paginas/viajes
+    // (buscar() arriba), pero acotado siempre a un conductor especifico -
+    // nunca se expone el listado completo de la operacion a este rol.
+    @Query("""
+            select v from Viaje v
+            where v.conductor.id = :conductorId
+              and (:search = '' or lower(v.origen) like lower(concat('%', :search, '%'))
+                   or lower(v.destino) like lower(concat('%', :search, '%')))
+              and (:estado is null or v.estado = :estado)
+            """)
+    Page<Viaje> buscarMisViajes(@Param("conductorId") Long conductorId,
+                                 @Param("search") String search,
+                                 @Param("estado") EstadoViaje estado,
+                                 Pageable pageable);
+
+    // Detalle de un viaje puntual acotado a un conductor especifico. Un id
+    // que no es de este conductor simplemente no aparece (Optional vacio),
+    // el mismo criterio que ya usa PedidoClienteService para Carga.
+    Optional<Viaje> findByIdAndConductor_Id(Long id, Long conductorId);
+
     List<Viaje> findTop500ByEstadoOrderByFechaSalidaAsc(EstadoViaje estado);
 
     List<Viaje> findTop500ByEstadoAndFechaSalidaLessThanEqualOrderByFechaSalidaAsc(

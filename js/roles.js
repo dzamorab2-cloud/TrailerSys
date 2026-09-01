@@ -28,12 +28,15 @@ const TRAILERSYS_ROLES = {
     modules: ["dashboard", "vehiculos", "mantenimientos"],
     manage: ["mantenimientos"],
   },
+  // Autoservicio: el conductor tiene su propio Dashboard (su perfil, su
+  // vehiculo asignado, sus graficas) y "Mis viajes" (su propio historial,
+  // con mapa/guia/confirmar llegada) en vez del Dashboard generico de la
+  // operacion y los modulos internos "Viajes"/"Seguimiento", que exponian
+  // el resto de la flota y una bitacora manual que no le corresponden.
   conductor: {
     label: "Conductor",
-    modules: ["dashboard", "viajes", "seguimiento"],
-    // El conductor no gestiona viajes, pero si puede registrar eventos
-    // de seguimiento de su propia ruta (doc: "actualizar estados segun permisos").
-    manage: ["seguimiento"],
+    modules: ["dashboard", "mis-viajes"],
+    manage: [],
   },
   supervisor: {
     label: "Supervisor / Consulta",

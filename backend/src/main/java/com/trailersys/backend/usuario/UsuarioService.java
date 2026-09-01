@@ -10,18 +10,22 @@ import com.trailersys.backend.cliente.Cliente;
 import com.trailersys.backend.cliente.ClienteRepository;
 import com.trailersys.backend.common.ConflictException;
 import com.trailersys.backend.common.ResourceNotFoundException;
+import com.trailersys.backend.conductor.Conductor;
+import com.trailersys.backend.conductor.ConductorRepository;
 import com.trailersys.backend.usuario.dto.UsuarioRequest;
 
 @Service
 public class UsuarioService {
     private final UsuarioRepository repository;
     private final ClienteRepository clienteRepository;
+    private final ConductorRepository conductorRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UsuarioService(UsuarioRepository repository, ClienteRepository clienteRepository,
-                           PasswordEncoder passwordEncoder) {
+                           ConductorRepository conductorRepository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
         this.clienteRepository = clienteRepository;
+        this.conductorRepository = conductorRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -44,6 +48,7 @@ public class UsuarioService {
                 request.nombre().trim(), normalizar(request.correo()), request.rol());
         usuario.setActivo(request.activo());
         usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId()));
+        usuario.setConductor(resolverConductorSiAplica(request.rol(), request.conductorId()));
         return repository.save(usuario);
     }
 
@@ -58,6 +63,7 @@ public class UsuarioService {
         usuario.setRol(request.rol());
         usuario.setActivo(request.activo());
         usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId()));
+        usuario.setConductor(resolverConductorSiAplica(request.rol(), request.conductorId()));
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPasswordHash(passwordEncoder.encode(request.password()));
         }
@@ -78,6 +84,23 @@ public class UsuarioService {
         }
         return clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: " + clienteId));
+    }
+
+    /**
+     * Mismo criterio que resolverClienteSiAplica(), para el rol CONDUCTOR: es
+     * lo que permite que el autoservicio del conductor (Dashboard, "Mis
+     * viajes") sepa a que Conductor pertenece la sesion, sin confiar en un
+     * conductorId que venga de otra parte.
+     */
+    private Conductor resolverConductorSiAplica(Rol rol, Long conductorId) {
+        if (rol != Rol.CONDUCTOR) {
+            return null;
+        }
+        if (conductorId == null) {
+            throw new IllegalArgumentException("Selecciona el conductor asociado a este usuario.");
+        }
+        return conductorRepository.findById(conductorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conductor no encontrado: " + conductorId));
     }
 
     @Transactional

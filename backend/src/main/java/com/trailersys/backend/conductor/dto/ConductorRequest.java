@@ -19,6 +19,8 @@ public record ConductorRequest(
         @NotNull(message = "El estado es obligatorio") EstadoConductor estado,
         Long vehiculoId,
         String observaciones,
-        String foto
+        String foto,
+        /** Opcional: solo se usa para calcular la edad mostrada en la guia/perfil. */
+        LocalDate fechaNacimiento
 ) {
 }

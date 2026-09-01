@@ -10,14 +10,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * "isAuthenticated()" bastaba mientras todos los roles autenticados eran
- * personal interno. Ahora que CLIENTE tambien inicia sesion (autoservicio
- * de pedidos, paquete "pedido") hay que excluirlo explicitamente: este
- * resumen expone origen/destino/placa/conductor de los proximos viajes de
- * TODOS los clientes, no solo del propio.
+ * personal interno. Ahora que CLIENTE y CONDUCTOR tambien inician sesion
+ * (autoservicio, paquetes "pedido" y "operaciones") hay que excluirlos
+ * explicitamente: este resumen expone origen/destino/placa/conductor de los
+ * proximos viajes de TODA la operacion, no solo los propios. El conductor
+ * tiene su propio resumen personalizado en GET /api/mis-viajes/resumen.
  */
 @RestController
 @RequestMapping("/api/dashboard")
-@PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','MANTENIMIENTO','CONDUCTOR','SUPERVISOR')")
+@PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','MANTENIMIENTO','SUPERVISOR')")
 public class DashboardController {
     private final JdbcTemplate jdbc;
 

@@ -62,6 +62,7 @@
       <p class="nav-section-title">Autoservicio</p>
       <ul class="nav-list">
         <li><button class="nav-link" data-module="pedidos"><i class="bi bi-bag-check"></i><span class="nav-label">Mis pedidos</span></button></li>
+        <li><button class="nav-link" data-module="mis-viajes"><i class="bi bi-signpost-split"></i><span class="nav-label">Mis viajes</span></button></li>
       </ul>
 
       <div class="sidebar-footer">
@@ -95,35 +96,120 @@
 
       <main class="main-content">
         <section class="module" id="module-dashboard" data-module="dashboard">
-          <div class="module-header">
-            <div>
-              <h1>Dashboard</h1>
-              <p>Resumen general de la operación.</p>
+          <div id="dashboardGenericView">
+            <div class="module-header">
+              <div>
+                <h1>Dashboard</h1>
+                <p>Resumen general de la operación.</p>
+              </div>
+            </div>
+
+            <div class="stats-row" id="dashboardStats"></div>
+
+            <div class="dashboard-grid">
+              <div class="dashboard-panel card" id="dashboardAlertasPanel">
+                <div class="dashboard-panel-header">
+                  <i class="bi bi-bell"></i>
+                  <h3>Alertas operativas</h3>
+                </div>
+                <div id="dashboardAlertas"></div>
+              </div>
+
+              <div class="dashboard-panel card" id="dashboardViajesPanel">
+                <div class="dashboard-panel-header">
+                  <i class="bi bi-signpost-split"></i>
+                  <h3>Próximos viajes</h3>
+                </div>
+                <div id="dashboardViajes"></div>
+              </div>
+            </div>
+            <div class="dashboard-panel card availability-panel" id="dashboardDisponibilidadPanel">
+              <div class="dashboard-panel-header"><i class="bi bi-clipboard2-pulse"></i><h3>Panel de disponibilidad</h3></div>
+              <div class="availability-grid" id="dashboardDisponibilidad"><div class="dashboard-empty">Cargando disponibilidad…</div></div>
             </div>
           </div>
 
-          <div class="stats-row" id="dashboardStats"></div>
-
-          <div class="dashboard-grid">
-            <div class="dashboard-panel card" id="dashboardAlertasPanel">
-              <div class="dashboard-panel-header">
-                <i class="bi bi-bell"></i>
-                <h3>Alertas operativas</h3>
+          <div id="dashboardConductorView" hidden>
+            <div class="module-header">
+              <div>
+                <h1 id="conductorDashboardSaludo">Hola</h1>
+                <p>Tu resumen personal como conductor.</p>
               </div>
-              <div id="dashboardAlertas"></div>
             </div>
 
-            <div class="dashboard-panel card" id="dashboardViajesPanel">
-              <div class="dashboard-panel-header">
-                <i class="bi bi-signpost-split"></i>
-                <h3>Próximos viajes</h3>
+            <div class="alert-item level-warning conductor-trip-alert" id="conductorTripAlert" hidden>
+              <i class="bi bi-truck"></i>
+              <div class="alert-text">
+                <strong id="conductorTripAlertTitle">Tienes un viaje asignado</strong>
+                <p id="conductorTripAlertText"></p>
               </div>
-              <div id="dashboardViajes"></div>
+              <button type="button" class="btn btn-primary" id="conductorTripAlertBtn">Ver viaje</button>
             </div>
-          </div>
-          <div class="dashboard-panel card availability-panel" id="dashboardDisponibilidadPanel">
-            <div class="dashboard-panel-header"><i class="bi bi-clipboard2-pulse"></i><h3>Panel de disponibilidad</h3></div>
-            <div class="availability-grid" id="dashboardDisponibilidad"><div class="dashboard-empty">Cargando disponibilidad…</div></div>
+
+            <div class="conductor-dashboard-grid">
+              <article class="card conductor-profile-card">
+                <div class="conductor-profile-header">
+                  <div class="photo-upload conductor-photo-upload">
+                    <div class="photo-preview" id="conductorPerfilFotoPreview"><i class="bi bi-person"></i></div>
+                    <div class="photo-upload-actions">
+                      <label class="btn btn-ghost" for="conductorPerfilFoto"><i class="bi bi-camera"></i> Cambiar foto</label>
+                      <input type="file" id="conductorPerfilFoto" accept="image/*" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 id="conductorPerfilNombre">—</h3>
+                    <span class="badge" id="conductorPerfilEstado">—</span>
+                  </div>
+                </div>
+                <div class="conductor-profile-fields">
+                  <div><i class="bi bi-telephone"></i><span id="conductorPerfilTelefono">—</span></div>
+                  <div><i class="bi bi-cake2"></i><span id="conductorPerfilEdad">—</span></div>
+                  <div><i class="bi bi-card-checklist"></i><span id="conductorPerfilLicencia">—</span></div>
+                  <div><i class="bi bi-calendar-x"></i><span id="conductorPerfilVencimiento">—</span></div>
+                </div>
+              </article>
+
+              <article class="card conductor-vehicle-card">
+                <div class="conductor-vehicle-header">
+                  <div class="photo-preview conductor-vehicle-photo" id="conductorVehiculoFotoPreview"><i class="bi bi-truck"></i></div>
+                  <div>
+                    <h3 id="conductorVehiculoNombre">Sin vehículo asignado</h3>
+                    <span class="badge" id="conductorVehiculoEstado"></span>
+                  </div>
+                </div>
+                <div class="conductor-profile-fields">
+                  <div><i class="bi bi-credit-card-2-front"></i><span id="conductorVehiculoPlaca">—</span></div>
+                  <div><i class="bi bi-calendar3"></i><span id="conductorVehiculoAnio">—</span></div>
+                  <div><i class="bi bi-palette"></i><span id="conductorVehiculoColor">—</span></div>
+                  <div><i class="bi bi-box-seam"></i><span id="conductorVehiculoCapacidad">—</span></div>
+                </div>
+              </article>
+            </div>
+
+            <div class="conductor-dashboard-grid">
+              <article class="card conductor-chart-card">
+                <h3><i class="bi bi-pie-chart"></i> Viajes por estado</h3>
+                <div class="conductor-donut-wrap">
+                  <div class="conductor-donut" id="conductorDonutChart"></div>
+                  <div class="conductor-donut-legend" id="conductorDonutLegend"></div>
+                </div>
+              </article>
+
+              <article class="card conductor-chart-card">
+                <h3><i class="bi bi-bar-chart"></i> Viajes por mes</h3>
+                <div class="conductor-bar-chart" id="conductorBarChart"></div>
+              </article>
+
+              <article class="card conductor-map-card">
+                <h3><i class="bi bi-geo"></i> Ecuador</h3>
+                <div class="conductor-ecuador-map" id="conductorEcuadorMap" aria-hidden="true"></div>
+              </article>
+            </div>
+
+            <div class="dashboard-panel card" id="conductorViajesRecientesPanel">
+              <div class="dashboard-panel-header"><i class="bi bi-clock-history"></i><h3>Viajes recientes</h3></div>
+              <div id="conductorViajesRecientes"></div>
+            </div>
           </div>
         </section>
 
@@ -611,6 +697,35 @@
             <p id="pedidoEmptyText">Usa "Hacer un pedido" para solicitar tu primer transporte.</p>
           </div>
         </section>
+
+        <section class="module" id="module-mis-viajes" data-module="mis-viajes" hidden>
+          <div class="module-header">
+            <div>
+              <h1>Mis viajes</h1>
+              <p>Consulta tus viajes asignados: ruta, kilómetros y guía.</p>
+            </div>
+          </div>
+
+          <div class="pedido-kpis" id="misViajesKpis">
+            <article class="card pedido-kpi"><i class="bi bi-signpost-split"></i><div><strong id="misViajesKpiProgramados">0</strong><span>Programados</span></div></article>
+            <article class="card pedido-kpi"><i class="bi bi-truck"></i><div><strong id="misViajesKpiEnCurso">0</strong><span>En curso</span></div></article>
+            <article class="card pedido-kpi"><i class="bi bi-check2-circle"></i><div><strong id="misViajesKpiFinalizados">0</strong><span>Finalizados</span></div></article>
+            <article class="card pedido-kpi"><i class="bi bi-signpost"></i><div><strong id="misViajesKpiKm">0</strong><span>Km recorridos</span></div></article>
+          </div>
+
+          <div class="toolbar pedido-toolbar">
+            <div class="toolbar-search"><i class="bi bi-search"></i><input id="misViajesBuscar" type="search" placeholder="Buscar por origen o destino" /></div>
+            <div class="toolbar-filters"><select id="misViajesEstadoFiltro" class="select-pill"><option value="">Todos los estados</option><option>Programado</option><option>En Curso</option><option>Finalizado</option><option>Cancelado</option></select></div>
+          </div>
+
+          <p class="results-count" id="misViajesResultsCount"></p>
+          <div class="item-grid" id="misViajesGrid"></div>
+          <div class="module-placeholder card" id="misViajesEmptyState" hidden>
+            <i class="bi bi-signpost-split"></i>
+            <h3 id="misViajesEmptyTitle">Todavía no tienes viajes asignados</h3>
+            <p id="misViajesEmptyText">Cuando se te asigne un viaje, aparecerá aquí.</p>
+          </div>
+        </section>
       </main>
     </div>
   </div>
@@ -901,6 +1016,15 @@
             <div class="input-wrap">
               <i class="bi bi-calendar-x"></i>
               <input type="date" id="conductorLicenciaVencimiento" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field" id="fieldConductorFechaNacimiento">
+            <label for="conductorFechaNacimiento">Fecha de nacimiento (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-cake2"></i>
+              <input type="date" id="conductorFechaNacimiento" />
             </div>
             <span class="field-error"></span>
           </div>
@@ -1546,6 +1670,7 @@
           <div class="field"><label for="usuarioCorreo">Correo</label><div class="input-wrap"><i class="bi bi-envelope"></i><input id="usuarioCorreo" type="email" maxlength="120" /></div></div>
           <div class="field"><label for="usuarioRol">Rol *</label><div class="input-wrap"><i class="bi bi-shield"></i><select id="usuarioRol" required><option value="ADMINISTRADOR">Administrador</option><option value="COORDINADOR">Coordinador</option><option value="MANTENIMIENTO">Mantenimiento</option><option value="CONDUCTOR">Conductor</option><option value="SUPERVISOR">Supervisor</option><option value="CLIENTE">Cliente</option></select></div></div>
           <div class="field" id="fieldUsuarioCliente" hidden><label for="usuarioCliente">Cliente asociado *</label><div class="input-wrap"><i class="bi bi-building"></i><select id="usuarioCliente"><option value="">Selecciona un cliente</option></select></div></div>
+          <div class="field" id="fieldUsuarioConductor" hidden><label for="usuarioConductor">Conductor asociado *</label><div class="input-wrap"><i class="bi bi-person-badge"></i><select id="usuarioConductor"><option value="">Selecciona un conductor</option></select></div></div>
           <div class="field field-span-2"><label for="usuarioPassword">Contraseña <span id="usuarioPasswordHint">*</span></label><div class="input-wrap"><i class="bi bi-key"></i><input id="usuarioPassword" type="password" minlength="8" maxlength="100" autocomplete="new-password" /></div><small class="field-help">En edición déjala vacía para conservar la contraseña actual.</small></div>
           <label class="switch-row field-span-2"><input id="usuarioActivo" type="checkbox" checked /><span>Cuenta activa</span></label>
         </div>
@@ -1658,6 +1783,28 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="misViajesDetalleOverlay">
+    <div class="modal-dialog modal-dialog-wide">
+      <div class="modal-header">
+        <h3 id="misViajesDetalleTitle">Detalle del viaje</h3>
+        <button type="button" class="modal-close" id="misViajesDetalleClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+
+      <div id="misViajesDetalleMeta" class="item-meta"></div>
+
+      <div class="route-summary-grid" id="misViajesResumen"></div>
+
+      <div id="misViajesMapaContainer" class="route-map"></div>
+
+      <div id="misViajesReporteEntrega" class="delivery-report" hidden></div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="misViajesVerGuia"><i class="bi bi-file-earmark-text"></i> Ver/descargar guía</button>
+        <button type="button" class="btn btn-primary" id="misViajesDetalleCerrarBtn">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/roles.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/api-client.js"></script>
@@ -1677,6 +1824,8 @@
   <script src="js/guias.js"></script>
   <script src="js/reclamos.js"></script>
   <script src="js/dashboard.js"></script>
+  <script src="js/mis-viajes.js"></script>
+  <script src="js/conductor-dashboard.js"></script>
   <script src="js/configuracion.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/navigation.js"></script>

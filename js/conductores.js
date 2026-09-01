@@ -42,6 +42,7 @@
   const inputLicenciaNumero = document.getElementById("conductorLicenciaNumero");
   const inputLicenciaCategoria = document.getElementById("conductorLicenciaCategoria");
   const inputLicenciaVencimiento = document.getElementById("conductorLicenciaVencimiento");
+  const inputFechaNacimiento = document.getElementById("conductorFechaNacimiento");
   const selectEstado = document.getElementById("conductorEstado");
   const inputVehiculo = document.getElementById("conductorVehiculo");
   const inputVehiculoBuscar = document.getElementById("conductorVehiculoBuscar");
@@ -164,7 +165,7 @@
   async function showConductorGuide(conductor) {
     const vehiculo = conductor.vehiculoId ? await trailersysApiRequest("GET", `/vehiculos/${conductor.vehiculoId}`).catch(() => null) : null;
     trailersysShowGuide({ tipo: "Conductor", codigo: "CON", id: conductor.id, estado: conductor.estado, secciones: [
-      { titulo: "Datos personales", icono: "bi-person-vcard", campos: [["Nombre completo", conductor.nombres], ["Identificación", conductor.identificacion], ["Teléfono", conductor.telefono], ["Correo", conductor.correo || "No registrado"]] },
+      { titulo: "Datos personales", icono: "bi-person-vcard", campos: [["Nombre completo", conductor.nombres], ["Identificación", conductor.identificacion], ["Teléfono", conductor.telefono], ["Correo", conductor.correo || "No registrado"], ["Edad", conductor.edad != null ? `${conductor.edad} años` : "No registrada"]] },
       { titulo: "Licencia profesional", icono: "bi-card-checklist", campos: [["Número", conductor.licenciaNumero], ["Categoría", conductor.licenciaCategoria], ["Vencimiento", conductor.licenciaVencimiento], ["Vigencia", conductor.licenciaVencida ? "Vencida" : "Vigente"]] },
       { titulo: "Asignación operativa", icono: "bi-truck", campos: [["Estado", conductor.estado], ["Vehículo", vehiculo ? `${vehiculo.marca} ${vehiculo.modelo}` : "Sin vehículo asignado"], ["Placa", vehiculo?.placa || conductor.vehiculoPlaca], ["Capacidad", vehiculo ? `${Number(vehiculo.capacidad).toLocaleString("es-EC")} kg` : "—"], ["Observaciones", conductor.observaciones || "Sin observaciones"]] }
     ] });
@@ -238,6 +239,7 @@
       inputLicenciaNumero.value = conductor.licenciaNumero;
       inputLicenciaCategoria.value = conductor.licenciaCategoria;
       inputLicenciaVencimiento.value = conductor.licenciaVencimiento;
+      inputFechaNacimiento.value = conductor.fechaNacimiento || "";
       selectEstado.value = conductor.estado;
       // El vehiculo ya viene denormalizado en el conductor (vehiculoPlaca),
       // asi que no hace falta otra peticion para mostrar la seleccion actual.
@@ -328,6 +330,7 @@
       licenciaNumero: inputLicenciaNumero.value.trim(),
       licenciaCategoria: inputLicenciaCategoria.value.trim(),
       licenciaVencimiento: inputLicenciaVencimiento.value,
+      fechaNacimiento: inputFechaNacimiento.value || null,
       estado: ESTADOS.includes(selectEstado.value) ? selectEstado.value : ESTADOS[0],
       vehiculoId: inputVehiculo.value ? Number(inputVehiculo.value) : null,
       observaciones: inputObservaciones.value.trim(),

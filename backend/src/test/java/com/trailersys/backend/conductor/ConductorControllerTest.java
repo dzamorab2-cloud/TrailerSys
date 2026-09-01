@@ -270,4 +270,45 @@ class ConductorControllerTest {
         }
         assertThat(encontrado).isTrue();
     }
+
+    /**
+     * fechaNacimiento es opcional y se guarda tal cual; edad se calcula al
+     * leer (Period.between contra la fecha actual), nunca se persiste como
+     * numero aparte para que no quede desactualizada.
+     */
+    @Test
+    void fechaNacimientoViajaBienYLaEdadSeCalculaAlLeer() throws Exception {
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+        java.time.LocalDate nacimiento = hoy.minusYears(30).minusDays(1);
+        String conductor = """
+                {"nombres":"Con Fecha Nacimiento","identificacion":"CI-EDAD","telefono":"0999999999",
+                 "licenciaNumero":"LIC-EDAD","licenciaCategoria":"Tipo B",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible","fechaNacimiento":"%s"}
+                """.formatted(nacimiento);
+
+        mockMvc.perform(post("/api/conductores")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conductor))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fechaNacimiento").value(nacimiento.toString()))
+                .andExpect(jsonPath("$.edad").value(30));
+    }
+
+    @Test
+    void sinFechaNacimientoLaEdadEsNula() throws Exception {
+        String conductor = """
+                {"nombres":"Sin Fecha Nacimiento","identificacion":"CI-SINEDAD","telefono":"0999999999",
+                 "licenciaNumero":"LIC-SINEDAD","licenciaCategoria":"Tipo B",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible"}
+                """;
+
+        mockMvc.perform(post("/api/conductores")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conductor))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fechaNacimiento").doesNotExist())
+                .andExpect(jsonPath("$.edad").doesNotExist());
+    }
 }

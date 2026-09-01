@@ -94,6 +94,18 @@ class DashboardControllerTest {
     }
 
     /**
+     * El conductor tiene su propio resumen personalizado en
+     * GET /api/mis-viajes/resumen (ver ViajeConductorController) y ya no
+     * debe poder ver el de TODA la operacion por esta via.
+     */
+    @Test
+    void conductorNoPuedeVerElResumenDeLaOperacion() throws Exception {
+        String token = tokenPara("conductordashboard", Rol.CONDUCTOR);
+        mockMvc.perform(get("/api/dashboard/resumen").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    /**
      * Un viaje puede quedar "PROGRAMADO" con su fecha_salida ya en el pasado
      * (el propio panel de Alertas operativas de Seguimiento marca ese caso
      * como alerta). "Próximos viajes" del Dashboard debe mostrar solo los

@@ -17,6 +17,16 @@
   pointer-events: auto;
 }
 
+/* La guia (trailersysShowGuide) a veces se abre ENCIMA de otro modal ya
+   abierto (ej. el detalle de "Mis viajes" del conductor, via el boton "Ver/
+   descargar guia" - ver js/mis-viajes.js). Con el mismo z-index que el
+   resto de .modal-overlay, quien queda visible depende del orden en el DOM,
+   y la guia perdia (quedaba tapada por el modal que la abrio). Un z-index
+   mas alto la deja siempre por encima sin importar ese orden. */
+#guiaModalOverlay {
+  z-index: 60;
+}
+
 .modal-dialog {
   background: var(--color-surface);
   border-radius: var(--radius-lg);

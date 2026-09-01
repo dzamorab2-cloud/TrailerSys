@@ -52,6 +52,7 @@ public class ConductorService {
         Conductor conductor = new Conductor(request.nombres(), request.identificacion(), request.telefono(),
                 request.correo(), request.licenciaNumero(), request.licenciaCategoria(), request.licenciaVencimiento(),
                 request.estado(), resolverVehiculo(request.vehiculoId()), request.observaciones(), request.foto());
+        conductor.setFechaNacimiento(request.fechaNacimiento());
         return repository.save(conductor);
     }
 
@@ -76,6 +77,7 @@ public class ConductorService {
         conductor.setVehiculo(resolverVehiculo(request.vehiculoId()));
         conductor.setObservaciones(request.observaciones());
         conductor.setFoto(request.foto());
+        conductor.setFechaNacimiento(request.fechaNacimiento());
 
         return conductor;
     }

@@ -1,6 +1,7 @@
 package com.trailersys.backend.usuario;
 
 import com.trailersys.backend.cliente.Cliente;
+import com.trailersys.backend.conductor.Conductor;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -50,6 +51,17 @@ public class Usuario {
     @ManyToOne
     @JoinColumn(name = "cliente_id")
     private Cliente cliente;
+
+    /**
+     * Solo aplica a usuarios con rol CONDUCTOR: identifica a que Conductor
+     * pertenece, para que su Dashboard y "Mis viajes" (autoservicio del
+     * conductor) acoten todo a este registro y nunca confien en un
+     * conductorId que venga del request. Nullable por el mismo motivo que
+     * "cliente": el resto de roles no tiene un conductor asociado.
+     */
+    @ManyToOne
+    @JoinColumn(name = "conductor_id")
+    private Conductor conductor;
 
     protected Usuario() {
     }
@@ -121,5 +133,13 @@ public class Usuario {
 
     public void setCliente(Cliente cliente) {
         this.cliente = cliente;
+    }
+
+    public Conductor getConductor() {
+        return conductor;
+    }
+
+    public void setConductor(Conductor conductor) {
+        this.conductor = conductor;
     }
 }

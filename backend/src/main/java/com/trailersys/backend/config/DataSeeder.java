@@ -84,8 +84,6 @@ public class DataSeeder implements CommandLineRunner {
                 "coordinador@trailersys.test", Rol.COORDINADOR);
         sembrarUsuarioSiNoExiste("mantenimiento", "mantenimiento1234", "Responsable de Mantenimiento",
                 "mantenimiento@trailersys.test", Rol.MANTENIMIENTO);
-        sembrarUsuarioSiNoExiste("conductor", "conductor1234", "Luis Herrera",
-                "luis.herrera@trailersys.test", Rol.CONDUCTOR);
         sembrarUsuarioSiNoExiste("supervisor", "supervisor1234", "Supervisor de Operaciones",
                 "supervisor@trailersys.test", Rol.SUPERVISOR);
 
@@ -103,16 +101,26 @@ public class DataSeeder implements CommandLineRunner {
         if (conductorRepository.count() == 0) {
             Vehiculo vehiculoAsignado = vehiculoRepository.findByPlacaIgnoreCase("PBA-1234").orElse(null);
 
-            conductorRepository.save(new Conductor(
+            Conductor luisHerrera = new Conductor(
                     "Luis Herrera", "0912345678", "0991234567", "luis.herrera@trailersys.test",
                     "LIC-88213", "Tipo E", LocalDate.of(2027, 3, 15),
-                    EstadoConductor.EN_RUTA, vehiculoAsignado, "", null));
+                    EstadoConductor.EN_RUTA, vehiculoAsignado, "", null);
+            luisHerrera.setFechaNacimiento(LocalDate.of(1988, 5, 12));
+            conductorRepository.save(luisHerrera);
 
             conductorRepository.save(new Conductor(
                     "Marcia Torres", "0923456789", "0987654321", null,
                     "LIC-40071", "Tipo C", LocalDate.of(2024, 1, 10),
                     EstadoConductor.DISPONIBLE, null, "Disponible para rutas cortas.", null));
         }
+
+        // La cuenta de autoservicio del conductor se vincula a "Luis Herrera"
+        // (ya sembrado arriba) - mismo patron que la cuenta demo de Cliente
+        // mas abajo: el vinculo se hace despues de sembrar el Conductor, no
+        // antes, para no depender del orden de insercion de Spring.
+        Conductor conductorDemo = conductorRepository.findByIdentificacionIgnoreCase("0912345678").orElse(null);
+        sembrarUsuarioSiNoExiste("conductor", "conductor1234", "Luis Herrera",
+                "luis.herrera@trailersys.test", Rol.CONDUCTOR, conductorDemo);
 
         if (clienteRepository.count() == 0) {
             clienteRepository.save(new Cliente(
@@ -242,16 +250,28 @@ public class DataSeeder implements CommandLineRunner {
      * que se haya sembrado la primera vez.
      */
     private void sembrarUsuarioSiNoExiste(String username, String password, String nombre, String correo, Rol rol) {
-        sembrarUsuarioSiNoExiste(username, password, nombre, correo, rol, null);
+        sembrarUsuarioSiNoExiste(username, password, nombre, correo, rol, null, null);
     }
 
     /** Igual que el metodo anterior, pero vinculando (o no) un Cliente. */
     private void sembrarUsuarioSiNoExiste(String username, String password, String nombre, String correo, Rol rol,
                                            Cliente cliente) {
+        sembrarUsuarioSiNoExiste(username, password, nombre, correo, rol, cliente, null);
+    }
+
+    /** Igual que el primero, pero vinculando (o no) un Conductor. */
+    private void sembrarUsuarioSiNoExiste(String username, String password, String nombre, String correo, Rol rol,
+                                           Conductor conductor) {
+        sembrarUsuarioSiNoExiste(username, password, nombre, correo, rol, null, conductor);
+    }
+
+    private void sembrarUsuarioSiNoExiste(String username, String password, String nombre, String correo, Rol rol,
+                                           Cliente cliente, Conductor conductor) {
         Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username).orElse(null);
         if (usuario == null) {
             usuario = new Usuario(username, passwordEncoder.encode(password), nombre, correo, rol);
             usuario.setCliente(cliente);
+            usuario.setConductor(conductor);
             usuarioRepository.save(usuario);
             return;
         }
@@ -260,6 +280,7 @@ public class DataSeeder implements CommandLineRunner {
         usuario.setCorreo(correo);
         usuario.setRol(rol);
         usuario.setCliente(cliente);
+        usuario.setConductor(conductor);
         usuarioRepository.save(usuario);
     }
 }

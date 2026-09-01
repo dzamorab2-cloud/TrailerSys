@@ -14,6 +14,8 @@ public record UsuarioRequest(
         @NotNull Rol rol,
         @NotNull Boolean activo,
         /** Solo se usa (y se exige) cuando rol es CLIENTE; se ignora para el resto. */
-        Long clienteId
+        Long clienteId,
+        /** Solo se usa (y se exige) cuando rol es CONDUCTOR; se ignora para el resto. */
+        Long conductorId
 ) {
 }

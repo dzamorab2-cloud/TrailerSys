@@ -291,10 +291,11 @@
         </div>`);
     }
 
+    // "confirmar-entrega" ya no se ofrece aqui: el conductor ya no llega a
+    // este modulo (tiene su propio "Mis viajes", ver js/mis-viajes.js), y
+    // ningun otro rol con acceso a Seguimiento tiene permiso para confirmar
+    // la llegada (ver PUEDE_CONSULTAR/confirmarEntrega en ViajeController).
     const acciones = [];
-    if (session?.role === "conductor" && viaje.estado === "En Curso" && !viaje.entregaConfirmada) {
-      acciones.push(`<button type="button" class="btn btn-primary" data-action="confirmar-entrega"><i class="bi bi-flag-fill"></i> Confirmar llegada</button>`);
-    }
     if (session?.role === "supervisor" && viaje.entregaConfirmada && !viaje.entregaValidada) {
       acciones.push(`<button type="button" class="btn btn-primary" data-action="validar-entrega"><i class="bi bi-patch-check"></i> Validar entrega</button>`);
     }

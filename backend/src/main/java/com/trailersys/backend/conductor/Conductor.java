@@ -44,6 +44,14 @@ public class Conductor {
     @Column(nullable = false)
     private LocalDate licenciaVencimiento;
 
+    /**
+     * Opcional: nadie la exigia hasta que el Dashboard propio del conductor
+     * (autoservicio) empezo a mostrar su edad. Se guarda la fecha (no un
+     * numero de edad) para que no quede desactualizada - la edad se calcula
+     * al leer, en ConductorResponse.
+     */
+    private LocalDate fechaNacimiento;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoConductor estado;
@@ -173,5 +181,13 @@ public class Conductor {
 
     public void setFoto(String foto) {
         this.foto = foto;
+    }
+
+    public LocalDate getFechaNacimiento() {
+        return fechaNacimiento;
+    }
+
+    public void setFechaNacimiento(LocalDate fechaNacimiento) {
+        this.fechaNacimiento = fechaNacimiento;
     }
 }
