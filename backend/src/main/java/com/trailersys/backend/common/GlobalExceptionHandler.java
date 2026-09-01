@@ -3,6 +3,7 @@ package com.trailersys.backend.common;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -85,6 +86,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    /**
+     * Eliminar un Vehiculo, Conductor, Cliente o Carga que todavia tiene
+     * Viajes que lo referencian (vehiculo_id/conductor_id/cliente_id/
+     * carga_id son NOT NULL) rompe la restriccion de clave foranea en la
+     * base de datos - ninguno de esos *Service.eliminar() comprueba antes
+     * si hay Viajes dependientes. Sin este handler, esa violacion caia en
+     * handleGeneric() y devolvia 500 "Ocurrio un error inesperado", dejando
+     * a quien intentaba borrar sin ninguna pista de que el registro seguia
+     * en uso. Se traduce a 409 con un mensaje accionable.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT,
+                "No se puede eliminar: otros registros (por ejemplo, viajes) todavia hacen referencia a este.", request);
     }
 
     @ExceptionHandler(Exception.class)

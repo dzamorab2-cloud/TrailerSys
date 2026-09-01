@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,9 +21,18 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trailersys.backend.cliente.Cliente;
+import com.trailersys.backend.cliente.ClienteRepository;
+import com.trailersys.backend.cliente.EstadoCliente;
+import com.trailersys.backend.conductor.Conductor;
+import com.trailersys.backend.conductor.ConductorRepository;
+import com.trailersys.backend.conductor.EstadoConductor;
 import com.trailersys.backend.usuario.Rol;
 import com.trailersys.backend.usuario.Usuario;
 import com.trailersys.backend.usuario.UsuarioRepository;
+import com.trailersys.backend.viaje.EstadoViaje;
+import com.trailersys.backend.viaje.Viaje;
+import com.trailersys.backend.viaje.ViajeRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -37,6 +49,18 @@ class VehiculoControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private VehiculoRepository vehiculoRepository;
+
+    @Autowired
+    private ConductorRepository conductorRepository;
+
+    @Autowired
+    private ClienteRepository clienteRepository;
+
+    @Autowired
+    private ViajeRepository viajeRepository;
 
     private String tokenAdmin;
 
@@ -151,5 +175,33 @@ class VehiculoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(nuevoVehiculo))
                 .andExpect(status().isForbidden());
+    }
+
+    /**
+     * Eliminar un vehiculo referenciado por un Viaje (vehiculo_id es NOT
+     * NULL en la tabla viajes) rompe la restriccion de clave foranea en la
+     * base de datos. Antes, VehiculoService.eliminar() no comprobaba esto
+     * de antemano y GlobalExceptionHandler no traducia
+     * DataIntegrityViolationException, asi que esa violacion caia en el
+     * manejador generico y devolvia 500 "Ocurrio un error inesperado" - sin
+     * ninguna pista de que el vehiculo seguia en uso.
+     */
+    @Test
+    void eliminarVehiculoConViajesAsociadosDevuelveConflictoNoErrorDeServidor() throws Exception {
+        Vehiculo vehiculo = vehiculoRepository.save(new Vehiculo(
+                "REF-0001", "Marca", "Modelo", "Tipo", 2020, "Rojo", EstadoVehiculo.DISPONIBLE, 0, 0, null, null));
+        Conductor conductor = conductorRepository.save(new Conductor(
+                "Conductor Referenciado", "CI-REF", "0999999999", null, "LIC-REF", "Tipo B",
+                LocalDate.now().plusYears(1), EstadoConductor.DISPONIBLE, null, null, null));
+        Cliente cliente = clienteRepository.save(new Cliente(
+                "Cliente Referenciado", "CI-REF-CLI", EstadoCliente.ACTIVO, "0999999999", null, "Direccion", null, null));
+        viajeRepository.save(new Viaje(vehiculo, conductor, cliente, null, "Origen", "Destino",
+                LocalDateTime.now().plusDays(1), EstadoViaje.PROGRAMADO, null));
+
+        mockMvc.perform(delete("/api/vehiculos/" + vehiculo.getId())
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "No se puede eliminar: otros registros (por ejemplo, viajes) todavia hacen referencia a este."));
     }
 }
