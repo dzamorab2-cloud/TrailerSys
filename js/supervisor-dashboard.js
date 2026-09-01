@@ -126,16 +126,15 @@
         ["Inactivo", disponibilidad.conductoresInactivos],
       ], COLOR_CONDUCTORES);
 
-      const totalVehiculos = disponibilidad.vehiculosDisponibles + disponibilidad.vehiculosEnRuta
-        + disponibilidad.vehiculosMantenimiento + disponibilidad.vehiculosFueraServicio;
       const totalConductores = disponibilidad.conductoresDisponibles + disponibilidad.conductoresEnRuta
         + disponibilidad.conductoresDescanso + disponibilidad.conductoresInactivos;
 
-      trailersysRenderProgressRing($("supervisorFlotaRing"), {
-        valor: totalVehiculos > 0 ? (disponibilidad.vehiculosDisponibles / totalVehiculos) * 100 : 0,
-        etiqueta: "Vehículos disponibles",
-        color: "var(--color-success)",
-      });
+      trailersysRenderMultiRing($("supervisorFlotaRing"), [
+        ["Disponible", disponibilidad.vehiculosDisponibles, COLOR_VEHICULOS.Disponible],
+        ["En Ruta", disponibilidad.vehiculosEnRuta, COLOR_VEHICULOS["En Ruta"]],
+        ["Mantenimiento", disponibilidad.vehiculosMantenimiento, COLOR_VEHICULOS.Mantenimiento],
+        ["Fuera de Servicio", disponibilidad.vehiculosFueraServicio, COLOR_VEHICULOS["Fuera de Servicio"]],
+      ]);
       trailersysRenderProgressRing($("supervisorLicenciasRing"), {
         valor: totalConductores > 0 ? ((totalConductores - disponibilidad.licenciasVencidas) / totalConductores) * 100 : 0,
         etiqueta: "Conductores al día",

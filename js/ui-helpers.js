@@ -324,6 +324,56 @@ function trailersysRenderProgressRing(container, { valor, etiqueta, color = "var
 }
 
 /**
+ * Igual que trailersysRenderProgressRing, pero con el anillo dividido en
+ * varios segmentos de colores (uno por categoria) en vez de un solo
+ * porcentaje - para cuando "cuanto hay disponible" no alcanza y hace falta
+ * ver tambien en que estado esta el resto (en ruta, en mantenimiento,
+ * etc.), cada uno de un color distinto, con su leyenda debajo. El numero
+ * grande al centro es el porcentaje de la primera categoria (la principal).
+ * @param {HTMLElement} container
+ * @param {[string, number, string][]} datos - [etiqueta, cantidad, color][].
+ */
+function trailersysRenderMultiRing(container, datos) {
+  const escape = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const total = datos.reduce((sum, [, cantidad]) => sum + cantidad, 0);
+  if (total === 0) {
+    container.innerHTML = '<p class="dashboard-empty">Sin datos todavía.</p>';
+    return;
+  }
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  let acumulado = 0;
+  const segmentos = datos
+    .filter(([, cantidad]) => cantidad > 0)
+    .map(([etiqueta, cantidad, color]) => {
+      const pct = cantidad / total;
+      const dashoffset = (-acumulado * c).toFixed(1);
+      acumulado += pct;
+      return `<circle cx="50" cy="50" r="${r}" class="progress-ring-segment" style="stroke:${color};stroke-dasharray:${(pct * c).toFixed(1)} ${c.toFixed(1)};stroke-dashoffset:${dashoffset}"><title>${escape(etiqueta)}: ${cantidad}</title></circle>`;
+    })
+    .join("");
+  const pctPrincipal = Math.round((datos[0][1] / total) * 100);
+  container.innerHTML = `
+    <div class="dashboard-donut-wrap">
+      <div class="progress-ring-wrap">
+        <svg viewBox="0 0 100 100" class="progress-ring" role="img" aria-label="${escape(datos[0][0])}: ${pctPrincipal}%">
+          <circle cx="50" cy="50" r="${r}" class="progress-ring-track"></circle>
+          ${segmentos}
+        </svg>
+        <div class="progress-ring-center"><strong>${pctPrincipal}%</strong></div>
+      </div>
+      <div class="dashboard-donut-legend">
+        ${datos.map(([etiqueta, cantidad, color]) => `
+          <div class="dashboard-donut-legend-item">
+            <span class="dashboard-donut-dot" style="background:${color}"></span>
+            <span>${escape(etiqueta)}</span>
+            <strong>${cantidad}</strong>
+          </div>`).join("")}
+      </div>
+    </div>`;
+}
+
+/**
  * Grafica de area con linea suavizada (SVG, sin libreria) para una
  * tendencia a lo largo del tiempo - mismo espiritu que el donut/barras en
  * CSS puro que ya usaba el Dashboard, pero con una curva suave (tecnica de

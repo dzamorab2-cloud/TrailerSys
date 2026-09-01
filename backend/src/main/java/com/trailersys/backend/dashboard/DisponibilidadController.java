@@ -18,7 +18,7 @@ public class DisponibilidadController {
     }
 
     @GetMapping("/disponibilidad")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','SUPERVISOR','MANTENIMIENTO')")
     public DisponibilidadResponse obtener() {
         return new DisponibilidadResponse(
                 contar("SELECT count(*) FROM vehiculos WHERE estado='DISPONIBLE'"),
