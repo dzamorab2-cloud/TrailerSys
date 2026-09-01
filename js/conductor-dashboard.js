@@ -147,19 +147,42 @@
       </div>`).join("");
   }
 
-  // --- Mapa decorativo de Ecuador (SVG estatico, sin interaccion) ---
+  // --- Mapa decorativo de Ecuador (Leaflet real, mismo mosaico de
+  // OpenStreetMap que usan Viajes/Seguimiento/Mis viajes - la silueta
+  // dibujada a mano no se veia como un mapa real, esto si). Se guarda la
+  // instancia para no reinicializar Leaflet sobre el mismo contenedor cada
+  // vez que se vuelve a activar el modulo Dashboard (module-activated),
+  // que revienta con "Map container is already initialized".
+  let ecuadorMapInstance = null;
   function renderMapaEcuador() {
-    $("conductorEcuadorMap").innerHTML = `
-      <svg viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapa decorativo de Ecuador">
-        <path d="M118 12 L150 8 L175 22 L185 48 L210 55 L232 78 L238 108 L222 118 L228 145 L215 168 L222 195 L205 222 L212 250 L192 268 L188 296 L165 318 L150 332 L136 314 L118 300 L108 272 L88 258 L92 228 L74 208 L80 178 L64 155 L72 128 L58 102 L74 78 L68 50 L92 32 Z"
-          fill="var(--color-success-tint)" stroke="var(--color-success)" stroke-width="2.5" stroke-linejoin="round" />
-        <circle cx="150" cy="70" r="5" fill="var(--color-info)" />
-        <text x="160" y="74" class="conductor-map-label">Quito</text>
-        <circle cx="120" cy="205" r="5" fill="var(--color-warning)" />
-        <text x="130" y="209" class="conductor-map-label">Guayaquil</text>
-        <circle cx="150" cy="250" r="5" fill="var(--color-danger)" />
-        <text x="160" y="254" class="conductor-map-label">Cuenca</text>
-      </svg>`;
+    const container = $("conductorEcuadorMap");
+    if (typeof L === "undefined") {
+      container.innerHTML = '<div class="route-map-placeholder"><i class="bi bi-wifi-off"></i><p>No se pudo cargar el mapa. Verifica la conexión a internet.</p></div>';
+      return;
+    }
+    if (ecuadorMapInstance) {
+      setTimeout(() => ecuadorMapInstance.invalidateSize(), 100);
+      return;
+    }
+    ecuadorMapInstance = L.map(container, { scrollWheelZoom: false }).setView([-1.55, -78.6], 6.3);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; colaboradores de OpenStreetMap",
+      maxZoom: 18,
+    }).addTo(ecuadorMapInstance);
+
+    // Un par de ciudades como referencia, nada mas - es decorativo, no una
+    // ruta (esa vive en el mapa del detalle de "Mis viajes").
+    [
+      ["Quito", -0.1807, -78.4678, "var(--color-info)"],
+      ["Guayaquil", -2.1894, -79.8891, "var(--color-warning)"],
+      ["Cuenca", -2.9006, -79.0045, "var(--color-danger)"],
+    ].forEach(([nombre, lat, lng, color]) => {
+      L.circleMarker([lat, lng], { radius: 6, color, fillColor: color, fillOpacity: 1, weight: 2 })
+        .addTo(ecuadorMapInstance)
+        .bindTooltip(nombre, { permanent: true, direction: "right", offset: [6, 0], className: "conductor-map-tooltip" });
+    });
+
+    setTimeout(() => ecuadorMapInstance.invalidateSize(), 200);
   }
 
   // --- Viajes recientes ---
@@ -197,5 +220,5 @@
 
   renderMapaEcuador();
   cargar();
-  window.addEventListener("trailersys:module-activated", (e) => { if (e.detail?.module === "dashboard") cargar(); });
+  window.addEventListener("trailersys:module-activated", (e) => { if (e.detail?.module === "dashboard") { cargar(); renderMapaEcuador(); } });
 })();

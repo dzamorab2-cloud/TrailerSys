@@ -207,9 +207,27 @@
 .conductor-bar-value { font-size: 0.72rem; font-weight: 700; }
 .conductor-bar-label { font-size: 0.7rem; color: var(--color-text-muted); }
 
-.conductor-ecuador-map { width: 100%; max-width: 200px; margin: 0 auto; }
-.conductor-ecuador-map svg { width: 100%; height: auto; }
-.conductor-map-label { font-size: 11px; fill: var(--color-text-muted); }
+/* Mapa real de Leaflet (js/conductor-dashboard.js), no un dibujo - necesita
+   una altura explicita en pixeles, Leaflet no funciona con "height: auto". */
+.conductor-ecuador-map {
+  width: 100%;
+  height: 280px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.conductor-map-tooltip {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.conductor-map-tooltip::before { display: none; }
 
 .photo-preview-initials { font-weight: 700; font-size: 1.4rem; color: var(--color-text-muted); }
 
