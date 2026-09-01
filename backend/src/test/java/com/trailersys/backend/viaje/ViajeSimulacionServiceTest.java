@@ -190,4 +190,37 @@ class ViajeSimulacionServiceTest {
         Viaje actualizado = viajeRepository.findById(viaje.getId()).orElseThrow();
         assertThat(actualizado.getParadasSimuladasRegistradas()).isEqualTo(0);
     }
+
+    @Test
+    void ejecutarSimulacionRegistraLlegadaAutomaticaAl100PorCientoSinFinalizarElViaje() {
+        // 110% de una ruta de 100 min (ya deberia haber llegado y de sobra).
+        Viaje viaje = crearViajeEnCursoConRuta("LLEGADA1", 110, 100.0);
+
+        simulacionService.ejecutarSimulacion();
+
+        Viaje actualizado = viajeRepository.findById(viaje.getId()).orElseThrow();
+        assertThat(actualizado.isEntregaConfirmada()).isTrue();
+        assertThat(actualizado.getConfirmadoPor()).isEqualTo("Sistema");
+        // La llegada automatica NO cierra el viaje - eso lo hace despues,
+        // aparte, Coordinador/Administrador con finalizarViaje().
+        assertThat(actualizado.getEstado()).isEqualTo(EstadoViaje.EN_CURSO);
+
+        long llegadas = seguimientoEventoRepository.findByViajeIdOrderByFechaHoraDesc(viaje.getId()).stream()
+                .filter(e -> e.getEvento() == TipoEvento.LLEGADA)
+                .count();
+        assertThat(llegadas).isEqualTo(1);
+    }
+
+    @Test
+    void ejecutarSimulacionNoDuplicaLaLlegadaEnDosCorridas() {
+        Viaje viaje = crearViajeEnCursoConRuta("LLEGADA2", 110, 100.0);
+
+        simulacionService.ejecutarSimulacion();
+        simulacionService.ejecutarSimulacion();
+
+        long llegadas = seguimientoEventoRepository.findByViajeIdOrderByFechaHoraDesc(viaje.getId()).stream()
+                .filter(e -> e.getEvento() == TipoEvento.LLEGADA)
+                .count();
+        assertThat(llegadas).isEqualTo(1);
+    }
 }

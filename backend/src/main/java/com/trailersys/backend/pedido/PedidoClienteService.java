@@ -15,7 +15,6 @@ import com.trailersys.backend.common.ResourceNotFoundException;
 import com.trailersys.backend.pedido.dto.PedidoCargaRequest;
 import com.trailersys.backend.usuario.Usuario;
 import com.trailersys.backend.usuario.UsuarioRepository;
-import com.trailersys.backend.viaje.EstadoViaje;
 import com.trailersys.backend.viaje.Viaje;
 import com.trailersys.backend.viaje.ViajeRepository;
 import com.trailersys.backend.seguimiento.SeguimientoEventoRepository;
@@ -108,8 +107,13 @@ public class PedidoClienteService {
         Viaje viaje = viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId())
                 .orElseThrow(() -> new ConflictException("Este pedido todavía no tiene un viaje asociado."));
 
-        if (viaje.getEstado() != EstadoViaje.FINALIZADO) {
-            throw new ConflictException("Solo puedes confirmar la recepción de un pedido cuyo viaje ya está Finalizado.");
+        // Ya no exige viaje Finalizado: el cliente debe poder revisar su
+        // carga apenas se confirma la llegada (automatica o manual, ver
+        // ViajeService.registrarLlegada), antes de que Coordinador/
+        // Administrador cierren el viaje con finalizarViaje(). Ese orden es
+        // el que permite que un reclamo del cliente bloquee la finalizacion.
+        if (!viaje.isEntregaConfirmada()) {
+            throw new ConflictException("Solo puedes confirmar la recepción de un pedido cuya llegada ya fue confirmada.");
         }
         if (viaje.isEntregaConfirmadaCliente()) {
             throw new ConflictException("Ya confirmaste la recepción de este pedido.");

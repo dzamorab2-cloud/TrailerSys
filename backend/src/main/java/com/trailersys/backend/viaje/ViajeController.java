@@ -108,4 +108,17 @@ public class ViajeController {
         String observacion = request != null ? request.observacion() : null;
         return ViajeResponse.from(service.validarEntrega(id, observacion, principal.getName()));
     }
+
+    /**
+     * Cierra un viaje En Curso (pasa a Finalizado) una vez que su llegada
+     * ya fue confirmada Y el cliente ya reviso la carga sin dejar un
+     * reclamo sin resolver. Mismo permiso que crear/editar/eliminar viajes:
+     * es una accion de gestion, no de auditoria (a diferencia de
+     * validar-entrega, exclusiva de Supervisor).
+     */
+    @PostMapping("/{id}/finalizar")
+    @PreAuthorize(PUEDE_GESTIONAR)
+    public ViajeResponse finalizar(@PathVariable Long id, Principal principal) {
+        return ViajeResponse.from(service.finalizarViaje(id, principal.getName()));
+    }
 }

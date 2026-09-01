@@ -15,17 +15,28 @@
     Object.values(viajes).filter(Boolean).forEach((v) => {
       if (v.estadoReclamoCliente === "ABIERTO") novedades.push(`El reclamo del viaje #${v.id} está siendo revisado.`);
       else if (v.respuestaReclamoCliente) novedades.push(`Tu reclamo del viaje #${v.id} tiene una respuesta.`);
-      else if (v.estado === "Finalizado" && !v.entregaConfirmadaCliente) novedades.push(`El viaje #${v.id} fue entregado. Confirma cómo recibiste la carga.`);
+      else if (v.entregaConfirmada && !v.entregaConfirmadaCliente) novedades.push(`El viaje #${v.id} llegó a destino. Confirma cómo recibiste la carga.`);
     });
     $("pedidoNotifications").hidden = novedades.length === 0;
     $("pedidoNotifications").innerHTML = novedades.length ? `<h3><i class="bi bi-bell"></i> Notificaciones</h3>${novedades.map((n) => `<p>${esc(n)}</p>`).join("")}` : "";
   }
 
+  // "Verificada" es un estado derivado (no viaja como tal desde el
+  // backend): el cliente ya reviso la carga y no dejo un reclamo sin
+  // resolver. El viaje puede seguir "En Curso" en ese momento -recien lo
+  // finaliza Coordinador/Administrador despues- asi que se muestra en vez
+  // del badge crudo de c.estado (que hasta entonces sigue diciendo "En
+  // Tránsito"), para que el cliente vea de una vez que ya quedo conforme.
+  const estaVerificada = (v) => Boolean(v?.entregaConfirmadaCliente) && (!v.estadoReclamoCliente || v.estadoReclamoCliente === "RESUELTO");
+
   function tarjeta(c) {
     const v = viajes[c.id];
     const reclamo = v?.estadoReclamoCliente ? `<span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Reclamo ${esc(v.estadoReclamoCliente.toLowerCase())}</span>` : "";
-    const confirmar = c.estado === "Entregada" && v && !v.entregaConfirmadaCliente ? `<button class="btn btn-primary" data-action="recibir" data-id="${c.id}"><i class="bi bi-clipboard-check"></i> Confirmar recepción</button>` : "";
-    return `<article class="card item-card pedido-card"><div class="item-banner"><i class="bi bi-box-seam"></i><div class="item-banner-title"><div class="item-title">Pedido #${c.id} · ${esc(c.descripcion)}</div><div class="item-subtitle">${esc(c.tipo)}</div></div></div><div class="item-body"><div class="item-route"><i class="bi bi-geo-alt"></i><span>${esc(c.origen)}</span><i class="bi bi-arrow-right"></i><span>${esc(c.destino)}</span></div><div class="item-meta"><span class="badge ${badge[c.estado] || "badge-neutral"}">${esc(c.estado)}</span><span><i class="bi bi-box-seam"></i>${peso(c.peso)}</span><span><i class="bi bi-truck"></i>${esc(v?.estado || "Sin asignar")}</span></div><div class="pedido-card-actions">${reclamo}<button class="btn btn-ghost" data-action="detalle" data-id="${c.id}"><i class="bi bi-eye"></i> Ver detalle y guía</button>${confirmar}</div></div></article>`;
+    const confirmar = v && v.entregaConfirmada && !v.entregaConfirmadaCliente ? `<button class="btn btn-primary" data-action="recibir" data-id="${c.id}"><i class="bi bi-clipboard-check"></i> Confirmar recepción</button>` : "";
+    const estadoBadge = estaVerificada(v)
+      ? `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada</span>`
+      : `<span class="badge ${badge[c.estado] || "badge-neutral"}">${esc(c.estado)}</span>`;
+    return `<article class="card item-card pedido-card"><div class="item-banner"><i class="bi bi-box-seam"></i><div class="item-banner-title"><div class="item-title">Pedido #${c.id} · ${esc(c.descripcion)}</div><div class="item-subtitle">${esc(c.tipo)}</div></div></div><div class="item-body"><div class="item-route"><i class="bi bi-geo-alt"></i><span>${esc(c.origen)}</span><i class="bi bi-arrow-right"></i><span>${esc(c.destino)}</span></div><div class="item-meta">${estadoBadge}<span><i class="bi bi-box-seam"></i>${peso(c.peso)}</span><span><i class="bi bi-truck"></i>${esc(v?.estado || "Sin asignar")}</span></div><div class="pedido-card-actions">${reclamo}<button class="btn btn-ghost" data-action="detalle" data-id="${c.id}"><i class="bi bi-eye"></i> Ver detalle y guía</button>${confirmar}</div></div></article>`;
   }
 
   function filtrar() {
@@ -58,7 +69,10 @@
     $("pedidoDetalleContenido").innerHTML = `<p>Cargando detalle...</p>`; trailersysOpenModal($("pedidoDetalleOverlay"));
     try {
       const d = await trailersysApiRequest("GET", `/mis-cargas/${id}/detalle`); detalleActual = d; const c = d.carga, v = d.viaje;
-      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div><span class="badge ${badge[c.estado] || "badge-neutral"}">${esc(c.estado)}</span></div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(v.estadoReclamoCliente.toLowerCase())}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}<h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
+      const estadoBadgeDetalle = estaVerificada(v)
+        ? `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada</span>`
+        : `<span class="badge ${badge[c.estado] || "badge-neutral"}">${esc(c.estado)}</span>`;
+      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(v.estadoReclamoCliente.toLowerCase())}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}<h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
       if (v?.evidenciaRecepcionCliente) {
         const evidencia = document.createElement("img"); evidencia.className = "pedido-evidencia";
         evidencia.src = v.evidenciaRecepcionCliente; evidencia.alt = "Evidencia del reclamo";

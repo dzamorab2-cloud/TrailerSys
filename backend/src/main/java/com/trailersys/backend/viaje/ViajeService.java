@@ -338,10 +338,17 @@ public class ViajeService {
     }
 
     /**
-     * El conductor confirma que la carga llego a destino: cierra el viaje
-     * (pasa a FINALIZADO) y deja un registro de auditoria (quien, cuando,
-     * observacion). La validacion del supervisor es un paso aparte que no
-     * bloquea este cierre.
+     * El conductor confirma manualmente que la carga llego a destino. Es un
+     * respaldo para cuando ViajeSimulacionService no puede detectar la
+     * llegada sola (viaje sin ruta/duracion calculada): registra la llegada
+     * exactamente igual que la deteccion automatica, ver registrarLlegada().
+     *
+     * Ya NO cierra el viaje: antes pasaba a FINALIZADO en este mismo paso,
+     * pero eso no dejaba espacio a que el cliente revisara la carga antes
+     * de que el sistema ya la diera por entregada. Ahora el viaje sigue
+     * EN_CURSO hasta que el cliente confirma su recepcion (ver
+     * PedidoClienteService.confirmarRecepcion) y Coordinador/Administrador
+     * lo cierra explicitamente con finalizarViaje().
      */
     @Transactional
     public Viaje confirmarEntrega(Long id, String observacion, String username) {
@@ -354,19 +361,62 @@ public class ViajeService {
             throw new ConflictException("La llegada de este viaje ya fue confirmada.");
         }
 
+        registrarLlegada(viaje, observacion, username);
+        return viaje;
+    }
+
+    /**
+     * Marca la llegada del viaje a destino (entregaConfirmada + evento
+     * LLEGADA en Seguimiento), sin tocar el estado del viaje ni liberar el
+     * vehiculo/conductor - eso ahora es responsabilidad exclusiva de
+     * finalizarViaje(). Comun a la confirmacion manual del conductor
+     * (confirmarEntrega) y a la deteccion automatica de
+     * ViajeSimulacionService cuando el progreso del viaje llega al 100%.
+     */
+    @Transactional
+    public void registrarLlegada(Viaje viaje, String observacion, String responsable) {
         LocalDateTime ahora = LocalDateTime.now();
         viaje.setEntregaConfirmada(true);
         viaje.setFechaEntregaConfirmada(ahora);
         viaje.setObservacionEntrega(observacion);
-        viaje.setConfirmadoPor(username);
-        viaje.setEstado(EstadoViaje.FINALIZADO);
+        viaje.setConfirmadoPor(responsable);
 
         seguimientoEventoRepository.save(new SeguimientoEvento(
                 viaje, viaje.getVehiculo(), ahora, TipoEvento.LLEGADA, viaje.getDestino(),
                 observacion == null || observacion.isBlank()
-                        ? "Llegada confirmada por el conductor."
+                        ? "Llegada registrada."
                         : observacion));
 
+        repository.save(viaje);
+    }
+
+    /**
+     * Cierra un viaje En Curso cuya llegada ya fue confirmada Y cuyo cliente
+     * ya reviso la carga (con cualquier reclamo ya resuelto, si hubo uno).
+     * A diferencia del confirmarEntrega() de antes, este es el unico punto
+     * donde el viaje pasa a FINALIZADO y libera vehiculo/conductor/carga -
+     * lo hace explicitamente Coordinador/Administrador (ver PUEDE_GESTIONAR
+     * en ViajeController), no de forma automatica.
+     */
+    @Transactional
+    public Viaje finalizarViaje(Long id, String username) {
+        Viaje viaje = obtener(id);
+
+        if (viaje.getEstado() != EstadoViaje.EN_CURSO) {
+            throw new ConflictException("Solo se puede finalizar un viaje que esta \"En Curso\".");
+        }
+        if (!viaje.isEntregaConfirmada()) {
+            throw new ConflictException("Todavia no se confirmo la llegada de este viaje.");
+        }
+        if (!viaje.isEntregaConfirmadaCliente()) {
+            throw new ConflictException("El cliente todavia no revisó la carga.");
+        }
+        String reclamo = viaje.getEstadoReclamoCliente();
+        if (reclamo != null && !"RESUELTO".equals(reclamo)) {
+            throw new ConflictException("Hay un reclamo del cliente sin resolver.");
+        }
+
+        viaje.setEstado(EstadoViaje.FINALIZADO);
         sincronizarEstadoCarga(viaje);
         sincronizarEstadoVehiculoYConductor(viaje);
         return viaje;

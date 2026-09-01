@@ -304,9 +304,17 @@ class SeguimientoControllerTest {
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
+        // Se busca el texto especifico de ESTA alerta (no solo "Origen
+        // Pendiente"/"Destino Pendiente"): el viaje de la prueba tambien
+        // dispara, en paralelo y a proposito, la alerta ya existente de
+        // "En Curso sin ruta calculada" (no se le asigna una ruta aca) -
+        // ambas alertas mencionan el mismo origen/destino, pero son cosas
+        // distintas y coexistir es el comportamiento correcto ahora que
+        // confirmar-entrega ya no cierra el viaje de inmediato.
         boolean aparecePendiente = false;
         for (JsonNode alerta : objectMapper.readTree(alertasTrasConfirmar)) {
-            if (alerta.get("texto").asText().contains("Origen Pendiente")) {
+            if (alerta.get("texto").asText().contains("Origen Pendiente")
+                    && alerta.get("texto").asText().contains("Pendiente de validación del supervisor")) {
                 aparecePendiente = true;
                 assertThat(alerta.get("nivel").asText()).isEqualTo("info");
             }
@@ -326,7 +334,8 @@ class SeguimientoControllerTest {
                 .andReturn().getResponse().getContentAsString();
         boolean siguePendiente = false;
         for (JsonNode alerta : objectMapper.readTree(alertasTrasValidar)) {
-            if (alerta.get("texto").asText().contains("Origen Pendiente")) {
+            if (alerta.get("texto").asText().contains("Origen Pendiente")
+                    && alerta.get("texto").asText().contains("Pendiente de validación del supervisor")) {
                 siguePendiente = true;
             }
         }

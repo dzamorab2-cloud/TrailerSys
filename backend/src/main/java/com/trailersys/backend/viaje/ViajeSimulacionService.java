@@ -68,6 +68,18 @@ public class ViajeSimulacionService {
         double minutosTranscurridos = Duration.between(viaje.getFechaSalida(), ahora).toSeconds() / 60.0;
         double progreso = Math.min(1.0, Math.max(0.0, minutosTranscurridos / viaje.getRutaDuracionMin()));
 
+        // Llegada a destino (100% del progreso): se revisa antes que las
+        // paradas intermedias y de forma independiente de su contador, para
+        // que un viaje muy corto (o revisado en un ciclo donde ya supero
+        // ambos puntos de control a la vez) no se quede sin su evento de
+        // Llegada. No finaliza el viaje - solo registra que llego, ver
+        // ViajeService.registrarLlegada(). Coordinador/Administrador lo
+        // cierran explicitamente despues, una vez el cliente revisa la carga.
+        if (progreso >= 1.0 && !viaje.isEntregaConfirmada()) {
+            viajeService.registrarLlegada(viaje, "Llegada registrada automáticamente por el sistema.", "Sistema");
+            return;
+        }
+
         int siguientePunto = viaje.getParadasSimuladasRegistradas();
         if (siguientePunto >= PUNTOS_CONTROL.length || progreso < PUNTOS_CONTROL[siguientePunto]) {
             return;

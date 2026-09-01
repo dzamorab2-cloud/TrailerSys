@@ -215,7 +215,7 @@ class PedidoClienteControllerTest {
     }
 
     @Test
-    void clienteConfirmaRecepcionSoloCuandoElViajeEstaFinalizadoYNoDosVeces() throws Exception {
+    void clienteConfirmaRecepcionSoloCuandoLaLlegadaFueConfirmadaYNoDosVeces() throws Exception {
         Long clienteId = crearCliente("CI-PED-CONF");
         String tokenCliente = crearUsuarioClienteYToken("clientepedidoconf", clienteId);
         Long vehiculoId = crearVehiculo("PED-0001");
@@ -251,7 +251,7 @@ class PedidoClienteControllerTest {
                 .andReturn().getResponse().getContentAsString();
         Long viajeId = objectMapper.readTree(viajeCreado).get("id").asLong();
 
-        // Viaje En Curso (no Finalizado todavia): sigue en conflicto.
+        // Viaje En Curso pero la llegada todavia no fue confirmada: sigue en conflicto.
         mockMvc.perform(post("/api/mis-cargas/" + cargaId + "/confirmar-recepcion")
                         .header("Authorization", "Bearer " + tokenCliente)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -265,6 +265,9 @@ class PedidoClienteControllerTest {
                         .content("{}"))
                 .andExpect(status().isOk());
 
+        // La llegada ya se confirmo: el cliente ya puede revisar su carga
+        // sin esperar a que el viaje quede Finalizado (eso lo hace despues,
+        // aparte, Coordinador/Administrador con /finalizar).
         mockMvc.perform(post("/api/mis-cargas/" + cargaId + "/confirmar-recepcion")
                         .header("Authorization", "Bearer " + tokenCliente)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -275,11 +278,12 @@ class PedidoClienteControllerTest {
                 .andExpect(jsonPath("$.observacionConfirmacionCliente").value("Todo llegó en buen estado"))
                 // El paso del cliente es paralelo: no toca la confirmacion del conductor ni la validacion del supervisor.
                 .andExpect(jsonPath("$.entregaConfirmada").value(true))
-                .andExpect(jsonPath("$.entregaValidada").value(false));
+                .andExpect(jsonPath("$.entregaValidada").value(false))
+                .andExpect(jsonPath("$.estado").value("En Curso"));
 
         mockMvc.perform(get("/api/mis-cargas/" + cargaId + "/viaje").header("Authorization", "Bearer " + tokenCliente))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.estado").value("Finalizado"))
+                .andExpect(jsonPath("$.estado").value("En Curso"))
                 .andExpect(jsonPath("$.entregaConfirmadaCliente").value(true));
 
         mockMvc.perform(post("/api/mis-cargas/" + cargaId + "/confirmar-recepcion")
@@ -287,5 +291,12 @@ class PedidoClienteControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isConflict());
+
+        // Recien ahora, con la llegada confirmada y el cliente ya conforme,
+        // Coordinador/Administrador pueden cerrar el viaje.
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("Finalizado"));
     }
 }

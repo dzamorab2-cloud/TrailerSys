@@ -155,13 +155,36 @@
   }
 
   function renderReporteEntrega(viaje) {
-    if (viaje.estado !== "En Curso" || viaje.entregaConfirmada) {
+    if (viaje.estado !== "En Curso") {
       reporteEntrega.hidden = true;
       reporteEntrega.innerHTML = "";
       return;
     }
+
+    // Si todavia no se detecto/confirmo la llegada, el unico contenido es
+    // el boton manual (respaldo para cuando la ruta no esta calculada y el
+    // sistema no puede detectar el progreso solo, ver
+    // ViajeSimulacionService en el backend).
+    if (!viaje.entregaConfirmada) {
+      reporteEntrega.hidden = false;
+      reporteEntrega.innerHTML = `<div class="delivery-report-actions"><button type="button" class="btn btn-primary" data-action="confirmar-entrega"><i class="bi bi-flag-fill"></i> Confirmar llegada</button></div>`;
+      return;
+    }
+
+    // Ya llegó: el viaje sigue "En Curso" hasta que el cliente revisa la
+    // carga y Coordinador/Administrador lo finalizan - aca no hay nada que
+    // el conductor tenga que hacer, solo se le refleja en que va la entrega.
+    const reclamoAbierto = viaje.estadoReclamoCliente && viaje.estadoReclamoCliente !== "RESUELTO";
+    let bloque;
+    if (!viaje.entregaConfirmadaCliente) {
+      bloque = `<span class="badge badge-warning"><i class="bi bi-hourglass-split"></i> Esperando revisión del cliente</span>`;
+    } else if (reclamoAbierto) {
+      bloque = `<span class="badge badge-warning"><i class="bi bi-exclamation-triangle"></i> El cliente reportó un problema con la entrega</span>`;
+    } else {
+      bloque = `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada por el cliente</span>`;
+    }
     reporteEntrega.hidden = false;
-    reporteEntrega.innerHTML = `<div class="delivery-report-actions"><button type="button" class="btn btn-primary" data-action="confirmar-entrega"><i class="bi bi-flag-fill"></i> Confirmar llegada</button></div>`;
+    reporteEntrega.innerHTML = `<div class="delivery-report-block">${bloque}</div>`;
   }
 
   reporteEntrega.addEventListener("click", async (event) => {

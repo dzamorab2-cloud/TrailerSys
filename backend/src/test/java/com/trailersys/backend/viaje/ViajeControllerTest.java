@@ -33,6 +33,9 @@ class ViajeControllerTest {
     private UsuarioRepository usuarioRepository;
 
     @Autowired
+    private ViajeRepository viajeRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -245,6 +248,20 @@ class ViajeControllerTest {
         return objectMapper.readTree(creado).get("id").asLong();
     }
 
+    /**
+     * Atajo para las pruebas de finalizar(): en vez de reconstruir todo el
+     * flujo de PedidoClienteController (Usuario vinculado a Cliente,
+     * confirmar-recepcion) - ya cubierto en PedidoClienteControllerTest -,
+     * se marca directamente por repositorio que "el cliente ya revisó",
+     * que es la unica precondicion de finalizarViaje() que a este archivo
+     * le interesa poder cumplir.
+     */
+    private void marcarRevisadoPorCliente(Long viajeId) {
+        Viaje viaje = viajeRepository.findById(viajeId).orElseThrow();
+        viaje.setEntregaConfirmadaCliente(true);
+        viajeRepository.save(viaje);
+    }
+
     private String tokenPara(String username, Rol rol) throws Exception {
         if (usuarioRepository.findByUsernameIgnoreCase(username).isEmpty()) {
             usuarioRepository.save(new Usuario(username, passwordEncoder.encode("clave1234"), "Usuario " + username, null, rol));
@@ -330,7 +347,7 @@ class ViajeControllerTest {
     }
 
     @Test
-    void confirmarEntregaSincronizaCargaAEntregada() throws Exception {
+    void cargaSoloPasaAEntregadaAlFinalizarNoAlConfirmarLlegada() throws Exception {
         Long vehiculoId = crearVehiculo("VJE-CRG-05");
         Long conductorId = crearConductor("CI-VJE-CRG-05");
         Long clienteId = crearCliente("CI-VJE-CRG-CLI-05");
@@ -354,6 +371,19 @@ class ViajeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk());
+
+        // La llegada ya se confirmo, pero el viaje sigue En Curso: la carga
+        // todavia no deberia pasar a Entregada hasta que se finalice.
+        mockMvc.perform(get("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("En Tránsito"));
+
+        marcarRevisadoPorCliente(viajeId);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("Finalizado"));
 
         mockMvc.perform(get("/api/cargas/" + cargaId)
                         .header("Authorization", "Bearer " + tokenAdmin))
@@ -588,7 +618,7 @@ class ViajeControllerTest {
     }
 
     @Test
-    void confirmarEntregaSincronizaVehiculoYConductorADisponible() throws Exception {
+    void vehiculoYConductorSoloQuedanDisponiblesAlFinalizarNoAlConfirmarLlegada() throws Exception {
         Long vehiculoId = crearVehiculo("VJE-DISP-05");
         Long conductorId = crearConductor("CI-VJE-DISP-05");
         Long clienteId = crearCliente("CI-VJE-DISP-CLI-04");
@@ -614,6 +644,18 @@ class ViajeControllerTest {
 
         mockMvc.perform(get("/api/vehiculos/" + vehiculoId)
                         .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+        mockMvc.perform(get("/api/conductores/" + conductorId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("En Ruta"));
+
+        marcarRevisadoPorCliente(viajeId);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/vehiculos/" + vehiculoId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(jsonPath("$.estado").value("Disponible"));
         mockMvc.perform(get("/api/conductores/" + conductorId)
                         .header("Authorization", "Bearer " + tokenAdmin))
@@ -621,7 +663,7 @@ class ViajeControllerTest {
     }
 
     @Test
-    void conductorConfirmaLlegadaFinalizaElViajeYQuedaRegistrado() throws Exception {
+    void conductorConfirmaLlegadaSinFinalizarElViaje() throws Exception {
         Long viajeId = crearViajeEnCurso("CONF1");
         String tokenConductor = tokenPara("conductorentrega1", Rol.CONDUCTOR);
 
@@ -630,7 +672,10 @@ class ViajeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"observacion\":\"Entregado sin novedad\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.estado").value("Finalizado"))
+                // Confirmar la llegada ya no cierra el viaje: queda En Curso
+                // "esperando revision" hasta que el cliente la revise y
+                // Coordinador/Administrador lo finalicen (ver /finalizar).
+                .andExpect(jsonPath("$.estado").value("En Curso"))
                 .andExpect(jsonPath("$.entregaConfirmada").value(true))
                 .andExpect(jsonPath("$.confirmadoPor").value("conductorentrega1"))
                 .andExpect(jsonPath("$.observacionEntrega").value("Entregado sin novedad"));
@@ -739,6 +784,88 @@ class ViajeControllerTest {
                         .header("Authorization", "Bearer " + tokenConductor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void finalizarSinLlegadaConfirmadaDaConflicto() throws Exception {
+        Long viajeId = crearViajeEnCurso("FIN1");
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void finalizarSinRevisionDelClienteDaConflicto() throws Exception {
+        Long viajeId = crearViajeEnCurso("FIN2");
+        String tokenConductor = tokenPara("conductorfin2", Rol.CONDUCTOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void finalizarConReclamoAbiertoDaConflicto() throws Exception {
+        Long viajeId = crearViajeEnCurso("FIN3");
+        String tokenConductor = tokenPara("conductorfin3", Rol.CONDUCTOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        Viaje viaje = viajeRepository.findById(viajeId).orElseThrow();
+        viaje.setEntregaConfirmadaCliente(true);
+        viaje.setEstadoReclamoCliente("ABIERTO");
+        viajeRepository.save(viaje);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void coordinadorPuedeFinalizarUnViajeVerificadoPorElCliente() throws Exception {
+        Long viajeId = crearViajeEnCurso("FIN4");
+        String tokenConductor = tokenPara("conductorfin4", Rol.CONDUCTOR);
+        String tokenCoordinador = tokenPara("coordinadorfin4", Rol.COORDINADOR);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+        marcarRevisadoPorCliente(viajeId);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenCoordinador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("Finalizado"));
+    }
+
+    @Test
+    void supervisorNoPuedeFinalizarViaje() throws Exception {
+        Long viajeId = crearViajeEnCurso("FIN5");
+        String tokenSupervisor = tokenPara("supervisorfin5", Rol.SUPERVISOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenSupervisor))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void conductorNoPuedeFinalizarViaje() throws Exception {
+        Long viajeId = crearViajeEnCurso("FIN6");
+        String tokenConductor = tokenPara("conductorfin6", Rol.CONDUCTOR);
+
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
+                        .header("Authorization", "Bearer " + tokenConductor))
                 .andExpect(status().isForbidden());
     }
 

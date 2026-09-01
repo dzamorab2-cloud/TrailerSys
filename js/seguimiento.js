@@ -293,6 +293,29 @@
         </div>`);
     }
 
+    // Revision del cliente: paso intermedio entre "llego" y "se finaliza".
+    // Igual que entregaValidada, es informativo - no bloquea nada por si
+    // solo (lo que bloquea/habilita finalizar() esta mas abajo).
+    const reclamoAbierto = viaje.estadoReclamoCliente && viaje.estadoReclamoCliente !== "RESUELTO";
+    if (viaje.entregaConfirmada && !viaje.entregaConfirmadaCliente) {
+      bloques.push(`
+        <div class="delivery-report-block">
+          <span class="badge badge-warning"><i class="bi bi-hourglass-split"></i> Esperando revisión del cliente</span>
+        </div>`);
+    } else if (viaje.entregaConfirmadaCliente && reclamoAbierto) {
+      bloques.push(`
+        <div class="delivery-report-block">
+          <span class="badge badge-warning"><i class="bi bi-exclamation-triangle"></i> Reclamo del cliente sin resolver</span>
+          <div class="delivery-report-meta">Resuélvelo en el módulo Reclamos antes de finalizar el viaje.</div>
+        </div>`);
+    } else if (viaje.entregaConfirmadaCliente) {
+      bloques.push(`
+        <div class="delivery-report-block">
+          <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada por el cliente</span>
+          <div class="delivery-report-meta">${trailersysFormatDateTime(viaje.fechaConfirmacionCliente)} · por ${escapeHtml(viaje.confirmadoPorCliente || "—")}</div>
+        </div>`);
+    }
+
     // "confirmar-entrega" ya no se ofrece aqui: el conductor ya no llega a
     // este modulo (tiene su propio "Mis viajes", ver js/mis-viajes.js), y
     // ningun otro rol con acceso a Seguimiento tiene permiso para confirmar
@@ -300,6 +323,13 @@
     const acciones = [];
     if (session?.role === "supervisor" && viaje.entregaConfirmada && !viaje.entregaValidada) {
       acciones.push(`<button type="button" class="btn btn-primary" data-action="validar-entrega"><i class="bi bi-patch-check"></i> Validar entrega</button>`);
+    }
+    // Finalizar es una accion de gestion (mismo permiso que editar/borrar
+    // viajes en este mismo archivo), no de auditoria como validar-entrega -
+    // por eso solo administrador/coordinador la ven, nunca supervisor.
+    if (trailersysCanManage(session, MODULE_KEY) && viaje.estado === "En Curso"
+        && viaje.entregaConfirmada && viaje.entregaConfirmadaCliente && !reclamoAbierto) {
+      acciones.push(`<button type="button" class="btn btn-primary" data-action="finalizar"><i class="bi bi-flag-fill"></i> Finalizar viaje</button>`);
     }
     if (acciones.length) {
       bloques.push(`<div class="delivery-report-actions">${acciones.join("")}</div>`);
@@ -320,21 +350,23 @@
     if (!button || !viajeActualId) return;
 
     const accion = button.dataset.action;
-    const observacion = window.prompt(
-      accion === "confirmar-entrega"
-        ? "Observación de la llegada (opcional):"
-        : "Observación de la validación (opcional):",
-      ""
-    );
-    if (observacion === null) return;
+    let cuerpo = {};
+    if (accion === "finalizar") {
+      if (!window.confirm("¿Finalizar este viaje? El vehículo y el conductor quedarán disponibles.")) return;
+    } else {
+      const observacion = window.prompt(
+        accion === "confirmar-entrega"
+          ? "Observación de la llegada (opcional):"
+          : "Observación de la validación (opcional):",
+        ""
+      );
+      if (observacion === null) return;
+      cuerpo = { observacion: observacion.trim() };
+    }
 
     button.disabled = true;
     try {
-      await trailersysApiRequest(
-        "POST",
-        `/viajes/${viajeActualId}/${accion}`,
-        { observacion: observacion.trim() }
-      );
+      await trailersysApiRequest("POST", `/viajes/${viajeActualId}/${accion}`, cuerpo);
       await render();
       const viajeActualizado = viajesCache.find((v) => String(v.id) === String(viajeActualId));
       if (viajeActualizado) {

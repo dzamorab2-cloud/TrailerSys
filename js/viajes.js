@@ -256,6 +256,11 @@
               : viaje.entregaConfirmada
                 ? `<span class="badge badge-success"><i class="bi bi-check-circle"></i> Entrega confirmada</span>`
                 : ""}
+            ${viaje.entregaConfirmadaCliente
+              ? (viaje.estadoReclamoCliente && viaje.estadoReclamoCliente !== "RESUELTO"
+                  ? `<span class="badge badge-warning"><i class="bi bi-exclamation-triangle"></i> Reclamo del cliente</span>`
+                  : `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada por el cliente</span>`)
+              : ""}
             <span><i class="bi bi-building"></i>${escapeHtml(viaje.clienteNombre)}</span>
             ${viaje.cargaDescripcion ? `<span><i class="bi bi-box-seam"></i>${escapeHtml(viaje.cargaDescripcion)}</span>` : ""}
           </div>
