@@ -464,6 +464,13 @@ public class ViajeService {
         Conductor conductor = viaje.getConductor();
         Carga carga = viaje.getCarga();
 
+        // Los eventos de Seguimiento (Salida/Parada/Llegada, automaticos o
+        // manuales) tienen viaje_id NOT NULL sin cascade - sin borrarlos
+        // primero, repository.deleteById() de mas abajo revienta con un
+        // 409 de restriccion de integridad referencial en cuanto el viaje
+        // ya tiene aunque sea un evento (lo mas comun, ya que la simulacion
+        // registra al menos la Salida automaticamente al arrancar).
+        seguimientoEventoRepository.deleteByViajeId(id);
         repository.deleteById(id);
 
         if (vehiculo.getEstado() == EstadoVehiculo.EN_RUTA && vehiculoLibre(vehiculo.getId(), null)) {

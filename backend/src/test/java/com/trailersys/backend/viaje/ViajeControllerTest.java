@@ -1,6 +1,7 @@
 package com.trailersys.backend.viaje;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -867,6 +868,24 @@ class ViajeControllerTest {
         mockMvc.perform(post("/api/viajes/" + viajeId + "/finalizar")
                         .header("Authorization", "Bearer " + tokenConductor))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void eliminarViajeConEventosDeSeguimientoNoFalla() throws Exception {
+        // crearViajeEnCurso() ya dispara registrarSalidaAutomatica() (todo
+        // viaje que nace En Curso registra su Salida solo, ver
+        // ViajeService.crear()), asi que alcanza para reproducir el caso:
+        // sin borrar antes sus eventos, el DELETE fallaba con 409 por la
+        // restriccion de integridad referencial de seguimiento_eventos.
+        Long viajeId = crearViajeEnCurso("DEL1");
+
+        mockMvc.perform(delete("/api/viajes/" + viajeId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/viajes/" + viajeId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isNotFound());
     }
 
     @Test
