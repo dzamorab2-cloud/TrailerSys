@@ -25,11 +25,17 @@ public class DashboardController {
 
     @GetMapping("/resumen")
     public DashboardResponse resumen() {
+        // "estado='PROGRAMADO'" solo no basta: un viaje puede seguir en ese
+        // estado aunque su fecha_salida ya haya pasado (el propio panel de
+        // Alertas operativas de Seguimiento marca justamente ese caso como
+        // alerta). Sin el filtro de fecha, ese viaje atrasado ordenaba
+        // primero (fecha_salida ASC) y aparecia como el "proximo viaje" en
+        // vez de uno realmente futuro.
         List<DashboardResponse.ProximoViaje> proximos = jdbc.query("""
                 SELECT v.id, v.origen, v.destino, ve.placa, c.nombres, v.fecha_salida
                 FROM viajes v JOIN vehiculos ve ON ve.id=v.vehiculo_id
                 JOIN conductores c ON c.id=v.conductor_id
-                WHERE v.estado='PROGRAMADO' ORDER BY v.fecha_salida ASC LIMIT 5
+                WHERE v.estado='PROGRAMADO' AND v.fecha_salida >= NOW() ORDER BY v.fecha_salida ASC LIMIT 5
                 """, (rs, row) -> new DashboardResponse.ProximoViaje(rs.getLong(1), rs.getString(2),
                         rs.getString(3), rs.getString(4), rs.getString(5), rs.getTimestamp(6).toLocalDateTime()));
         return new DashboardResponse(count("vehiculos", null), count("vehiculos", "estado='DISPONIBLE'"),

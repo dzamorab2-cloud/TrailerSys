@@ -1,8 +1,12 @@
 package com.trailersys.backend.dashboard;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,9 +17,21 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trailersys.backend.cliente.Cliente;
+import com.trailersys.backend.cliente.ClienteRepository;
+import com.trailersys.backend.cliente.EstadoCliente;
+import com.trailersys.backend.conductor.Conductor;
+import com.trailersys.backend.conductor.ConductorRepository;
+import com.trailersys.backend.conductor.EstadoConductor;
 import com.trailersys.backend.usuario.Rol;
 import com.trailersys.backend.usuario.Usuario;
 import com.trailersys.backend.usuario.UsuarioRepository;
+import com.trailersys.backend.vehiculo.EstadoVehiculo;
+import com.trailersys.backend.vehiculo.Vehiculo;
+import com.trailersys.backend.vehiculo.VehiculoRepository;
+import com.trailersys.backend.viaje.EstadoViaje;
+import com.trailersys.backend.viaje.Viaje;
+import com.trailersys.backend.viaje.ViajeRepository;
 
 /**
  * /api/dashboard/resumen expone origen/destino/placa/conductor de los
@@ -40,6 +56,18 @@ class DashboardControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private VehiculoRepository vehiculoRepository;
+
+    @Autowired
+    private ConductorRepository conductorRepository;
+
+    @Autowired
+    private ClienteRepository clienteRepository;
+
+    @Autowired
+    private ViajeRepository viajeRepository;
+
     private String tokenPara(String username, Rol rol) throws Exception {
         if (usuarioRepository.findByUsernameIgnoreCase(username).isEmpty()) {
             usuarioRepository.save(new Usuario(username, passwordEncoder.encode("clave1234"), "Usuario " + username, null, rol));
@@ -63,5 +91,37 @@ class DashboardControllerTest {
         String token = tokenPara("clientedashboard", Rol.CLIENTE);
         mockMvc.perform(get("/api/dashboard/resumen").header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
+    }
+
+    /**
+     * Un viaje puede quedar "PROGRAMADO" con su fecha_salida ya en el pasado
+     * (el propio panel de Alertas operativas de Seguimiento marca ese caso
+     * como alerta). "Próximos viajes" del Dashboard debe mostrar solo los
+     * que de verdad estan por salir, no uno atrasado que ordenaria primero
+     * por fecha_salida ASC.
+     */
+    @Test
+    void proximosViajesExcluyeProgramadosConFechaDeSalidaYaPasada() throws Exception {
+        Vehiculo vehiculo = vehiculoRepository.save(new Vehiculo(
+                "DASH-0001", "Marca", "Modelo", "Tipo", 2020, "Rojo", EstadoVehiculo.DISPONIBLE, 0, 0, null, null));
+        Conductor conductor = conductorRepository.save(new Conductor(
+                "Conductor Dashboard", "CI-DASH", "0999999999", null, "LIC-DASH", "Tipo B",
+                LocalDate.now().plusYears(1), EstadoConductor.DISPONIBLE, null, null, null));
+        Cliente cliente = clienteRepository.save(new Cliente(
+                "Cliente Dashboard", "CI-DASH-CLI", EstadoCliente.ACTIVO, "0999999999", null, "Direccion", null, null));
+
+        viajeRepository.save(new Viaje(vehiculo, conductor, cliente, null, "Atrasado", "Atrasado",
+                LocalDateTime.now().minusDays(1), EstadoViaje.PROGRAMADO, null));
+        viajeRepository.save(new Viaje(vehiculo, conductor, cliente, null, "Futuro", "Futuro",
+                LocalDateTime.now().plusDays(1), EstadoViaje.PROGRAMADO, null));
+
+        String token = tokenPara("admindashboard2", Rol.ADMINISTRADOR);
+        String body = mockMvc.perform(get("/api/dashboard/resumen").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        var origenes = objectMapper.readTree(body).get("proximosViajes").findValuesAsText("origen");
+        assertThat(origenes).contains("Futuro");
+        assertThat(origenes).doesNotContain("Atrasado");
     }
 }
