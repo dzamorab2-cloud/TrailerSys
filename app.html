@@ -310,6 +310,75 @@
               <div id="supervisorTendenciaChart"></div>
             </div>
           </div>
+
+          <div id="dashboardMantenimientoView" hidden>
+            <div class="module-header">
+              <div>
+                <h1 id="mantenimientoDashboardSaludo">Hola</h1>
+                <p>Resumen de mantenimiento de la flota.</p>
+              </div>
+            </div>
+
+            <div class="dashboard-cards-grid">
+              <article class="card dashboard-profile-card">
+                <div class="dashboard-profile-header">
+                  <div class="photo-upload dashboard-photo-upload">
+                    <div class="photo-preview" id="mantenimientoPerfilFotoPreview"><i class="bi bi-person"></i></div>
+                    <div class="photo-upload-actions">
+                      <label class="btn btn-ghost" for="mantenimientoPerfilFoto"><i class="bi bi-camera"></i> Cambiar foto</label>
+                      <input type="file" id="mantenimientoPerfilFoto" accept="image/*" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 id="mantenimientoPerfilNombre">—</h3>
+                    <span class="badge badge-warning">Mantenimiento</span>
+                  </div>
+                </div>
+                <div class="dashboard-profile-fields">
+                  <div><i class="bi bi-person-badge"></i><span id="mantenimientoPerfilUsername">—</span></div>
+                  <div><i class="bi bi-envelope"></i><span id="mantenimientoPerfilCorreo">—</span></div>
+                  <div><i class="bi bi-exclamation-triangle"></i><span id="mantenimientoPerfilVencidos">—</span></div>
+                  <div><i class="bi bi-cash-coin"></i><span id="mantenimientoPerfilCosto">—</span></div>
+                </div>
+              </article>
+
+              <article class="card dashboard-chart-card">
+                <h3><i class="bi bi-pie-chart"></i> Mantenimientos por tipo</h3>
+                <div class="dashboard-donut-wrap">
+                  <div class="dashboard-donut" id="mantenimientoTipoDonut"></div>
+                  <div class="dashboard-donut-legend" id="mantenimientoTipoLegend"></div>
+                </div>
+              </article>
+            </div>
+
+            <div class="dashboard-cards-grid">
+              <article class="card dashboard-ring-card">
+                <h3><i class="bi bi-truck"></i> Flota disponible</h3>
+                <div id="mantenimientoFlotaRing"></div>
+              </article>
+              <article class="card dashboard-ring-card">
+                <h3><i class="bi bi-check2-circle"></i> Servicios al día</h3>
+                <div id="mantenimientoAlDiaRing"></div>
+              </article>
+            </div>
+
+            <div class="dashboard-panel card" id="mantenimientoTendenciaPanel">
+              <div class="dashboard-panel-header"><i class="bi bi-graph-up"></i><h3>Mantenimientos de los últimos 6 meses</h3></div>
+              <div id="mantenimientoTendenciaChart"></div>
+            </div>
+
+            <div class="dashboard-cards-grid">
+              <div class="dashboard-panel card" id="mantenimientoCostosPanel">
+                <div class="dashboard-panel-header"><i class="bi bi-cash-stack"></i><h3>Vehículos con más costo de mantenimiento</h3></div>
+                <div id="mantenimientoCostos"></div>
+              </div>
+
+              <article class="card dashboard-map-card">
+                <h3><i class="bi bi-geo"></i> Ecuador</h3>
+                <div class="dashboard-ecuador-map" id="mantenimientoEcuadorMap" aria-hidden="true"></div>
+              </article>
+            </div>
+          </div>
         </section>
 
         <section class="module" id="module-vehiculos" data-module="vehiculos" hidden>
@@ -1945,6 +2014,7 @@
   <script src="js/mis-viajes.js"></script>
   <script src="js/conductor-dashboard.js"></script>
   <script src="js/supervisor-dashboard.js"></script>
+  <script src="js/mantenimiento-dashboard.js"></script>
   <script src="js/configuracion.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/navigation.js"></script>

@@ -1,6 +1,11 @@
 package com.trailersys.backend.mantenimiento;
 
+import java.sql.Date;
+import java.time.LocalDate;
+import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -45,4 +50,33 @@ public class MantenimientoReporteController {
     }
     private long num(Map<String,Object> m,String k){ return ((Number)m.get(k)).longValue(); }
     private double dbl(Map<String,Object> m,String k){ return ((Number)m.get(k)).doubleValue(); }
+
+    /**
+     * Mantenimientos por mes de los ultimos 6 meses, para la grafica de
+     * tendencia del Dashboard del rol Mantenimiento - mismo criterio que
+     * DashboardController.tendencia() (una consulta parametrizada por mes,
+     * no un date_trunc especifico de Postgres, para que funcione igual en
+     * la suite de pruebas con H2).
+     */
+    @GetMapping("/tendencia")
+    public MantenimientoTendenciaResponse tendencia() {
+        List<MantenimientoTendenciaResponse.Punto> puntos = new ArrayList<>();
+        for (int i = 5; i >= 0; i--) {
+            LocalDate mes = LocalDate.now().minusMonths(i).withDayOfMonth(1);
+            long cantidad = contarEntre(mes, mes.plusMonths(1));
+            puntos.add(new MantenimientoTendenciaResponse.Punto(etiquetaMes(mes), cantidad));
+        }
+        return new MantenimientoTendenciaResponse(puntos);
+    }
+
+    private long contarEntre(LocalDate desde, LocalDate hasta) {
+        Long valor = jdbc.queryForObject("SELECT count(*) FROM mantenimientos WHERE fecha >= ? AND fecha < ?",
+                Long.class, Date.valueOf(desde), Date.valueOf(hasta));
+        return valor == null ? 0 : valor;
+    }
+
+    private String etiquetaMes(LocalDate mes) {
+        String nombre = mes.getMonth().getDisplayName(TextStyle.SHORT, new Locale("es", "EC"));
+        return nombre.substring(0, 1).toUpperCase() + nombre.substring(1);
+    }
 }

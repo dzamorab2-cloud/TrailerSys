@@ -1,13 +1,13 @@
 (function(){
- // El conductor y el supervisor tienen su propio Dashboard personalizado
- // (js/conductor-dashboard.js, js/supervisor-dashboard.js); el cliente no
- // tiene "dashboard" en su lista de modulos y nunca llega a ver esta
- // seccion (queda oculta toda la sesion). Sin esta guarda, este IIFE
- // pediria /dashboard/resumen igual (403 silencioso, ya ocurria antes) y
- // ahora ademas inicializaria un mapa de Leaflet real sobre un contenedor
- // que jamas se muestra - trabajo y peticiones de red de mas para una
- // vista que ese rol no puede abrir.
- if(["conductor","supervisor","cliente"].includes(trailersysGetSession()?.role))return;
+ // El conductor, el supervisor y mantenimiento tienen su propio Dashboard
+ // personalizado (js/conductor-dashboard.js, js/supervisor-dashboard.js,
+ // js/mantenimiento-dashboard.js); el cliente no tiene "dashboard" en su
+ // lista de modulos y nunca llega a ver esta seccion (queda oculta toda la
+ // sesion). Sin esta guarda, este IIFE pediria /dashboard/resumen igual
+ // (403 silencioso para cliente, ya ocurria antes) y ademas inicializaria
+ // un mapa de Leaflet real sobre un contenedor que jamas se muestra -
+ // trabajo y peticiones de red de mas para una vista que ese rol no usa.
+ if(["conductor","supervisor","mantenimiento","cliente"].includes(trailersysGetSession()?.role))return;
  const stats=document.getElementById("dashboardStats"),alerts=document.getElementById("dashboardAlertas"),trips=document.getElementById("dashboardViajes");
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const card=(icon,value,label,tone="")=>`<div class="stat-card stat-card-action ${tone}"><div class="stat-card-icon"><i class="bi ${icon}"></i></div><div><div class="stat-card-value">${Number(value).toLocaleString("es-EC")}</div><div class="stat-card-label">${label}</div></div></div>`;
