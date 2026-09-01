@@ -136,15 +136,16 @@
       </div>`).join("");
   }
 
-  function renderBarChart(viajesPorMes) {
-    const contenedor = $("conductorBarChart");
-    const max = Math.max(1, ...viajesPorMes.map((m) => m.cantidad));
-    contenedor.innerHTML = viajesPorMes.map((m) => `
-      <div class="dashboard-bar-item">
-        <div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="--h:${(m.cantidad / max) * 100}%"></div></div>
-        <span class="dashboard-bar-value">${m.cantidad}</span>
-        <span class="dashboard-bar-label">${esc(m.mes)}</span>
-      </div>`).join("");
+  function renderTendencia(viajesPorMes) {
+    trailersysRenderAreaChart($("conductorBarChart"),
+      viajesPorMes.map((m) => ({ label: m.mes, value: m.cantidad })),
+      { color: "var(--color-primary)" });
+  }
+
+  function renderFinalizadosRing(resumen) {
+    const pct = resumen.totalViajes > 0 ? (resumen.viajesFinalizados / resumen.totalViajes) * 100 : 0;
+    trailersysRenderProgressRing($("conductorFinalizadosRing"),
+      { valor: pct, etiqueta: "Viajes finalizados", color: "var(--color-success)" });
   }
 
   // --- Viajes recientes ---
@@ -173,7 +174,8 @@
       renderPerfil(perfil);
       renderAlerta(activo);
       renderDonut(resumen);
-      renderBarChart(resumen.viajesPorMes);
+      renderTendencia(resumen.viajesPorMes);
+      renderFinalizadosRing(resumen);
       renderRecientes(recientes.content);
     } catch (error) {
       $("conductorViajesRecientes").innerHTML = `<div class="dashboard-empty">${esc(error.message)}</div>`;

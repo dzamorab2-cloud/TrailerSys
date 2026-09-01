@@ -125,6 +125,22 @@
         ["Descanso", disponibilidad.conductoresDescanso],
         ["Inactivo", disponibilidad.conductoresInactivos],
       ], COLOR_CONDUCTORES);
+
+      const totalVehiculos = disponibilidad.vehiculosDisponibles + disponibilidad.vehiculosEnRuta
+        + disponibilidad.vehiculosMantenimiento + disponibilidad.vehiculosFueraServicio;
+      const totalConductores = disponibilidad.conductoresDisponibles + disponibilidad.conductoresEnRuta
+        + disponibilidad.conductoresDescanso + disponibilidad.conductoresInactivos;
+
+      trailersysRenderProgressRing($("supervisorFlotaRing"), {
+        valor: totalVehiculos > 0 ? (disponibilidad.vehiculosDisponibles / totalVehiculos) * 100 : 0,
+        etiqueta: "Flota disponible",
+        color: "var(--color-success)",
+      });
+      trailersysRenderProgressRing($("supervisorLicenciasRing"), {
+        valor: totalConductores > 0 ? ((totalConductores - disponibilidad.licenciasVencidas) / totalConductores) * 100 : 0,
+        etiqueta: "Licencias vigentes",
+        color: "var(--color-info)",
+      });
     } catch (error) {
       $("supervisorPerfilNombre").textContent = error.message || "No se pudo cargar tu perfil.";
     }

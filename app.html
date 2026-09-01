@@ -106,6 +106,11 @@
 
             <div class="stats-row" id="dashboardStats"></div>
 
+            <div class="dashboard-cards-grid dashboard-rings-row">
+              <article class="card dashboard-ring-card" id="dashboardFlotaRing"></article>
+              <article class="card dashboard-ring-card" id="dashboardConductoresRing"></article>
+            </div>
+
             <div class="dashboard-grid">
               <div class="dashboard-panel card" id="dashboardAlertasPanel">
                 <div class="dashboard-panel-header">
@@ -201,8 +206,12 @@
               </article>
 
               <article class="card dashboard-chart-card">
-                <h3><i class="bi bi-bar-chart"></i> Viajes por mes</h3>
-                <div class="dashboard-bar-chart" id="conductorBarChart"></div>
+                <h3><i class="bi bi-graph-up"></i> Viajes por mes</h3>
+                <div id="conductorBarChart"></div>
+              </article>
+
+              <article class="card dashboard-ring-card">
+                <div class="progress-ring-wrap-outer" id="conductorFinalizadosRing"></div>
               </article>
 
               <article class="card dashboard-map-card">
@@ -270,6 +279,11 @@
                 <h3><i class="bi bi-geo"></i> Ecuador</h3>
                 <div class="dashboard-ecuador-map" id="supervisorEcuadorMap" aria-hidden="true"></div>
               </article>
+            </div>
+
+            <div class="dashboard-cards-grid">
+              <article class="card dashboard-ring-card" id="supervisorFlotaRing"></article>
+              <article class="card dashboard-ring-card" id="supervisorLicenciasRing"></article>
             </div>
           </div>
         </section>

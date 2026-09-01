@@ -297,6 +297,84 @@ const trailersysRenderEcuadorMap = (function () {
   };
 })();
 
+/**
+ * Anillo de progreso circular (SVG, sin libreria) para un solo porcentaje -
+ * pensado para un indicador "de un vistazo" (ej. % de flota disponible, %
+ * de licencias vigentes) en los Dashboards por rol. El valor siempre lo
+ * calcula quien llama a partir de datos reales del backend, nunca se
+ * inventa aqui.
+ * @param {HTMLElement} container
+ * @param {{valor:number, etiqueta:string, color?:string}} opts - valor 0-100.
+ */
+function trailersysRenderProgressRing(container, { valor, etiqueta, color = "var(--color-primary)" }) {
+  const escape = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const pct = Number.isFinite(valor) ? Math.max(0, Math.min(100, valor)) : 0;
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  const dash = (pct / 100) * c;
+  container.innerHTML = `
+    <div class="progress-ring-wrap">
+      <svg viewBox="0 0 100 100" class="progress-ring" role="img" aria-label="${escape(etiqueta)}: ${Math.round(pct)}%">
+        <circle cx="50" cy="50" r="${r}" class="progress-ring-track"></circle>
+        <circle cx="50" cy="50" r="${r}" class="progress-ring-fill" style="stroke:${color};stroke-dasharray:${dash.toFixed(1)} ${c.toFixed(1)}"></circle>
+      </svg>
+      <div class="progress-ring-center"><strong>${Math.round(pct)}%</strong></div>
+    </div>
+    <span class="progress-ring-label">${escape(etiqueta)}</span>`;
+}
+
+/**
+ * Grafica de area con linea suavizada (SVG, sin libreria) para una
+ * tendencia a lo largo del tiempo - mismo espiritu que el donut/barras en
+ * CSS puro que ya usaba el Dashboard, pero con una curva suave (tecnica de
+ * suavizado por punto medio: cada segmento es una curva cuadratica hacia
+ * el punto medio del siguiente, en vez de una linea recta entre puntos).
+ * @param {HTMLElement} container
+ * @param {{label:string, value:number}[]} puntos
+ * @param {{color?:string}} [opts]
+ */
+function trailersysRenderAreaChart(container, puntos, { color = "var(--color-primary)" } = {}) {
+  const escape = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  if (!puntos.length) {
+    container.innerHTML = '<p class="dashboard-empty">Sin datos todavía.</p>';
+    return;
+  }
+  const width = 100;
+  const height = 100;
+  const max = Math.max(1, ...puntos.map((p) => p.value));
+  const stepX = puntos.length > 1 ? width / (puntos.length - 1) : 0;
+  const coords = puntos.map((p, i) => ({
+    x: puntos.length > 1 ? i * stepX : width / 2,
+    y: height - 8 - (p.value / max) * (height - 20),
+  }));
+
+  let linea = `M ${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
+  for (let i = 1; i < coords.length; i++) {
+    const prev = coords[i - 1];
+    const cur = coords[i];
+    const midX = (prev.x + cur.x) / 2;
+    const midY = (prev.y + cur.y) / 2;
+    linea += ` Q ${prev.x.toFixed(1)},${prev.y.toFixed(1)} ${midX.toFixed(1)},${midY.toFixed(1)}`;
+  }
+  linea += ` L ${coords[coords.length - 1].x.toFixed(1)},${coords[coords.length - 1].y.toFixed(1)}`;
+  const area = `${linea} L ${coords[coords.length - 1].x.toFixed(1)},${height} L ${coords[0].x.toFixed(1)},${height} Z`;
+  const gradId = `areaGrad${Math.random().toString(36).slice(2, 9)}`;
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" class="area-chart-svg">
+      <defs>
+        <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.35"></stop>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"></stop>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#${gradId})" stroke="none"></path>
+      <path d="${linea}" fill="none" stroke="${color}" stroke-width="2.2" vector-effect="non-scaling-stroke"></path>
+      ${coords.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2" fill="${color}"></circle>`).join("")}
+    </svg>
+    <div class="area-chart-labels">${puntos.map((p) => `<span>${escape(p.label)}</span>`).join("")}</div>`;
+}
+
 const trailersysShowGuide = (function () {
   const overlay = document.getElementById("guiaModalOverlay");
   const titleEl = document.getElementById("guiaModalTitle");
