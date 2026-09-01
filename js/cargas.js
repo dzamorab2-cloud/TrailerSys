@@ -127,8 +127,15 @@
   async function buscarClientes(query) {
     try {
       const pagina = await trailersysPagedRequest("clientes", 0, 8, { search: query });
+      // Las respuestas no llegan garantizadas en el mismo orden en que
+      // salieron las peticiones: si se siguio escribiendo mientras esta
+      // viajaba, puede llegar despues de una mas reciente y pisar resultados
+      // validos con los de una busqueda vieja. Se descarta si el input ya
+      // no coincide con lo que se pidio.
+      if (inputClienteBuscar.value.trim() !== query) return;
       renderResultadosCliente(pagina.content);
     } catch {
+      if (inputClienteBuscar.value.trim() !== query) return;
       resultadosCliente.innerHTML = '<div class="autocomplete-empty">No se pudo buscar clientes.</div>';
       resultadosCliente.hidden = false;
     }

@@ -113,8 +113,17 @@ function trailersysAutocomplete({ input, hidden, resultados, recurso, etiqueta, 
     const params = typeof extraParams === "function" ? extraParams() : extraParams;
     try {
       const pagina = await trailersysPagedRequest(recurso, 0, 12, { ...params, search: query });
+      // Las respuestas no llegan garantizadas en el mismo orden en que
+      // salieron las peticiones: si la persona siguio escribiendo mientras
+      // esta viajaba, puede llegar despues de una mas reciente y pisar
+      // resultados validos con los de una busqueda vieja (ej. escribir
+      // rapido "Comercial Andina" podia terminar mostrando "Ninguna
+      // coincidencia" de una letra a medio escribir). Se descarta si el
+      // input ya no coincide con lo que se pidio.
+      if (input.value.trim() !== query) return;
       render(pagina.content);
     } catch {
+      if (input.value.trim() !== query) return;
       resultados.innerHTML = '<div class="autocomplete-empty">No se pudo buscar.</div>';
       resultados.hidden = false;
     }
