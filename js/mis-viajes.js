@@ -43,6 +43,7 @@
   const detalleTitle = $("misViajesDetalleTitle");
   const detalleMeta = $("misViajesDetalleMeta");
   const resumen = $("misViajesResumen");
+  const meta = $("misViajesMeta");
   const mapaContainer = $("misViajesMapaContainer");
   const reporteEntrega = $("misViajesReporteEntrega");
 
@@ -257,8 +258,11 @@
   function abrirDetalle(viaje) {
     viajeActualId = viaje.id;
     detalleTitle.textContent = `${viaje.origen} → ${viaje.destino}`;
-    detalleMeta.innerHTML = `<span class="badge ${ESTADO_BADGE[viaje.estado] || "badge-neutral"}">${esc(viaje.estado)}</span><span><i class="bi bi-building"></i>${esc(viaje.clienteNombre)}</span>${viaje.cargaDescripcion ? `<span><i class="bi bi-box-seam"></i>${esc(viaje.cargaDescripcion)}</span>` : ""}`;
+    // Cliente/carga ya no se repiten aqui: quedan en el detalle completo
+    // (trailersysRenderViajeSecciones) justo debajo del resumen de ruta.
+    detalleMeta.innerHTML = `<span class="badge ${ESTADO_BADGE[viaje.estado] || "badge-neutral"}">${esc(viaje.estado)}</span>`;
     renderResumen(viaje);
+    trailersysRenderViajeSecciones(meta, viaje);
     renderReporteEntrega(viaje);
     trailersysOpenModal(detalleOverlay);
     renderMapa(viaje);

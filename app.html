@@ -1418,11 +1418,17 @@
         </button>
       </div>
 
-      <div id="viajeMapaContainer" class="route-map"></div>
-
       <div class="route-summary-grid" id="viajeMapaResumen"></div>
 
+      <div id="viajeMapaMeta"></div>
+
+      <div id="viajeMapaContainer" class="route-map"></div>
+
       <div class="modal-footer route-modal-footer">
+        <button type="button" class="btn btn-ghost" id="viajeMapaVerGuia">
+          <i class="bi bi-file-earmark-text"></i>
+          Ver/descargar guía
+        </button>
         <button type="button" class="btn btn-ghost" id="viajeMapaRecalcular">
           <i class="bi bi-arrow-repeat"></i>
           Recalcular ruta
@@ -1442,6 +1448,8 @@
       </div>
 
       <div class="route-summary-grid" id="seguimientoResumen"></div>
+
+      <div id="seguimientoMeta"></div>
 
       <div id="seguimientoMapaContainer" class="route-map"></div>
 
@@ -1503,6 +1511,10 @@
       <div class="events-timeline" id="seguimientoTimeline"></div>
 
       <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="seguimientoVerGuia">
+          <i class="bi bi-file-earmark-text"></i>
+          Ver/descargar guía
+        </button>
         <button type="button" class="btn btn-primary" id="seguimientoCerrarBtn">Cerrar</button>
       </div>
     </div>
@@ -1793,6 +1805,8 @@
       <div id="misViajesDetalleMeta" class="item-meta"></div>
 
       <div class="route-summary-grid" id="misViajesResumen"></div>
+
+      <div id="misViajesMeta"></div>
 
       <div id="misViajesMapaContainer" class="route-map"></div>
 

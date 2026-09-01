@@ -53,10 +53,12 @@
   const modalOverlay = document.getElementById("seguimientoModalOverlay");
   const modalTitle = document.getElementById("seguimientoModalTitle");
   const resumen = document.getElementById("seguimientoResumen");
+  const meta = document.getElementById("seguimientoMeta");
   const mapaContainer = document.getElementById("seguimientoMapaContainer");
   const reporteEntrega = document.getElementById("seguimientoReporteEntrega");
   const btnCerrarModal = document.getElementById("seguimientoModalClose");
   const btnCerrarBtn = document.getElementById("seguimientoCerrarBtn");
+  const btnVerGuia = document.getElementById("seguimientoVerGuia");
 
   const eventoForm = document.getElementById("seguimientoEventoForm");
   const inputFecha = document.getElementById("seguimientoFecha");
@@ -570,12 +572,35 @@
     setFieldError("fieldSeguimientoUbicacion", "");
 
     renderResumen(viaje);
+    trailersysRenderViajeSecciones(meta, viaje);
     renderReporteEntrega(viaje);
     renderTimeline(viaje.id);
     trailersysOpenModal(modalOverlay);
     renderMapa(viaje);
     iniciarActualizacionPeriodica();
   }
+
+  // Igual que showViajeGuide() en js/viajes.js: los datos de vehiculo/
+  // conductor/cliente/carga ya vienen denormalizados en el propio viaje.
+  function showViajeGuide(viaje) {
+    trailersysShowGuide({
+      tipo: "Viaje", id: viaje.id, estado: viaje.estado,
+      secciones: [
+        ...trailersysViajeSecciones(viaje),
+        { titulo: "Ruta y despacho", icono: "bi-signpost-split", campos: [
+          ["Origen", viaje.origen], ["Destino", viaje.destino],
+          ["Fecha de salida", trailersysFormatDateTime(viaje.fechaSalida)],
+          ["Distancia estimada", viaje.ruta ? `${viaje.ruta.distanciaKm.toFixed(1)} km` : "Sin ruta calculada"],
+          ["Duración estimada", viaje.ruta ? trailersysFormatDuration(viaje.ruta.duracionMin) : "Sin ruta calculada"],
+        ] },
+      ],
+    });
+  }
+
+  btnVerGuia.addEventListener("click", () => {
+    const viaje = viajesCache.find((v) => String(v.id) === String(viajeActualId));
+    if (viaje) showViajeGuide(viaje);
+  });
 
   function closeDetailModal() {
     trailersysCloseModal(modalOverlay);

@@ -75,9 +75,11 @@
   const mapaTitle = document.getElementById("viajeMapaTitle");
   const mapaContainer = document.getElementById("viajeMapaContainer");
   const mapaResumen = document.getElementById("viajeMapaResumen");
+  const mapaMeta = document.getElementById("viajeMapaMeta");
   const btnMapaClose = document.getElementById("viajeMapaClose");
   const btnMapaCerrarBtn = document.getElementById("viajeMapaCerrarBtn");
   const btnMapaRecalcular = document.getElementById("viajeMapaRecalcular");
+  const btnMapaVerGuia = document.getElementById("viajeMapaVerGuia");
   const historialOverlay = document.getElementById("viajeHistorialModalOverlay");
   const historialTitle = document.getElementById("viajeHistorialTitle");
   const historialContent = document.getElementById("viajeHistorialContent");
@@ -773,6 +775,7 @@
     mapaViajeActualId = viaje.id;
     mapaTitle.textContent = `${viaje.origen} → ${viaje.destino}`;
     renderMapaResumen(viaje);
+    trailersysRenderViajeSecciones(mapaMeta, viaje);
     trailersysOpenModal(mapaModalOverlay);
     ensureMapaRendered(viaje);
   }
@@ -793,6 +796,11 @@
     const viaje = viajesCache.find((v) => String(v.id) === String(mapaViajeActualId));
     if (!viaje) return;
     await calcularYGuardarRuta(viaje);
+  });
+
+  btnMapaVerGuia.addEventListener("click", () => {
+    const viaje = viajesCache.find((v) => String(v.id) === String(mapaViajeActualId));
+    if (viaje) showViajeGuide(viaje).catch((error) => alert(error.message || "No se pudo generar la guía."));
   });
 
   session = trailersysGetSession();

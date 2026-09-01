@@ -189,6 +189,65 @@ function trailersysSoloDigitos(input, maxLength) {
   });
 }
 
+/**
+ * Secciones estandar de vehiculo/conductor/cliente y carga de un viaje
+ * (recibe el shape ya denormalizado de ViajeResponse). Compartidas entre
+ * la guia (trailersysShowGuide, que ademas agrega su propia seccion de
+ * "Ruta y despacho") y el detalle "denso" que se muestra dentro de los
+ * modales de Viajes, Seguimiento y Mis viajes (trailersysRenderViajeSecciones)
+ * - antes esos modales solo mostraban 4 tarjetas de distancia/duracion/
+ * salida/ETA y para ver que vehiculo o conductor era habia que cerrar el
+ * modal y abrir la guia aparte.
+ */
+function trailersysViajeSecciones(viaje) {
+  const peso = (kg) => kg == null ? null
+    : `${Number(kg).toLocaleString("es-EC")} kg / ${(Number(kg) * 2.2046226218).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
+  return [
+    { titulo: "Vehículo", icono: "bi-truck", campos: [
+      ["Placa", viaje.vehiculoPlaca], ["Marca", viaje.vehiculoMarca], ["Modelo", viaje.vehiculoModelo],
+      ["Tipo", viaje.vehiculoTipo], ["Año", viaje.vehiculoAnio], ["Color", viaje.vehiculoColor],
+      ["Capacidad", peso(viaje.vehiculoCapacidad)],
+    ] },
+    { titulo: "Conductor", icono: "bi-person-badge", campos: [
+      ["Nombre completo", viaje.conductorNombres], ["Identificación", viaje.conductorIdentificacion],
+      ["Teléfono", viaje.conductorTelefono], ["Licencia", viaje.conductorLicenciaNumero],
+      ["Categoría", viaje.conductorLicenciaCategoria], ["Vencimiento", viaje.conductorLicenciaVencimiento],
+    ] },
+    { titulo: "Cliente y carga", icono: "bi-box-seam", campos: [
+      ["Cliente", viaje.clienteNombre],
+      ["Mercancía", viaje.cargaDescripcion || (viaje.cargaId ? null : "Viaje sin carga asociada")],
+      ["Tipo de carga", viaje.cargaTipo], ["Peso", peso(viaje.cargaPeso)],
+      ["Observaciones", viaje.observaciones],
+    ] },
+  ];
+}
+
+/**
+ * Pinta trailersysViajeSecciones() dentro de un contenedor, reusando la
+ * misma marca/estilo .guia-section/.guia-fields que ya usa la guia (ver
+ * css/modal.css) para que un vistazo rapido del detalle se vea igual de
+ * prolijo sin tener que abrir la guia completa.
+ */
+function trailersysRenderViajeSecciones(container, viaje) {
+  const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[char]));
+  const html = trailersysViajeSecciones(viaje)
+    .map((seccion) => {
+      const campos = seccion.campos.filter(([, valor]) => valor != null && valor !== "");
+      if (!campos.length) return "";
+      return `<section class="guia-section">
+        <h4><i class="bi ${seccion.icono}"></i>${escape(seccion.titulo)}</h4>
+        <div class="guia-fields">
+          ${campos.map(([etiqueta, valor]) => `<div class="guia-field"><span>${escape(etiqueta)}</span><strong>${escape(valor)}</strong></div>`).join("")}
+        </div>
+      </section>`;
+    })
+    .filter(Boolean)
+    .join("");
+  container.innerHTML = html || '<p class="dashboard-empty">Sin información adicional.</p>';
+}
+
 const trailersysShowGuide = (function () {
   const overlay = document.getElementById("guiaModalOverlay");
   const titleEl = document.getElementById("guiaModalTitle");
