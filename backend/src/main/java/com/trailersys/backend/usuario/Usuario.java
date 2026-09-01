@@ -63,6 +63,15 @@ public class Usuario {
     @JoinColumn(name = "conductor_id")
     private Conductor conductor;
 
+    /**
+     * Foto de perfil autoeditable (data URL base64), igual que Conductor.foto/
+     * Vehiculo.foto - cualquier usuario interno (Administrador, Coordinador,
+     * Mantenimiento, Supervisor) puede subir la suya desde su propio
+     * Dashboard via PUT /api/auth/me/foto. Nullable: la mayoria no la sube.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String foto;
+
     protected Usuario() {
     }
 
@@ -141,5 +150,13 @@ public class Usuario {
 
     public void setConductor(Conductor conductor) {
         this.conductor = conductor;
+    }
+
+    public String getFoto() {
+        return foto;
+    }
+
+    public void setFoto(String foto) {
+        this.foto = foto;
     }
 }

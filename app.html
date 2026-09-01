@@ -127,6 +127,11 @@
               <div class="dashboard-panel-header"><i class="bi bi-clipboard2-pulse"></i><h3>Panel de disponibilidad</h3></div>
               <div class="availability-grid" id="dashboardDisponibilidad"><div class="dashboard-empty">Cargando disponibilidad…</div></div>
             </div>
+
+            <div class="dashboard-panel card" id="dashboardMapaPanel">
+              <div class="dashboard-panel-header"><i class="bi bi-geo"></i><h3>Ecuador</h3></div>
+              <div class="dashboard-ecuador-map" id="dashboardEcuadorMap" aria-hidden="true"></div>
+            </div>
           </div>
 
           <div id="dashboardConductorView" hidden>
@@ -146,10 +151,10 @@
               <button type="button" class="btn btn-primary" id="conductorTripAlertBtn">Ver viaje</button>
             </div>
 
-            <div class="conductor-dashboard-grid">
+            <div class="dashboard-cards-grid">
               <article class="card conductor-profile-card">
-                <div class="conductor-profile-header">
-                  <div class="photo-upload conductor-photo-upload">
+                <div class="dashboard-profile-header">
+                  <div class="photo-upload dashboard-photo-upload">
                     <div class="photo-preview" id="conductorPerfilFotoPreview"><i class="bi bi-person"></i></div>
                     <div class="photo-upload-actions">
                       <label class="btn btn-ghost" for="conductorPerfilFoto"><i class="bi bi-camera"></i> Cambiar foto</label>
@@ -161,7 +166,7 @@
                     <span class="badge" id="conductorPerfilEstado">—</span>
                   </div>
                 </div>
-                <div class="conductor-profile-fields">
+                <div class="dashboard-profile-fields">
                   <div><i class="bi bi-telephone"></i><span id="conductorPerfilTelefono">—</span></div>
                   <div><i class="bi bi-cake2"></i><span id="conductorPerfilEdad">—</span></div>
                   <div><i class="bi bi-card-checklist"></i><span id="conductorPerfilLicencia">—</span></div>
@@ -177,7 +182,7 @@
                     <span class="badge" id="conductorVehiculoEstado"></span>
                   </div>
                 </div>
-                <div class="conductor-profile-fields">
+                <div class="dashboard-profile-fields">
                   <div><i class="bi bi-credit-card-2-front"></i><span id="conductorVehiculoPlaca">—</span></div>
                   <div><i class="bi bi-calendar3"></i><span id="conductorVehiculoAnio">—</span></div>
                   <div><i class="bi bi-palette"></i><span id="conductorVehiculoColor">—</span></div>
@@ -186,29 +191,85 @@
               </article>
             </div>
 
-            <div class="conductor-dashboard-grid">
-              <article class="card conductor-chart-card">
+            <div class="dashboard-cards-grid">
+              <article class="card dashboard-chart-card">
                 <h3><i class="bi bi-pie-chart"></i> Viajes por estado</h3>
-                <div class="conductor-donut-wrap">
-                  <div class="conductor-donut" id="conductorDonutChart"></div>
-                  <div class="conductor-donut-legend" id="conductorDonutLegend"></div>
+                <div class="dashboard-donut-wrap">
+                  <div class="dashboard-donut" id="conductorDonutChart"></div>
+                  <div class="dashboard-donut-legend" id="conductorDonutLegend"></div>
                 </div>
               </article>
 
-              <article class="card conductor-chart-card">
+              <article class="card dashboard-chart-card">
                 <h3><i class="bi bi-bar-chart"></i> Viajes por mes</h3>
-                <div class="conductor-bar-chart" id="conductorBarChart"></div>
+                <div class="dashboard-bar-chart" id="conductorBarChart"></div>
               </article>
 
-              <article class="card conductor-map-card">
+              <article class="card dashboard-map-card">
                 <h3><i class="bi bi-geo"></i> Ecuador</h3>
-                <div class="conductor-ecuador-map" id="conductorEcuadorMap" aria-hidden="true"></div>
+                <div class="dashboard-ecuador-map" id="conductorEcuadorMap" aria-hidden="true"></div>
               </article>
             </div>
 
             <div class="dashboard-panel card" id="conductorViajesRecientesPanel">
               <div class="dashboard-panel-header"><i class="bi bi-clock-history"></i><h3>Viajes recientes</h3></div>
               <div id="conductorViajesRecientes"></div>
+            </div>
+          </div>
+
+          <div id="dashboardSupervisorView" hidden>
+            <div class="module-header">
+              <div>
+                <h1 id="supervisorDashboardSaludo">Hola</h1>
+                <p>Resumen operativo para supervisión.</p>
+              </div>
+            </div>
+
+            <div class="dashboard-cards-grid">
+              <article class="card dashboard-profile-card">
+                <div class="dashboard-profile-header">
+                  <div class="photo-upload dashboard-photo-upload">
+                    <div class="photo-preview" id="supervisorPerfilFotoPreview"><i class="bi bi-person"></i></div>
+                    <div class="photo-upload-actions">
+                      <label class="btn btn-ghost" for="supervisorPerfilFoto"><i class="bi bi-camera"></i> Cambiar foto</label>
+                      <input type="file" id="supervisorPerfilFoto" accept="image/*" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 id="supervisorPerfilNombre">—</h3>
+                    <span class="badge badge-info">Supervisor</span>
+                  </div>
+                </div>
+                <div class="dashboard-profile-fields">
+                  <div><i class="bi bi-person-badge"></i><span id="supervisorPerfilUsername">—</span></div>
+                  <div><i class="bi bi-envelope"></i><span id="supervisorPerfilCorreo">—</span></div>
+                  <div><i class="bi bi-patch-check"></i><span id="supervisorPerfilEntregasPendientes">—</span></div>
+                  <div><i class="bi bi-person-vcard"></i><span id="supervisorPerfilLicenciasVencidas">—</span></div>
+                </div>
+              </article>
+
+              <article class="card dashboard-chart-card">
+                <h3><i class="bi bi-truck"></i> Vehículos por estado</h3>
+                <div class="dashboard-donut-wrap">
+                  <div class="dashboard-donut" id="supervisorVehiculosDonut"></div>
+                  <div class="dashboard-donut-legend" id="supervisorVehiculosLegend"></div>
+                </div>
+              </article>
+            </div>
+
+            <div class="dashboard-cards-grid">
+              <article class="card dashboard-chart-card">
+                <h3><i class="bi bi-person-badge"></i> Conductores por estado</h3>
+                <div class="dashboard-donut-wrap">
+                  <div class="dashboard-donut" id="supervisorConductoresDonut"></div>
+                  <div class="dashboard-donut-legend" id="supervisorConductoresLegend"></div>
+                </div>
+              </article>
+
+              <article class="card dashboard-map-card">
+                <h3><i class="bi bi-geo"></i> Ecuador</h3>
+                <div class="dashboard-ecuador-map" id="supervisorEcuadorMap" aria-hidden="true"></div>
+              </article>
             </div>
           </div>
         </section>
@@ -1844,6 +1905,7 @@
   <script src="js/dashboard.js"></script>
   <script src="js/mis-viajes.js"></script>
   <script src="js/conductor-dashboard.js"></script>
+  <script src="js/supervisor-dashboard.js"></script>
   <script src="js/configuracion.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/navigation.js"></script>

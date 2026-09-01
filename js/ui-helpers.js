@@ -248,6 +248,55 @@ function trailersysRenderViajeSecciones(container, viaje) {
   container.innerHTML = html || '<p class="dashboard-empty">Sin información adicional.</p>';
 }
 
+/**
+ * Mapa decorativo de Ecuador (Leaflet real, mismo mosaico de OpenStreetMap
+ * que ya usan Viajes/Seguimiento/Mis viajes - una silueta dibujada a mano
+ * no se veia como un mapa real), reutilizado en cada Dashboard
+ * personalizado por rol que lo pida (Conductor, Supervisor, y el generico
+ * de Administrador/Coordinador/Mantenimiento). Se guarda una instancia por
+ * contenedor para no reinicializar Leaflet sobre el mismo div dos veces -
+ * revienta con "Map container is already initialized" si se llama L.map()
+ * de nuevo sobre el mismo elemento -, y la segunda vez en adelante (por
+ * ejemplo al volver a activar el modulo Dashboard) solo se invalida el
+ * tamaño.
+ * @param {string} containerId - id del div donde va el mapa.
+ */
+const trailersysRenderEcuadorMap = (function () {
+  const instancias = {};
+  return function trailersysRenderEcuadorMap(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (typeof L === "undefined") {
+      container.innerHTML = '<div class="route-map-placeholder"><i class="bi bi-wifi-off"></i><p>No se pudo cargar el mapa. Verifica la conexión a internet.</p></div>';
+      return;
+    }
+    if (instancias[containerId]) {
+      setTimeout(() => instancias[containerId].invalidateSize(), 100);
+      return;
+    }
+    const mapa = L.map(container, { scrollWheelZoom: false }).setView([-1.55, -78.6], 6.3);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; colaboradores de OpenStreetMap",
+      maxZoom: 18,
+    }).addTo(mapa);
+
+    // Un par de ciudades como referencia, nada mas - es decorativo, no una
+    // ruta (esa vive en el mapa del detalle de cada viaje).
+    [
+      ["Quito", -0.1807, -78.4678, "var(--color-info)"],
+      ["Guayaquil", -2.1894, -79.8891, "var(--color-warning)"],
+      ["Cuenca", -2.9006, -79.0045, "var(--color-danger)"],
+    ].forEach(([nombre, lat, lng, color]) => {
+      L.circleMarker([lat, lng], { radius: 6, color, fillColor: color, fillOpacity: 1, weight: 2 })
+        .addTo(mapa)
+        .bindTooltip(nombre, { permanent: true, direction: "right", offset: [6, 0], className: "dashboard-map-tooltip" });
+    });
+
+    instancias[containerId] = mapa;
+    setTimeout(() => mapa.invalidateSize(), 200);
+  };
+})();
+
 const trailersysShowGuide = (function () {
   const overlay = document.getElementById("guiaModalOverlay");
   const titleEl = document.getElementById("guiaModalTitle");

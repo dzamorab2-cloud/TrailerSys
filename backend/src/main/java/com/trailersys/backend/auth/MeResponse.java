@@ -7,10 +7,11 @@ public record MeResponse(
         String username,
         String nombre,
         String correo,
-        String rol
+        String rol,
+        String foto
 ) {
     public static MeResponse from(Usuario usuario) {
         return new MeResponse(usuario.getId(), usuario.getUsername(), usuario.getNombre(),
-                usuario.getCorreo(), usuario.getRol().name());
+                usuario.getCorreo(), usuario.getRol().name(), usuario.getFoto());
     }
 }

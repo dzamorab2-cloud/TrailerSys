@@ -129,8 +129,8 @@
       });
     donut.style.background = `conic-gradient(${stops.join(", ")})`;
     legend.innerHTML = datos.map(([estado, cantidad]) => `
-      <div class="conductor-donut-legend-item">
-        <span class="conductor-donut-dot" style="background:${ESTADO_COLOR[estado]}"></span>
+      <div class="dashboard-donut-legend-item">
+        <span class="dashboard-donut-dot" style="background:${ESTADO_COLOR[estado]}"></span>
         <span>${esc(estado)}</span>
         <strong>${cantidad}</strong>
       </div>`).join("");
@@ -140,49 +140,11 @@
     const contenedor = $("conductorBarChart");
     const max = Math.max(1, ...viajesPorMes.map((m) => m.cantidad));
     contenedor.innerHTML = viajesPorMes.map((m) => `
-      <div class="conductor-bar-item">
-        <div class="conductor-bar-track"><div class="conductor-bar-fill" style="--h:${(m.cantidad / max) * 100}%"></div></div>
-        <span class="conductor-bar-value">${m.cantidad}</span>
-        <span class="conductor-bar-label">${esc(m.mes)}</span>
+      <div class="dashboard-bar-item">
+        <div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="--h:${(m.cantidad / max) * 100}%"></div></div>
+        <span class="dashboard-bar-value">${m.cantidad}</span>
+        <span class="dashboard-bar-label">${esc(m.mes)}</span>
       </div>`).join("");
-  }
-
-  // --- Mapa decorativo de Ecuador (Leaflet real, mismo mosaico de
-  // OpenStreetMap que usan Viajes/Seguimiento/Mis viajes - la silueta
-  // dibujada a mano no se veia como un mapa real, esto si). Se guarda la
-  // instancia para no reinicializar Leaflet sobre el mismo contenedor cada
-  // vez que se vuelve a activar el modulo Dashboard (module-activated),
-  // que revienta con "Map container is already initialized".
-  let ecuadorMapInstance = null;
-  function renderMapaEcuador() {
-    const container = $("conductorEcuadorMap");
-    if (typeof L === "undefined") {
-      container.innerHTML = '<div class="route-map-placeholder"><i class="bi bi-wifi-off"></i><p>No se pudo cargar el mapa. Verifica la conexión a internet.</p></div>';
-      return;
-    }
-    if (ecuadorMapInstance) {
-      setTimeout(() => ecuadorMapInstance.invalidateSize(), 100);
-      return;
-    }
-    ecuadorMapInstance = L.map(container, { scrollWheelZoom: false }).setView([-1.55, -78.6], 6.3);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; colaboradores de OpenStreetMap",
-      maxZoom: 18,
-    }).addTo(ecuadorMapInstance);
-
-    // Un par de ciudades como referencia, nada mas - es decorativo, no una
-    // ruta (esa vive en el mapa del detalle de "Mis viajes").
-    [
-      ["Quito", -0.1807, -78.4678, "var(--color-info)"],
-      ["Guayaquil", -2.1894, -79.8891, "var(--color-warning)"],
-      ["Cuenca", -2.9006, -79.0045, "var(--color-danger)"],
-    ].forEach(([nombre, lat, lng, color]) => {
-      L.circleMarker([lat, lng], { radius: 6, color, fillColor: color, fillOpacity: 1, weight: 2 })
-        .addTo(ecuadorMapInstance)
-        .bindTooltip(nombre, { permanent: true, direction: "right", offset: [6, 0], className: "conductor-map-tooltip" });
-    });
-
-    setTimeout(() => ecuadorMapInstance.invalidateSize(), 200);
   }
 
   // --- Viajes recientes ---
@@ -218,7 +180,7 @@
     }
   }
 
-  renderMapaEcuador();
+  trailersysRenderEcuadorMap("conductorEcuadorMap");
   cargar();
-  window.addEventListener("trailersys:module-activated", (e) => { if (e.detail?.module === "dashboard") { cargar(); renderMapaEcuador(); } });
+  window.addEventListener("trailersys:module-activated", (e) => { if (e.detail?.module === "dashboard") { cargar(); trailersysRenderEcuadorMap("conductorEcuadorMap"); } });
 })();
