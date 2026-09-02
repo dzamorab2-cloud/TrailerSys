@@ -21,6 +21,15 @@ DECLARE anterior JSONB; nuevo JSONB;
 BEGIN
     anterior := CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) END;
     nuevo := CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) END;
+    -- to_jsonb(OLD)/to_jsonb(NEW) vuelca la fila ENTERA sin distinguir
+    -- columnas sensibles: para "usuarios" eso incluia password_hash (el
+    -- bcrypt, no la contraseña en claro, pero sigue siendo un secreto que
+    -- no pertenece a una bitacora que cualquier Administrador puede
+    -- consultar/exportar). Se quita antes de insertar, no despues.
+    IF TG_TABLE_NAME = 'usuarios' THEN
+        anterior := anterior - 'password_hash';
+        nuevo := nuevo - 'password_hash';
+    END IF;
     INSERT INTO public.auditoria (usuario_bd, usuario_app, operacion, esquema, tabla,
         registro_id, datos_anteriores, datos_nuevos)
     VALUES (session_user, NULLIF(current_setting('trailersys.usuario', true), ''),
