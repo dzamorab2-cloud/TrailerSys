@@ -190,6 +190,92 @@ class SeguimientoControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    /** Crea (via el endpoint de administracion) una cuenta CONDUCTOR vinculada a conductorId, y su token. */
+    private String crearUsuarioConductorYToken(String username, Long conductorId) throws Exception {
+        String usuario = """
+                {"username":"%s","password":"clave1234","nombre":"Usuario %s","rol":"CONDUCTOR","activo":true,"conductorId":%d}
+                """.formatted(username, username, conductorId);
+        mockMvc.perform(post("/api/usuarios")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(usuario))
+                .andExpect(status().isCreated());
+        String body = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"%s\",\"password\":\"clave1234\"}".formatted(username)))
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("token").asText();
+    }
+
+    @Test
+    void unConductorPuedeRegistrarYEliminarEventosDeSuPropioViaje() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-PROPIO-01", "Disponible");
+        Long conductorId = crearConductor("CI-SEG-PROPIO-01", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-PROPIO-CLI-01");
+        Long viajeId = crearViaje(vehiculoId, conductorId, clienteId, "Origen Propio", "Destino Propio",
+                "2026-08-15T08:00:00", "En Curso");
+        String tokenConductor = crearUsuarioConductorYToken("conductorseguimientopropio", conductorId);
+
+        String evento = """
+                {"viajeId":%d,"fechaHora":"2026-08-15T08:05:00","evento":"Salida",
+                 "ubicacion":"Terminal propia","observacion":"Registrado por el propio conductor"}
+                """.formatted(viajeId);
+        String creado = mockMvc.perform(post("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(evento))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long eventoId = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(delete("/api/seguimiento/eventos/" + eventoId)
+                        .header("Authorization", "Bearer " + tokenConductor))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void unConductorNoPuedeRegistrarEventosDeUnViajeAjeno() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-AJENO-01", "Disponible");
+        Long conductorDelViajeId = crearConductor("CI-SEG-AJENO-DUENO", "2030-01-01");
+        Long otroConductorId = crearConductor("CI-SEG-AJENO-OTRO", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-AJENO-CLI-01");
+        Long viajeId = crearViaje(vehiculoId, conductorDelViajeId, clienteId, "Origen Ajeno", "Destino Ajeno",
+                "2026-08-15T08:00:00", "En Curso");
+        String tokenOtroConductor = crearUsuarioConductorYToken("conductorseguimientoajeno", otroConductorId);
+
+        String evento = """
+                {"viajeId":%d,"fechaHora":"2026-08-15T08:05:00","evento":"Salida",
+                 "ubicacion":"No deberia poder","observacion":"Intento ajeno"}
+                """.formatted(viajeId);
+        mockMvc.perform(post("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenOtroConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(evento))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unConductorNoPuedeEliminarUnEventoDeUnViajeAjeno() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-AJENO-02", "Disponible");
+        Long conductorDelViajeId = crearConductor("CI-SEG-AJENO-DUENO2", "2030-01-01");
+        Long otroConductorId = crearConductor("CI-SEG-AJENO-OTRO2", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-AJENO-CLI-02");
+        // Crear el viaje "En Curso" ya deja un evento de Salida automatico
+        // que se puede intentar borrar.
+        Long viajeId = crearViaje(vehiculoId, conductorDelViajeId, clienteId, "Origen Ajeno 2", "Destino Ajeno 2",
+                "2026-08-15T08:00:00", "En Curso");
+        String listado = mockMvc.perform(get("/api/seguimiento/eventos")
+                        .param("viajeId", String.valueOf(viajeId))
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andReturn().getResponse().getContentAsString();
+        Long eventoId = objectMapper.readTree(listado).get(0).get("id").asLong();
+
+        String tokenOtroConductor = crearUsuarioConductorYToken("conductorseguimientoajeno2", otroConductorId);
+        mockMvc.perform(delete("/api/seguimiento/eventos/" + eventoId)
+                        .header("Authorization", "Bearer " + tokenOtroConductor))
+                .andExpect(status().isForbidden());
+    }
+
     @Test
     void alertasDetectanLicenciaVencidaYVehiculoEnMantenimiento() throws Exception {
         // El vehiculo se crea Disponible (ValidarDisponibilidad exige ese

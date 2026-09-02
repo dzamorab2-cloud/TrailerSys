@@ -1,5 +1,6 @@
 package com.trailersys.backend.seguimiento;
 
+import java.security.Principal;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -49,15 +50,16 @@ public class SeguimientoController {
 
     @PostMapping("/eventos")
     @PreAuthorize(PUEDE_GESTIONAR)
-    public ResponseEntity<SeguimientoEventoResponse> crearEvento(@Valid @RequestBody SeguimientoEventoRequest request) {
-        SeguimientoEvento creado = service.crearEvento(request);
+    public ResponseEntity<SeguimientoEventoResponse> crearEvento(
+            @Valid @RequestBody SeguimientoEventoRequest request, Principal principal) {
+        SeguimientoEvento creado = service.crearEvento(request, principal.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(SeguimientoEventoResponse.from(creado));
     }
 
     @DeleteMapping("/eventos/{id}")
     @PreAuthorize(PUEDE_GESTIONAR)
-    public ResponseEntity<Void> eliminarEvento(@PathVariable Long id) {
-        service.eliminarEvento(id);
+    public ResponseEntity<Void> eliminarEvento(@PathVariable Long id, Principal principal) {
+        service.eliminarEvento(id, principal.getName());
         return ResponseEntity.noContent().build();
     }
 

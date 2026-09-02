@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,8 @@ import com.trailersys.backend.conductor.Conductor;
 import com.trailersys.backend.mantenimiento.MantenimientoRepository;
 import com.trailersys.backend.seguimiento.dto.AlertaDto;
 import com.trailersys.backend.seguimiento.dto.SeguimientoEventoRequest;
+import com.trailersys.backend.usuario.Usuario;
+import com.trailersys.backend.usuario.UsuarioRepository;
 import com.trailersys.backend.vehiculo.EstadoVehiculo;
 import com.trailersys.backend.vehiculo.Vehiculo;
 import com.trailersys.backend.viaje.EstadoViaje;
@@ -31,12 +34,14 @@ public class SeguimientoService {
     private final SeguimientoEventoRepository repository;
     private final ViajeRepository viajeRepository;
     private final MantenimientoRepository mantenimientoRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public SeguimientoService(SeguimientoEventoRepository repository, ViajeRepository viajeRepository,
-                               MantenimientoRepository mantenimientoRepository) {
+                               MantenimientoRepository mantenimientoRepository, UsuarioRepository usuarioRepository) {
         this.repository = repository;
         this.viajeRepository = viajeRepository;
         this.mantenimientoRepository = mantenimientoRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     public List<SeguimientoEvento> listarEventos(Long viajeId) {
@@ -49,9 +54,10 @@ public class SeguimientoService {
     }
 
     @Transactional
-    public SeguimientoEvento crearEvento(SeguimientoEventoRequest request) {
+    public SeguimientoEvento crearEvento(SeguimientoEventoRequest request, String username) {
         Viaje viaje = viajeRepository.findById(request.viajeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Viaje no encontrado: " + request.viajeId()));
+        verificarPropioViajeSiEsConductor(viaje, username);
 
         SeguimientoEvento evento = new SeguimientoEvento(
                 viaje, viaje.getVehiculo(), request.fechaHora(), request.evento(),
@@ -60,11 +66,30 @@ public class SeguimientoService {
     }
 
     @Transactional
-    public void eliminarEvento(Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResourceNotFoundException("Evento de seguimiento no encontrado: " + id);
-        }
+    public void eliminarEvento(Long id, String username) {
+        SeguimientoEvento evento = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Evento de seguimiento no encontrado: " + id));
+        verificarPropioViajeSiEsConductor(evento.getViaje(), username);
         repository.deleteById(id);
+    }
+
+    /**
+     * PUEDE_GESTIONAR (SeguimientoController) incluye a CONDUCTOR "para que
+     * registre sus propios eventos de ruta" - pero nada comprobaba que el
+     * viaje fuera realmente suyo: cualquier cuenta CONDUCTOR autenticada
+     * podia crear o borrar eventos de seguimiento de UN VIAJE AJENO con solo
+     * cambiar el viajeId/id en la peticion. Administrador y Coordinador (sin
+     * un Conductor vinculado a su Usuario) siguen sin restriccion, igual que
+     * ya gestionan cualquier viaje desde el modulo Seguimiento.
+     */
+    private void verificarPropioViajeSiEsConductor(Viaje viaje, String username) {
+        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username).orElse(null);
+        if (usuario == null || usuario.getConductor() == null) {
+            return;
+        }
+        if (!usuario.getConductor().getId().equals(viaje.getConductor().getId())) {
+            throw new AccessDeniedException("Solo puedes gestionar eventos de tus propios viajes.");
+        }
     }
 
     /**
