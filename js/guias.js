@@ -57,32 +57,34 @@
     }
   }
 
+  // Los datos de conductor/vehiculo/carga vienen ya incluidos en el propio
+  // ViajeResponse (el backend los denormaliza ahi, ver el comentario en
+  // ViajeResponse.java) en vez de pedirse por separado a /conductores/{id},
+  // /vehiculos/{id} y /cargas/{id}. Mismo fix ya aplicado en
+  // js/viajes.js#showViajeGuide(): aunque en este modulo (solo
+  // Administrador/Coordinador) esos 3 endpoints nunca devuelven 403, seguian
+  // siendo 2-3 peticiones de red completamente innecesarias por cada guia
+  // abierta, con datos que ya habian llegado en la primera.
   async function showViaje(id) {
     const viaje = await trailersysApiRequest("GET", `/viajes/${id}`);
-    const [conductor, vehiculo, carga] = await Promise.all([
-      trailersysApiRequest("GET", `/conductores/${viaje.conductorId}`).catch(() => null),
-      trailersysApiRequest("GET", `/vehiculos/${viaje.vehiculoId}`).catch(() => null),
-      viaje.cargaId ? trailersysApiRequest("GET", `/cargas/${viaje.cargaId}`).catch(() => null) : Promise.resolve(null)
-    ]);
     trailersysShowGuide({ tipo: "Viaje", id: viaje.id, estado: viaje.estado, secciones: [
-      { titulo: "Conductor", icono: "bi-person-badge", campos: [["Nombre", conductor?.nombres || viaje.conductorNombres], ["Identificación", conductor?.identificacion], ["Teléfono", conductor?.telefono], ["Licencia", conductor?.licenciaNumero], ["Categoría", conductor?.licenciaCategoria], ["Vencimiento", conductor?.licenciaVencimiento]] },
-      { titulo: "Vehículo", icono: "bi-truck", campos: [["Placa", vehiculo?.placa || viaje.vehiculoPlaca], ["Marca", vehiculo?.marca], ["Modelo", vehiculo?.modelo], ["Tipo", vehiculo?.tipo], ["Año", vehiculo?.anio], ["Color", vehiculo?.color], ["Capacidad", vehiculo ? peso(vehiculo.capacidad) : "—"]] },
-      { titulo: "Carga transportada", icono: "bi-box-seam", campos: [["Mercancía", carga?.descripcion || viaje.cargaDescripcion || "Sin carga asociada"], ["Tipo", carga?.tipo], ["Peso", carga ? peso(carga.peso) : "—"], ["Cliente", viaje.clienteNombre]] },
+      { titulo: "Conductor", icono: "bi-person-badge", campos: [["Nombre", viaje.conductorNombres], ["Identificación", viaje.conductorIdentificacion], ["Teléfono", viaje.conductorTelefono], ["Licencia", viaje.conductorLicenciaNumero], ["Categoría", viaje.conductorLicenciaCategoria], ["Vencimiento", viaje.conductorLicenciaVencimiento]] },
+      { titulo: "Vehículo", icono: "bi-truck", campos: [["Placa", viaje.vehiculoPlaca], ["Marca", viaje.vehiculoMarca], ["Modelo", viaje.vehiculoModelo], ["Tipo", viaje.vehiculoTipo], ["Año", viaje.vehiculoAnio], ["Color", viaje.vehiculoColor], ["Capacidad", viaje.vehiculoCapacidad != null ? peso(viaje.vehiculoCapacidad) : "—"]] },
+      { titulo: "Carga transportada", icono: "bi-box-seam", campos: [["Mercancía", viaje.cargaDescripcion || "Sin carga asociada"], ["Tipo", viaje.cargaTipo], ["Peso", viaje.cargaPeso != null ? peso(viaje.cargaPeso) : "—"], ["Cliente", viaje.clienteNombre]] },
       { titulo: "Ruta y despacho", icono: "bi-signpost-split", campos: [["Origen", viaje.origen], ["Destino", viaje.destino], ["Salida", trailersysFormatDateTime(viaje.fechaSalida)], ["Distancia", viaje.ruta ? `${viaje.ruta.distanciaKm.toFixed(1)} km` : "Sin ruta"], ["Duración", viaje.ruta ? trailersysFormatDuration(viaje.ruta.duracionMin) : "Sin ruta"], ["Observaciones", viaje.observaciones || "Sin observaciones"]] }
     ] });
   }
 
   async function showCarga(id) {
     const carga = await trailersysApiRequest("GET", `/cargas/${id}`);
+    // Sigue haciendo falta este fetch (una Carga no sabe su propio viaje),
+    // pero ya no uno aparte a /conductores/{id} y /vehiculos/{id}: el
+    // ViajeResponse que devuelve trae esos datos denormalizados tal cual.
     const viaje = await trailersysApiRequest("GET", `/viajes/por-carga/${id}`).catch(() => null);
-    const [conductor, vehiculo] = viaje ? await Promise.all([
-      trailersysApiRequest("GET", `/conductores/${viaje.conductorId}`).catch(() => null),
-      trailersysApiRequest("GET", `/vehiculos/${viaje.vehiculoId}`).catch(() => null)
-    ]) : [null, null];
     trailersysShowGuide({ tipo: "Carga", id: carga.id, estado: carga.estado, secciones: [
       { titulo: "Datos de la carga", icono: "bi-box-seam", campos: [["Mercancía", carga.descripcion], ["Tipo", carga.tipo], ["Peso", peso(carga.peso)], ["Observaciones", carga.observaciones || "Sin observaciones"]] },
       { titulo: "Cliente y recorrido", icono: "bi-building", campos: [["Cliente", carga.clienteNombre], ["Origen", carga.origen], ["Destino", carga.destino]] },
-      { titulo: "Transporte asignado", icono: "bi-truck", campos: [["Conductor", conductor?.nombres || "Pendiente de asignar"], ["Identificación", conductor?.identificacion], ["Licencia", conductor?.licenciaNumero], ["Categoría", conductor?.licenciaCategoria], ["Vehículo", vehiculo ? `${vehiculo.marca} ${vehiculo.modelo}` : "Pendiente de asignar"], ["Placa", vehiculo?.placa], ["Capacidad", vehiculo ? peso(vehiculo.capacidad) : "—"]] }
+      { titulo: "Transporte asignado", icono: "bi-truck", campos: [["Conductor", viaje?.conductorNombres || "Pendiente de asignar"], ["Identificación", viaje?.conductorIdentificacion], ["Licencia", viaje?.conductorLicenciaNumero], ["Categoría", viaje?.conductorLicenciaCategoria], ["Vehículo", viaje ? `${viaje.vehiculoMarca} ${viaje.vehiculoModelo}` : "Pendiente de asignar"], ["Placa", viaje?.vehiculoPlaca], ["Capacidad", viaje?.vehiculoCapacidad != null ? peso(viaje.vehiculoCapacidad) : "—"]] }
     ] });
   }
 
