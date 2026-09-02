@@ -52,6 +52,10 @@ public class ViajeSimulacionService {
      */
     @Transactional
     public void ejecutarSimulacion() {
+        // Ver ViajeService.omitirAuditoriaEnEstaTransaccion(): sin esto,
+        // cada tick del scheduler quedaba auditado como si fuera una accion
+        // de un usuario real.
+        viajeService.omitirAuditoriaEnEstaTransaccion();
         LocalDateTime ahora = LocalDateTime.now();
         List<Viaje> enCurso = viajeRepository
                 .findTop500ByEstadoOrderByFechaSalidaAsc(EstadoViaje.EN_CURSO).stream()

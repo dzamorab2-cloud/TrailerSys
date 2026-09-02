@@ -1,9 +1,12 @@
 package com.trailersys.backend.viaje;
 
+import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,11 +42,12 @@ public class ViajeService {
     private final CargaRepository cargaRepository;
     private final SeguimientoEventoRepository seguimientoEventoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final JdbcTemplate jdbc;
 
     public ViajeService(ViajeRepository repository, VehiculoRepository vehiculoRepository,
                          ConductorRepository conductorRepository, ClienteRepository clienteRepository,
                          CargaRepository cargaRepository, SeguimientoEventoRepository seguimientoEventoRepository,
-                         UsuarioRepository usuarioRepository) {
+                         UsuarioRepository usuarioRepository, JdbcTemplate jdbc) {
         this.repository = repository;
         this.vehiculoRepository = vehiculoRepository;
         this.conductorRepository = conductorRepository;
@@ -51,6 +55,7 @@ public class ViajeService {
         this.cargaRepository = cargaRepository;
         this.seguimientoEventoRepository = seguimientoEventoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.jdbc = jdbc;
     }
 
     public List<Viaje> listar(EstadoViaje estado, String search) {
@@ -148,6 +153,7 @@ public class ViajeService {
      */
     @Transactional
     public void iniciarViajesProgramadosVencidos() {
+        omitirAuditoriaEnEstaTransaccion();
         LocalDateTime ahora = LocalDateTime.now();
         repository.findTop500ByEstadoAndFechaSalidaLessThanEqualOrderByFechaSalidaAsc(
                         EstadoViaje.PROGRAMADO, ahora).stream()
@@ -161,6 +167,34 @@ public class ViajeService {
                     sincronizarEstadoCarga(viaje);
                     sincronizarEstadoVehiculoYConductor(viaje);
                 });
+    }
+
+    /**
+     * SET LOCAL (no SET): solo aplica dentro de la transaccion actual, nunca
+     * a otras conexiones ni a una escritura manual de un usuario real -
+     * ni siquiera si esa escritura pasa por el mismo metodo de servicio
+     * (ej. registrarLlegada, llamado tanto por el scheduler como por
+     * confirmarEntrega()). Sin esto, cada tick automatico del scheduler de
+     * ViajeSimulacionService quedaba auditado como si fuera una accion de
+     * un usuario, y en la practica eso termino siendo la gran mayoria del
+     * volumen de la tabla auditoria (ver
+     * database/12_auditoria_omitir_automatico.sql). Paquete-visible para
+     * que ViajeSimulacionService tambien la use al entrar a
+     * ejecutarSimulacion().
+     *
+     * Solo tiene efecto en Postgres: la tabla/trigger de auditoria no existe
+     * en H2 (la suite de pruebas), y H2 tampoco entiende la sintaxis
+     * "SET LOCAL <parametro custom>" de Postgres, asi que se salta ahi.
+     */
+    void omitirAuditoriaEnEstaTransaccion() {
+        jdbc.execute((ConnectionCallback<Void>) conn -> {
+            if ("PostgreSQL".equals(conn.getMetaData().getDatabaseProductName())) {
+                try (Statement st = conn.createStatement()) {
+                    st.execute("SET LOCAL trailersys.omitir_auditoria = 'true'");
+                }
+            }
+            return null;
+        });
     }
 
     private void registrarSalidaAutomatica(Viaje viaje) {

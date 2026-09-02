@@ -19,6 +19,19 @@ CREATE OR REPLACE FUNCTION trailersys_registrar_auditoria() RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE anterior JSONB; nuevo JSONB;
 BEGIN
+    -- Los jobs automaticos (ej. ViajeSimulacionService, cada 60s) hacen su
+    -- propio SET LOCAL trailersys.omitir_auditoria='true' antes de escribir:
+    -- sin esto, cada tick del scheduler quedaba auditado como si fuera una
+    -- accion de un usuario, y en la practica eso termino siendo la mayor
+    -- parte del volumen de la bitacora (ver 12_auditoria_omitir_automatico.sql).
+    -- Es SET LOCAL (no SET), asi que solo aplica dentro de esa transaccion
+    -- puntual - nunca a otras conexiones ni a la escritura manual de un
+    -- usuario real, aunque comparta el mismo metodo de servicio.
+    IF current_setting('trailersys.omitir_auditoria', true) = 'true' THEN
+        IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+        RETURN NEW;
+    END IF;
+
     anterior := CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) END;
     nuevo := CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) END;
     -- to_jsonb(OLD)/to_jsonb(NEW) vuelca la fila ENTERA sin distinguir
