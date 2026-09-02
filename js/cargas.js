@@ -302,6 +302,29 @@
     grid.innerHTML = filtrados.map((c) => renderCard(c, canManage)).join("");
   }
 
+  // El select de Origen/Destino se llena una sola vez, al cargar la pagina
+  // (ver ecuador-locations.js), con las 65 ciudades del catalogo - pero el
+  // origen/destino real de una carga no siempre es una de esas 65 (los
+  // datos sembrados con SQL usan libremente "Ciudad, Ecuador" u otro
+  // texto, no necesariamente el nombre exacto de una opcion). Sin agregar
+  // el valor real como opcion aparte, el select quedaba en blanco al
+  // editar una carga asi - y guardar sin darse cuenta le cambiaba el
+  // origen/destino real a "" (bloqueado por "obligatorio") o, peor, a
+  // otra ciudad distinta de la que en realidad tenia.
+  function asegurarOpcionLugar(select, valor) {
+    if (!valor || [...select.options].some((o) => o.value === valor)) return;
+    const opcion = document.createElement("option");
+    opcion.value = valor;
+    opcion.textContent = valor;
+    // No usar insertBefore(opcion, select.options[1]): con las 65 ciudades
+    // agrupadas en <optgroup> (ver trailersysPoblarLugaresEcuador), casi
+    // ninguna option es hija directa de <select> - insertBefore exige que
+    // la referencia si lo sea, o tira NotFoundError. appendChild al final
+    // siempre es un hijo directo valido, y de todos modos queda
+    // seleccionada enseguida.
+    select.appendChild(opcion);
+  }
+
   // --- Modal de alta / edicion ---
   async function openForm(carga) {
     clearFieldErrors();
@@ -310,6 +333,10 @@
     selectPesoUnidad.value = "kg";
     pesoUnidadAnterior = "kg";
     ocultarResultadosCliente();
+    // Reinicia el select al catalogo completo: puede haber quedado con una
+    // opcion "extra" (ver asegurarOpcionLugar) de una edicion anterior.
+    trailersysPoblarLugaresEcuador(inputOrigen);
+    trailersysPoblarLugaresEcuador(inputDestino);
 
     if (carga) {
       modalTitle.textContent = "Editar carga";
@@ -322,6 +349,8 @@
       inputTipo.value = carga.tipo;
       inputPeso.value = carga.peso;
       selectEstado.value = carga.estado;
+      asegurarOpcionLugar(inputOrigen, carga.origen);
+      asegurarOpcionLugar(inputDestino, carga.destino);
       inputOrigen.value = carga.origen;
       inputDestino.value = carga.destino;
       inputObservaciones.value = carga.observaciones || "";
