@@ -56,10 +56,15 @@ public class GuiaController {
                  -- conductor y vehiculo asignados (la propia guia, al abrirla,
                  -- si mostraba el dato bien porque hace su propia consulta -
                  -- pero la fila de la tabla no).
-                 LEFT JOIN LATERAL (
-                     SELECT v.conductor_id, v.vehiculo_id FROM viajes v
-                     WHERE v.carga_id = c.id ORDER BY v.id DESC LIMIT 1
-                 ) uv ON true
+                 --
+                 -- Se llega al mismo "ultimo viaje de esta carga" sin LATERAL
+                 -- (Postgres lo soporta, pero H2 no lo reconoce ni en modo
+                 -- PostgreSQL - con LATERAL este endpoint quedaba imposible de
+                 -- probar contra la base de pruebas): una subconsulta escalar
+                 -- correlacionada (MAX(id), siempre un solo valor) que se une
+                 -- de vuelta a viajes, en vez de una subconsulta lateral por
+                 -- cada fila.
+                 LEFT JOIN viajes uv ON uv.id = (SELECT MAX(v2.id) FROM viajes v2 WHERE v2.carga_id = c.id)
                  LEFT JOIN conductores co ON co.id = uv.conductor_id
                  LEFT JOIN vehiculos ve ON ve.id = uv.vehiculo_id
             """;
