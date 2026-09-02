@@ -90,7 +90,7 @@
   function clearFieldErrors() {
     ["fieldConductorNombres", "fieldConductorIdentificacion", "fieldConductorTelefono",
       "fieldConductorCorreo", "fieldConductorLicenciaNumero", "fieldConductorLicenciaCategoria",
-      "fieldConductorLicenciaVencimiento"]
+      "fieldConductorLicenciaVencimiento", "fieldConductorVehiculo"]
       .forEach((id) => setFieldError(id, ""));
   }
 
@@ -352,6 +352,8 @@
     } catch (error) {
       if (/identificaci/i.test(error.message || "")) {
         setFieldError("fieldConductorIdentificacion", error.message);
+      } else if (/vehículo ya está asignado/i.test(error.message || "")) {
+        setFieldError("fieldConductorVehiculo", error.message);
       } else {
         alert(error.message || "No se pudo guardar el conductor.");
       }

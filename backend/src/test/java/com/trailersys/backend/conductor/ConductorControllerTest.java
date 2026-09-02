@@ -3,6 +3,7 @@ package com.trailersys.backend.conductor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -103,6 +104,76 @@ class ConductorControllerTest {
                 .andExpect(jsonPath("$.vehiculoId").value(vehiculoId))
                 .andExpect(jsonPath("$.vehiculoPlaca").value("CND-0001"))
                 .andExpect(jsonPath("$.licenciaVencida").value(false));
+    }
+
+    private Long crearConductorConVehiculo(String sufijo, Long vehiculoId) throws Exception {
+        String conductor = """
+                {"nombres":"Conductor %s","identificacion":"CI-%s","telefono":"0999999999",
+                 "licenciaNumero":"LIC-%s","licenciaCategoria":"Tipo E",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible"%s}
+                """.formatted(sufijo, sufijo, sufijo, vehiculoId == null ? "" : ",\"vehiculoId\":" + vehiculoId);
+        String creado = mockMvc.perform(post("/api/conductores")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conductor))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(creado).get("id").asLong();
+    }
+
+    @Test
+    void dosConductoresNoPuedenTenerElMismoVehiculoAsignado() throws Exception {
+        Long vehiculoId = crearVehiculoDePrueba("CND-DUP-01");
+        crearConductorConVehiculo("DupA", vehiculoId);
+
+        String conductorB = """
+                {"nombres":"Conductor DupB","identificacion":"CI-DupB","telefono":"0999999999",
+                 "licenciaNumero":"LIC-DupB","licenciaCategoria":"Tipo E",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible","vehiculoId":%d}
+                """.formatted(vehiculoId);
+        mockMvc.perform(post("/api/conductores")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conductorB))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void editarUnConductorSinCambiarSuVehiculoNoSeRechazaASiMismo() throws Exception {
+        Long vehiculoId = crearVehiculoDePrueba("CND-EDIT-01");
+        Long conductorId = crearConductorConVehiculo("EditPropio", vehiculoId);
+
+        String edicion = """
+                {"nombres":"Conductor Editado","identificacion":"CI-EditPropio","telefono":"0999999999",
+                 "licenciaNumero":"LIC-EditPropio","licenciaCategoria":"Tipo E",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible","vehiculoId":%d}
+                """.formatted(vehiculoId);
+        mockMvc.perform(put("/api/conductores/" + conductorId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombres").value("Conductor Editado"))
+                .andExpect(jsonPath("$.vehiculoId").value(vehiculoId));
+    }
+
+    @Test
+    void editarUnConductorParaApuntarAUnVehiculoYaAsignadoAOtroDaConflicto() throws Exception {
+        Long vehiculoLibre = crearVehiculoDePrueba("CND-LIBRE-01");
+        Long vehiculoOcupado = crearVehiculoDePrueba("CND-OCUPADO-01");
+        crearConductorConVehiculo("Ocupado", vehiculoOcupado);
+        Long conductorLibreId = crearConductorConVehiculo("Libre", vehiculoLibre);
+
+        String edicion = """
+                {"nombres":"Conductor Libre","identificacion":"CI-Libre","telefono":"0999999999",
+                 "licenciaNumero":"LIC-Libre","licenciaCategoria":"Tipo E",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible","vehiculoId":%d}
+                """.formatted(vehiculoOcupado);
+        mockMvc.perform(put("/api/conductores/" + conductorLibreId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isConflict());
     }
 
     /**

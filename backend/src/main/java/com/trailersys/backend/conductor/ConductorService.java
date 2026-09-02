@@ -48,6 +48,7 @@ public class ConductorService {
         if (repository.existsByIdentificacionIgnoreCase(request.identificacion())) {
             throw new ConflictException("Ya existe un conductor con esta identificación.");
         }
+        validarVehiculoDisponible(request.vehiculoId(), null);
 
         Conductor conductor = new Conductor(request.nombres(), request.identificacion(), request.telefono(),
                 request.correo(), request.licenciaNumero(), request.licenciaCategoria(), request.licenciaVencimiento(),
@@ -65,6 +66,7 @@ public class ConductorService {
                 .ifPresent(existente -> {
                     throw new ConflictException("Ya existe un conductor con esta identificación.");
                 });
+        validarVehiculoDisponible(request.vehiculoId(), id);
 
         conductor.setNombres(request.nombres());
         conductor.setIdentificacion(request.identificacion());
@@ -80,6 +82,27 @@ public class ConductorService {
         conductor.setFechaNacimiento(request.fechaNacimiento());
 
         return conductor;
+    }
+
+    /**
+     * Sin este chequeo, el selector "Vehículo asignado" no impedia elegir un
+     * vehiculo que YA es el vehiculo de OTRO conductor - quedaban dos
+     * conductores distintos "siendo" el dueño del mismo vehiculo (el campo
+     * es informativo, "mi vehiculo" en el Dashboard del conductor, pero
+     * ambos lo verian como propio). idActual excluye al propio conductor
+     * cuando se esta editando, para que guardarlo sin tocar su vehiculo no
+     * se rechace a si mismo.
+     */
+    private void validarVehiculoDisponible(Long vehiculoId, Long idActual) {
+        if (vehiculoId == null) {
+            return;
+        }
+        repository.findFirstByVehiculo_Id(vehiculoId)
+                .filter(c -> !c.getId().equals(idActual))
+                .ifPresent(c -> {
+                    throw new ConflictException(
+                            "Ese vehículo ya está asignado al conductor \"" + c.getNombres() + "\".");
+                });
     }
 
     @Transactional
