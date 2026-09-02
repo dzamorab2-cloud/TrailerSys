@@ -274,6 +274,75 @@ class ViajeControllerTest {
         return objectMapper.readTree(body).get("token").asText();
     }
 
+    /** Crea (via el endpoint de administracion) una cuenta CONDUCTOR vinculada a conductorId, y su token. */
+    private String crearUsuarioConductorYToken(String username, Long conductorId) throws Exception {
+        String usuario = """
+                {"username":"%s","password":"clave1234","nombre":"Usuario %s","rol":"CONDUCTOR","activo":true,"conductorId":%d}
+                """.formatted(username, username, conductorId);
+        mockMvc.perform(post("/api/usuarios")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(usuario))
+                .andExpect(status().isCreated());
+        String body = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"%s\",\"password\":\"clave1234\"}".formatted(username)))
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("token").asText();
+    }
+
+    @Test
+    void unConductorNoPuedeConfirmarLaEntregaDeUnViajeAjeno() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-AJENO-01");
+        Long conductorDelViajeId = crearConductor("CI-VJE-AJENO-DUENO");
+        Long otroConductorId = crearConductor("CI-VJE-AJENO-OTRO");
+        Long clienteId = crearCliente("CI-VJE-AJENO-CLI-01");
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"Quito","destino":"Guayaquil","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorDelViajeId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        String tokenOtroConductor = crearUsuarioConductorYToken("conductorviajeajeno", otroConductorId);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenOtroConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unConductorSiPuedeConfirmarLaEntregaDeSuPropioViaje() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-PROPIO-01");
+        Long conductorId = crearConductor("CI-VJE-PROPIO-DUENO");
+        Long clienteId = crearCliente("CI-VJE-PROPIO-CLI-01");
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"Quito","destino":"Guayaquil","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        String tokenPropioConductor = crearUsuarioConductorYToken("conductorviajepropio", conductorId);
+        mockMvc.perform(post("/api/viajes/" + viajeId + "/confirmar-entrega")
+                        .header("Authorization", "Bearer " + tokenPropioConductor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entregaConfirmada").value(true));
+    }
+
     @Test
     void crearViajeConCargaDeOtroClienteDaError() throws Exception {
         Long vehiculoId = crearVehiculo("VJE-CRG-01");

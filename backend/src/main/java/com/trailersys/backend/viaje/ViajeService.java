@@ -19,12 +19,15 @@ import com.trailersys.backend.conductor.ConductorRepository;
 import com.trailersys.backend.seguimiento.SeguimientoEvento;
 import com.trailersys.backend.seguimiento.SeguimientoEventoRepository;
 import com.trailersys.backend.seguimiento.TipoEvento;
+import com.trailersys.backend.usuario.Usuario;
+import com.trailersys.backend.usuario.UsuarioRepository;
 import com.trailersys.backend.vehiculo.EstadoVehiculo;
 import com.trailersys.backend.vehiculo.Vehiculo;
 import com.trailersys.backend.vehiculo.VehiculoRepository;
 import com.trailersys.backend.conductor.EstadoConductor;
 import com.trailersys.backend.viaje.dto.RutaDto;
 import com.trailersys.backend.viaje.dto.ViajeRequest;
+import org.springframework.security.access.AccessDeniedException;
 
 @Service
 public class ViajeService {
@@ -35,16 +38,19 @@ public class ViajeService {
     private final ClienteRepository clienteRepository;
     private final CargaRepository cargaRepository;
     private final SeguimientoEventoRepository seguimientoEventoRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public ViajeService(ViajeRepository repository, VehiculoRepository vehiculoRepository,
                          ConductorRepository conductorRepository, ClienteRepository clienteRepository,
-                         CargaRepository cargaRepository, SeguimientoEventoRepository seguimientoEventoRepository) {
+                         CargaRepository cargaRepository, SeguimientoEventoRepository seguimientoEventoRepository,
+                         UsuarioRepository usuarioRepository) {
         this.repository = repository;
         this.vehiculoRepository = vehiculoRepository;
         this.conductorRepository = conductorRepository;
         this.clienteRepository = clienteRepository;
         this.cargaRepository = cargaRepository;
         this.seguimientoEventoRepository = seguimientoEventoRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     public List<Viaje> listar(EstadoViaje estado, String search) {
@@ -353,6 +359,7 @@ public class ViajeService {
     @Transactional
     public Viaje confirmarEntrega(Long id, String observacion, String username) {
         Viaje viaje = obtener(id);
+        verificarPropioViajeSiEsConductor(viaje, username);
 
         if (viaje.getEstado() != EstadoViaje.EN_CURSO) {
             throw new ConflictException("Solo se puede confirmar la llegada de un viaje que esta \"En Curso\".");
@@ -363,6 +370,26 @@ public class ViajeService {
 
         registrarLlegada(viaje, observacion, username);
         return viaje;
+    }
+
+    /**
+     * confirmar-entrega admite CONDUCTOR ademas de ADMINISTRADOR (ver
+     * ViajeController) para que el propio chofer pueda confirmar la llegada
+     * como respaldo manual cuando la simulacion automatica no puede
+     * detectarla (sin ruta calculada) - pero nada comprobaba que el viaje
+     * fuera realmente suyo. Cualquier cuenta CONDUCTOR podia confirmar la
+     * llegada de un viaje ajeno con solo cambiar el id en la peticion
+     * (mismo problema, mismo arreglo, que SeguimientoService). Administrador
+     * (sin Conductor vinculado a su Usuario) sigue sin restriccion.
+     */
+    private void verificarPropioViajeSiEsConductor(Viaje viaje, String username) {
+        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username).orElse(null);
+        if (usuario == null || usuario.getConductor() == null) {
+            return;
+        }
+        if (!usuario.getConductor().getId().equals(viaje.getConductor().getId())) {
+            throw new AccessDeniedException("Solo puedes confirmar la entrega de tus propios viajes.");
+        }
     }
 
     /**
