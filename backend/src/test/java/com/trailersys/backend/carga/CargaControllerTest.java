@@ -1,8 +1,10 @@
 package com.trailersys.backend.carga;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -52,6 +54,35 @@ class CargaControllerTest {
                 .andReturn().getResponse().getContentAsString();
 
         tokenAdmin = objectMapper.readTree(body).get("token").asText();
+    }
+
+    private Long crearVehiculoDePrueba(String placa) throws Exception {
+        String vehiculo = """
+                {"placa":"%s","marca":"M","modelo":"M","tipo":"Camión","anio":2020,"color":"Rojo",
+                 "estado":"Disponible","kilometraje":0,"capacidad":0}
+                """.formatted(placa);
+        String creado = mockMvc.perform(post("/api/vehiculos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(vehiculo))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(creado).get("id").asLong();
+    }
+
+    private Long crearConductorDePrueba(String identificacion) throws Exception {
+        String conductor = """
+                {"nombres":"Conductor Carga Test","identificacion":"%s","telefono":"0999999999",
+                 "licenciaNumero":"LIC-%s","licenciaCategoria":"Tipo E",
+                 "licenciaVencimiento":"2030-01-01","estado":"Disponible"}
+                """.formatted(identificacion, identificacion);
+        String creado = mockMvc.perform(post("/api/conductores")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conductor))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(creado).get("id").asLong();
     }
 
     private Long crearClienteDePrueba(String identificacion) throws Exception {
@@ -167,5 +198,106 @@ class CargaControllerTest {
         mockMvc.perform(get("/api/cargas")
                         .header("Authorization", "Bearer " + tokenSupervisor))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void editarUnaCargaPendienteFunciona() throws Exception {
+        Long clienteId = crearClienteDePrueba("CI-CARGA-EDIT");
+        String carga = """
+                {"descripcion":"Original","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"A","destino":"B","estado":"Pendiente"}
+                """.formatted(clienteId);
+        String creada = mockMvc.perform(post("/api/cargas")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(carga))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creada).get("id").asLong();
+
+        String edicion = """
+                {"descripcion":"Corregida","clienteId":%d,"tipo":"Textiles",
+                 "peso":200,"origen":"C","destino":"D","estado":"Pendiente"}
+                """.formatted(clienteId);
+        mockMvc.perform(put("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.descripcion").value("Corregida"))
+                .andExpect(jsonPath("$.peso").value(200));
+    }
+
+    @Test
+    void eliminarUnaCargaPendienteFunciona() throws Exception {
+        Long clienteId = crearClienteDePrueba("CI-CARGA-DEL");
+        String carga = """
+                {"descripcion":"A borrar","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"A","destino":"B","estado":"Pendiente"}
+                """.formatted(clienteId);
+        String creada = mockMvc.perform(post("/api/cargas")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(carga))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creada).get("id").asLong();
+
+        mockMvc.perform(delete("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void editarNiEliminarUnaCargaYaAsignadaAUnViajeDaConflicto() throws Exception {
+        Long clienteId = crearClienteDePrueba("CI-CARGA-ASIG");
+        Long vehiculoId = crearVehiculoDePrueba("CRG-ASIG-01");
+        Long conductorId = crearConductorDePrueba("CI-CARGA-ASIG-COND");
+
+        String carga = """
+                {"descripcion":"Ya en proceso","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"Quito","destino":"Guayaquil","estado":"Pendiente"}
+                """.formatted(clienteId);
+        String creada = mockMvc.perform(post("/api/cargas")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(carga))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creada).get("id").asLong();
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"Quito","destino":"Guayaquil","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductorId, clienteId, cargaId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated());
+
+        // La carga ya paso a "Asignada" sola (sincronizarEstadoCarga): a
+        // partir de aca, editar o eliminar deben rechazarse.
+        mockMvc.perform(get("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(jsonPath("$.estado").value("Asignada"));
+
+        String edicion = """
+                {"descripcion":"Intento de edicion","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"Quito","destino":"Guayaquil","estado":"Asignada"}
+                """.formatted(clienteId);
+        mockMvc.perform(put("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(delete("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isConflict());
     }
 }

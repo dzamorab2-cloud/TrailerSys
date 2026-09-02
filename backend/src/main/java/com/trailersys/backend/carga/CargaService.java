@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.trailersys.backend.carga.dto.CargaRequest;
 import com.trailersys.backend.cliente.Cliente;
 import com.trailersys.backend.cliente.ClienteRepository;
+import com.trailersys.backend.common.ConflictException;
 import com.trailersys.backend.common.ResourceNotFoundException;
 
 @Service
@@ -46,9 +47,30 @@ public class CargaService {
         return repository.save(carga);
     }
 
+    /**
+     * Igual que PedidoClienteService.miCargaPendiente() del lado del
+     * cliente: editar o eliminar una carga solo tiene sentido mientras
+     * sigue "Pendiente" (todavia sin viaje asignado). En cuanto un
+     * Coordinador le arma un viaje, sincronizarEstadoCarga() ya la saca de
+     * Pendiente (ver ViajeService), asi que este chequeo alcanza para
+     * saber si algun viaje depende de ella - sin esto, eliminar() podia
+     * toparse con el mismo tipo de error de integridad referencial que se
+     * corrigio para Viajes (viajes.carga_id apunta a esta fila), y
+     * actualizar() dejaba pisar el origen/destino/cliente/estado de una
+     * carga que Operacion ya esta transportando, desincronizandola del
+     * viaje que la referencia (que guarda su propia copia de esos datos).
+     */
+    private void requerirPendiente(Carga carga) {
+        if (carga.getEstado() != EstadoCarga.PENDIENTE) {
+            throw new ConflictException(
+                    "Solo se puede editar o eliminar una carga que sigue \"Pendiente\": esta ya tiene un viaje asignado.");
+        }
+    }
+
     @Transactional
     public Carga actualizar(Long id, CargaRequest request) {
         Carga carga = obtener(id);
+        requerirPendiente(carga);
         Cliente cliente = resolverCliente(request.clienteId());
 
         carga.setDescripcion(request.descripcion());
@@ -65,9 +87,8 @@ public class CargaService {
 
     @Transactional
     public void eliminar(Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResourceNotFoundException("Carga no encontrada: " + id);
-        }
+        Carga carga = obtener(id);
+        requerirPendiente(carga);
         repository.deleteById(id);
     }
 

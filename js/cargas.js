@@ -179,11 +179,17 @@
       ? `<span class="badge badge-warning"><i class="bi bi-exclamation-circle"></i> Sin viaje asignado</span>`
       : "";
 
+    // Igual que en Mis pedidos (autoservicio del Cliente): el backend ya
+    // rechaza con 409 editar/eliminar una carga que dejo de estar
+    // "Pendiente" (en cuanto tiene un viaje asignado, sincronizarEstadoCarga
+    // la saca de ese estado sola) - se ocultan los botones directamente en
+    // vez de dejar que el Coordinador se tope con el error.
+    const puedeEditar = canManage && carga.estado === "Pendiente";
     const actions = `<div class="item-actions">
           <button type="button" class="icon-btn" data-action="guia" data-id="${carga.id}" title="Ver e imprimir guía">
             <i class="bi bi-file-earmark-text"></i>
           </button>
-          ${canManage ? `
+          ${puedeEditar ? `
           <button type="button" class="icon-btn" data-action="editar" data-id="${carga.id}" title="Editar">
             <i class="bi bi-pencil"></i>
           </button>
