@@ -11,4 +11,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     boolean existsByUsernameIgnoreCase(String username);
 
     long countByRolAndActivoTrue(Rol rol);
+
+    /** Para impedir que dos cuentas de usuario queden vinculadas al mismo Cliente/Conductor (ver UsuarioService). */
+    Optional<Usuario> findByClienteId(Long clienteId);
+
+    Optional<Usuario> findByConductorId(Long conductorId);
 }

@@ -47,8 +47,8 @@ public class UsuarioService {
         Usuario usuario = new Usuario(request.username().trim(), passwordEncoder.encode(request.password()),
                 request.nombre().trim(), normalizar(request.correo()), request.rol());
         usuario.setActivo(request.activo());
-        usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId()));
-        usuario.setConductor(resolverConductorSiAplica(request.rol(), request.conductorId()));
+        usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId(), null));
+        usuario.setConductor(resolverConductorSiAplica(request.rol(), request.conductorId(), null));
         return repository.save(usuario);
     }
 
@@ -62,8 +62,8 @@ public class UsuarioService {
         usuario.setCorreo(normalizar(request.correo()));
         usuario.setRol(request.rol());
         usuario.setActivo(request.activo());
-        usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId()));
-        usuario.setConductor(resolverConductorSiAplica(request.rol(), request.conductorId()));
+        usuario.setCliente(resolverClienteSiAplica(request.rol(), request.clienteId(), id));
+        usuario.setConductor(resolverConductorSiAplica(request.rol(), request.conductorId(), id));
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPasswordHash(passwordEncoder.encode(request.password()));
             // Si la cuenta estaba bloqueada por intentos fallidos (ver
@@ -81,16 +81,21 @@ public class UsuarioService {
      * Solo los usuarios con rol CLIENTE quedan vinculados a un Cliente: para
      * cualquier otro rol se ignora el clienteId del request (se normaliza a
      * null) en vez de dejar un vinculo inconsistente con personal interno.
+     * idActual es el id del propio usuario cuando se esta editando (null al
+     * crear) - sin excluirlo, editar un usuario sin tocar su cliente se
+     * rechazaria a si mismo como "ya vinculado".
      */
-    private Cliente resolverClienteSiAplica(Rol rol, Long clienteId) {
+    private Cliente resolverClienteSiAplica(Rol rol, Long clienteId, Long idActual) {
         if (rol != Rol.CLIENTE) {
             return null;
         }
         if (clienteId == null) {
             throw new IllegalArgumentException("Selecciona el cliente asociado a este usuario.");
         }
-        return clienteRepository.findById(clienteId)
+        Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: " + clienteId));
+        validarClienteDisponible(clienteId, idActual);
+        return cliente;
     }
 
     /**
@@ -99,15 +104,42 @@ public class UsuarioService {
      * viajes") sepa a que Conductor pertenece la sesion, sin confiar en un
      * conductorId que venga de otra parte.
      */
-    private Conductor resolverConductorSiAplica(Rol rol, Long conductorId) {
+    private Conductor resolverConductorSiAplica(Rol rol, Long conductorId, Long idActual) {
         if (rol != Rol.CONDUCTOR) {
             return null;
         }
         if (conductorId == null) {
             throw new IllegalArgumentException("Selecciona el conductor asociado a este usuario.");
         }
-        return conductorRepository.findById(conductorId)
+        Conductor conductor = conductorRepository.findById(conductorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conductor no encontrado: " + conductorId));
+        validarConductorDisponible(conductorId, idActual);
+        return conductor;
+    }
+
+    /**
+     * Sin este chequeo, el selector "Cliente asociado" (y su equivalente de
+     * Conductor) no impedia elegir a alguien que YA tiene una cuenta -
+     * quedaban dos usuarios distintos representando a la misma persona/
+     * empresa, y el autoservicio de esa cuenta (Mis pedidos, Mis viajes)
+     * quedaba ambiguo sobre cual de las dos cuentas es "la real".
+     */
+    private void validarClienteDisponible(Long clienteId, Long idActual) {
+        repository.findByClienteId(clienteId)
+                .filter(u -> !u.getId().equals(idActual))
+                .ifPresent(u -> {
+                    throw new ConflictException(
+                            "Ese cliente ya tiene una cuenta de usuario (\"" + u.getUsername() + "\").");
+                });
+    }
+
+    private void validarConductorDisponible(Long conductorId, Long idActual) {
+        repository.findByConductorId(conductorId)
+                .filter(u -> !u.getId().equals(idActual))
+                .ifPresent(u -> {
+                    throw new ConflictException(
+                            "Ese conductor ya tiene una cuenta de usuario (\"" + u.getUsername() + "\").");
+                });
     }
 
     @Transactional
