@@ -46,9 +46,10 @@ public class ViajeController {
     @GetMapping
     @PreAuthorize(PUEDE_CONSULTAR)
     public List<ViajeResponse> listar(
-            @RequestParam(required = false) EstadoViaje estado,
+            @RequestParam(required = false) String estado,
             @RequestParam(required = false) String search) {
-        return service.listar(estado, search).stream().map(ViajeResponse::from).toList();
+        EstadoViaje estadoFiltro = estado == null || estado.isBlank() ? null : EstadoViaje.desdeEtiqueta(estado);
+        return service.listar(estadoFiltro, search).stream().map(ViajeResponse::from).toList();
     }
 
     @GetMapping("/{id}")

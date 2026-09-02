@@ -40,9 +40,10 @@ public class MantenimientoController {
     @GetMapping
     public List<MantenimientoResponse> listar(
             @RequestParam(required = false) Long vehiculoId,
-            @RequestParam(required = false) TipoMantenimiento tipo,
+            @RequestParam(required = false) String tipo,
             @RequestParam(required = false) String search) {
-        return service.listar(vehiculoId, tipo, search).stream().map(MantenimientoResponse::from).toList();
+        TipoMantenimiento tipoFiltro = tipo == null || tipo.isBlank() ? null : TipoMantenimiento.desdeEtiqueta(tipo);
+        return service.listar(vehiculoId, tipoFiltro, search).stream().map(MantenimientoResponse::from).toList();
     }
 
     @GetMapping("/{id}")

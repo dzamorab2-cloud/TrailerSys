@@ -86,6 +86,30 @@ class VehiculoControllerTest {
     }
 
     @Test
+    void filtrarPorEstadoConLaEtiquetaQueUsaElFrontendFunciona() throws Exception {
+        String vehiculo = """
+                {"placa":"TST-FILTRO","marca":"M","modelo":"M","tipo":"Camión","anio":2020,
+                 "color":"Rojo","estado":"Fuera de Servicio","kilometraje":0,"capacidad":0}
+                """;
+        mockMvc.perform(post("/api/vehiculos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(vehiculo))
+                .andExpect(status().isCreated());
+
+        // "Fuera de Servicio" es la etiqueta que manda el frontend (con
+        // espacios, a proposito): antes de este fix, el binder por defecto
+        // de Spring solo aceptaba el nombre interno del enum
+        // ("FUERA_DE_SERVICIO") y esta llamada devolvia 400.
+        String listado = mockMvc.perform(get("/api/vehiculos")
+                        .param("estado", "Fuera de Servicio")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(objectMapper.readTree(listado)).isNotEmpty();
+    }
+
+    @Test
     void crearConsultarYEliminarVehiculo() throws Exception {
         String nuevoVehiculo = """
                 {

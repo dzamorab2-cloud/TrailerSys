@@ -153,6 +153,30 @@ class CargaControllerTest {
     }
 
     @Test
+    void filtrarPorEstadoConLaEtiquetaQueUsaElFrontendFunciona() throws Exception {
+        Long clienteId = crearClienteDePrueba("CI-CARGA-FILTRO");
+        String carga = """
+                {"descripcion":"Carga para filtro","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"Quito","destino":"Ambato","estado":"Pendiente"}
+                """.formatted(clienteId);
+        mockMvc.perform(post("/api/cargas")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(carga))
+                .andExpect(status().isCreated());
+
+        // "Pendiente" es la etiqueta que manda el frontend, no el nombre
+        // interno del enum: antes de este fix, el binder por defecto de
+        // Spring solo aceptaba "PENDIENTE" y esta llamada devolvia 400.
+        String listado = mockMvc.perform(get("/api/cargas")
+                        .param("estado", "Pendiente")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(objectMapper.readTree(listado)).isNotEmpty();
+    }
+
+    @Test
     void crearConClienteInexistenteDevuelveNoEncontrado() throws Exception {
         String carga = """
                 {"descripcion":"Carga sin cliente","clienteId":999999,"tipo":"General",

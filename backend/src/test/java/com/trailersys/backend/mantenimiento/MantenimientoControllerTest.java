@@ -163,6 +163,31 @@ class MantenimientoControllerTest {
     }
 
     @Test
+    void filtrarPorTipoConLaEtiquetaQueUsaElFrontendFunciona() throws Exception {
+        Long vehiculoId = crearVehiculo("MNT-TIPO-01");
+        String mantenimiento = """
+                {"vehiculoId":%d,"tipo":"Preventivo","fecha":"2026-08-01","kilometraje":1000,
+                 "costo":85.50,"descripcion":"Filtro por tipo"}
+                """.formatted(vehiculoId);
+        mockMvc.perform(post("/api/mantenimientos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mantenimiento))
+                .andExpect(status().isCreated());
+
+        // "Preventivo" es la etiqueta que manda el frontend (js/mantenimientos.js),
+        // no el nombre interno del enum ("PREVENTIVO"): antes de este fix,
+        // el binder por defecto de Spring solo aceptaba el nombre exacto del
+        // enum y esta llamada devolvia 400.
+        mockMvc.perform(get("/api/mantenimientos")
+                        .param("tipo", "Preventivo")
+                        .param("vehiculoId", String.valueOf(vehiculoId))
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].tipo").value("Preventivo"));
+    }
+
+    @Test
     void rolSinAccesoAModuloDevuelveProhibido() throws Exception {
         if (usuarioRepository.findByUsernameIgnoreCase("coordinadormanttest").isEmpty()) {
             usuarioRepository.save(new Usuario(

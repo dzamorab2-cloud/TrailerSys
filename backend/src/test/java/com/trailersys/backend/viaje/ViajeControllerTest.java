@@ -123,6 +123,34 @@ class ViajeControllerTest {
     }
 
     @Test
+    void filtrarPorEstadoConLaEtiquetaQueUsaElFrontendFunciona() throws Exception {
+        Long vehiculoId = crearVehiculo("VJE-FILTRO");
+        Long conductorId = crearConductor("CI-VJE-FILTRO");
+        Long clienteId = crearCliente("CI-VJE-CLI-FILTRO");
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"origen":"Quito, Ecuador",
+                 "destino":"Guayaquil, Ecuador","fechaSalida":"2026-08-15T08:30:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated());
+
+        // "En Curso" es la etiqueta que manda el frontend (con espacio, a
+        // proposito): antes de este fix, el binder por defecto de Spring
+        // solo aceptaba el nombre interno del enum ("EN_CURSO") y esta
+        // llamada devolvia 400.
+        String listado = mockMvc.perform(get("/api/viajes")
+                        .param("estado", "En Curso")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(objectMapper.readTree(listado)).isNotEmpty();
+    }
+
+    @Test
     void crearViajeConRutaDevuelveDatosDeRelacionesYRuta() throws Exception {
         Long vehiculoId = crearVehiculo("VJE-0001");
         Long conductorId = crearConductor("CI-VJE-0001");

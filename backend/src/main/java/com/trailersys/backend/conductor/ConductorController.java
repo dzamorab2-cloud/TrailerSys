@@ -38,9 +38,10 @@ public class ConductorController {
 
     @GetMapping
     public List<ConductorResponse> listar(
-            @RequestParam(required = false) EstadoConductor estado,
+            @RequestParam(required = false) String estado,
             @RequestParam(required = false) String search) {
-        return service.listar(estado, search).stream().map(ConductorResponse::from).toList();
+        EstadoConductor estadoFiltro = estado == null || estado.isBlank() ? null : EstadoConductor.desdeEtiqueta(estado);
+        return service.listar(estadoFiltro, search).stream().map(ConductorResponse::from).toList();
     }
 
     @GetMapping("/{id}")

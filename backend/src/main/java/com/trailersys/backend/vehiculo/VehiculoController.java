@@ -41,9 +41,10 @@ public class VehiculoController {
     @GetMapping
     @PreAuthorize(PUEDE_CONSULTAR)
     public List<VehiculoResponse> listar(
-            @RequestParam(required = false) EstadoVehiculo estado,
+            @RequestParam(required = false) String estado,
             @RequestParam(required = false) String search) {
-        return service.listar(estado, search).stream().map(VehiculoResponse::from).toList();
+        EstadoVehiculo estadoFiltro = estado == null || estado.isBlank() ? null : EstadoVehiculo.desdeEtiqueta(estado);
+        return service.listar(estadoFiltro, search).stream().map(VehiculoResponse::from).toList();
     }
 
     @GetMapping("/{id}")

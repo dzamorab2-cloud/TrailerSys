@@ -38,9 +38,10 @@ public class ClienteController {
 
     @GetMapping
     public List<ClienteResponse> listar(
-            @RequestParam(required = false) EstadoCliente estado,
+            @RequestParam(required = false) String estado,
             @RequestParam(required = false) String search) {
-        return service.listar(estado, search).stream().map(ClienteResponse::from).toList();
+        EstadoCliente estadoFiltro = estado == null || estado.isBlank() ? null : EstadoCliente.desdeEtiqueta(estado);
+        return service.listar(estadoFiltro, search).stream().map(ClienteResponse::from).toList();
     }
 
     @GetMapping("/{id}")

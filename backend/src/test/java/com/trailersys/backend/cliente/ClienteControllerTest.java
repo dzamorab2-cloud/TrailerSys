@@ -101,6 +101,29 @@ class ClienteControllerTest {
     }
 
     @Test
+    void filtrarPorEstadoConLaEtiquetaQueUsaElFrontendFunciona() throws Exception {
+        String cliente = """
+                {"nombre":"Cliente Filtro","identificacion":"CI-CLI-FILTRO","estado":"Activo",
+                 "telefono":"022345566","direccion":"Direccion de prueba"}
+                """;
+        mockMvc.perform(post("/api/clientes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cliente))
+                .andExpect(status().isCreated());
+
+        // "Activo" es la etiqueta que manda el frontend, no el nombre interno
+        // del enum: antes de este fix, el binder por defecto de Spring solo
+        // aceptaba "ACTIVO" y esta llamada devolvia 400.
+        String listado = mockMvc.perform(get("/api/clientes")
+                        .param("estado", "Activo")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(objectMapper.readTree(listado)).isNotEmpty();
+    }
+
+    @Test
     void crearConIdentificacionDuplicadaDevuelveConflicto() throws Exception {
         String cliente = """
                 {"nombre":"Uno","identificacion":"DUP-CLI","estado":"Activo",

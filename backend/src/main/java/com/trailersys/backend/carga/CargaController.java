@@ -38,9 +38,10 @@ public class CargaController {
 
     @GetMapping
     public List<CargaResponse> listar(
-            @RequestParam(required = false) EstadoCarga estado,
+            @RequestParam(required = false) String estado,
             @RequestParam(required = false) String search) {
-        return service.listar(estado, search).stream().map(CargaResponse::from).toList();
+        EstadoCarga estadoFiltro = estado == null || estado.isBlank() ? null : EstadoCarga.desdeEtiqueta(estado);
+        return service.listar(estadoFiltro, search).stream().map(CargaResponse::from).toList();
     }
 
     @GetMapping("/{id}")
