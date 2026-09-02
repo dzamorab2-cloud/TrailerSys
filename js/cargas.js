@@ -1,10 +1,11 @@
 (function () {
-  const ESTADOS = ["Pendiente", "Asignada", "En Tránsito", "Entregada"];
+  const ESTADOS = ["Pendiente", "Asignada", "En Tránsito", "Entregada", "Cancelada"];
   const ESTADO_BADGE = {
     Pendiente: "badge-warning",
     Asignada: "badge-info",
     "En Tránsito": "badge-neutral",
     Entregada: "badge-success",
+    Cancelada: "badge-danger",
   };
 
   // Cache del ultimo listado de cargas cargado desde la API, para que los

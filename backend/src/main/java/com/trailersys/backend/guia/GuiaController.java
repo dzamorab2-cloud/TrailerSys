@@ -44,7 +44,7 @@ public class GuiaController {
             SELECT 'GUIA-CAR-' || lpad(c.id::text, 6, '0'), 'CARGA', c.id, NULL::timestamp,
                    c.descripcion, cl.nombre, co.nombres, ve.placa, c.origen, c.destino,
                    CASE c.estado WHEN 'EN_TRANSITO' THEN 'En Tránsito' WHEN 'ENTREGADA' THEN 'Entregada'
-                     WHEN 'ASIGNADA' THEN 'Asignada' ELSE 'Pendiente' END
+                     WHEN 'ASIGNADA' THEN 'Asignada' WHEN 'CANCELADA' THEN 'Cancelada' ELSE 'Pendiente' END
             FROM cargas c JOIN clientes cl ON cl.id=c.cliente_id
                  -- El conductor/placa de una carga no son un dato propio: se toman
                  -- del ultimo viaje que la transporto (mismo criterio que

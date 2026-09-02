@@ -11,7 +11,9 @@ public enum EstadoCarga {
     PENDIENTE("Pendiente"),
     ASIGNADA("Asignada"),
     EN_TRANSITO("En Tránsito"),
-    ENTREGADA("Entregada");
+    ENTREGADA("Entregada"),
+    /** El cliente cancelo su pedido mientras seguia Pendiente (ver PedidoClienteService.eliminarPedido()). */
+    CANCELADA("Cancelada");
 
     private final String etiqueta;
 

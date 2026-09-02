@@ -520,6 +520,7 @@
                 <option value="Asignada">Asignada</option>
                 <option value="En Tránsito">En Tránsito</option>
                 <option value="Entregada">Entregada</option>
+                <option value="Cancelada">Cancelada</option>
               </select>
             </div>
           </div>
@@ -747,7 +748,7 @@
             <div class="toolbar-search"><i class="bi bi-search"></i><input id="guiaBuscar" type="search" placeholder="Buscar número, carga, cliente, conductor o placa" /></div>
             <div class="toolbar-filters">
               <select id="guiaTipoFiltro" class="select-pill"><option value="">Todas las guías</option><option value="VIAJE">Viajes</option><option value="CARGA">Cargas</option></select>
-              <select id="guiaEstadoFiltro" class="select-pill"><option value="">Todos los estados</option><option>Pendiente</option><option>Asignada</option><option>En Tránsito</option><option>Entregada</option><option>Programado</option><option>En Curso</option><option>Finalizado</option><option>Cancelado</option></select>
+              <select id="guiaEstadoFiltro" class="select-pill"><option value="">Todos los estados</option><option>Pendiente</option><option>Asignada</option><option>En Tránsito</option><option>Entregada</option><option>Cancelada</option><option>Programado</option><option>En Curso</option><option>Finalizado</option><option>Cancelado</option></select>
             </div>
           </div>
           <div class="stats-row" id="guiaStats"></div>
@@ -855,7 +856,7 @@
           <div class="card pedido-notifications" id="pedidoNotifications" hidden></div>
           <div class="toolbar pedido-toolbar">
             <div class="toolbar-search"><i class="bi bi-search"></i><input id="pedidoBuscar" type="search" placeholder="Buscar número, carga, origen o destino" /></div>
-            <div class="toolbar-filters"><select id="pedidoEstadoFiltro" class="select-pill"><option value="">Todos los estados</option><option>Pendiente</option><option>Asignada</option><option>En Tránsito</option><option>Entregada</option><option value="RECLAMO">Con reclamo</option></select><input id="pedidoFechaFiltro" class="select-pill" type="date" aria-label="Filtrar por fecha" /></div>
+            <div class="toolbar-filters"><select id="pedidoEstadoFiltro" class="select-pill"><option value="">Todos los estados</option><option>Pendiente</option><option>Asignada</option><option>En Tránsito</option><option>Entregada</option><option>Cancelada</option><option value="RECLAMO">Con reclamo</option></select><input id="pedidoFechaFiltro" class="select-pill" type="date" aria-label="Filtrar por fecha" /></div>
           </div>
 
           <p class="results-count" id="pedidoResultsCount"></p>
@@ -1402,6 +1403,7 @@
                 <option value="Asignada">Asignada</option>
                 <option value="En Tránsito">En Tránsito</option>
                 <option value="Entregada">Entregada</option>
+                <option value="Cancelada">Cancelada</option>
               </select>
             </div>
           </div>

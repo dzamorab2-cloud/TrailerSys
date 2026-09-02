@@ -111,10 +111,18 @@ public class PedidoClienteService {
         return carga;
     }
 
+    /**
+     * "Cancelar" un pedido Pendiente antes se hacia con un DELETE real: la
+     * fila desaparecia sin dejar rastro visible en ninguna pantalla (solo
+     * quedaba en la auditoria de la base). Carga ya tenia el mismo patron
+     * que Viaje (que si distingue "Cancelado" de "eliminado") sin usarlo -
+     * ahora se archiva como CANCELADA en vez de borrarse, igual que un
+     * viaje cancelado sigue visible en Viajes/Guias/Reportes.
+     */
     @Transactional
     public void eliminarPedido(String username, Long cargaId) {
         Carga carga = miCargaPendiente(username, cargaId);
-        cargaRepository.delete(carga);
+        carga.setEstado(EstadoCarga.CANCELADA);
     }
 
     public Viaje obtenerViajeDeMiCarga(String username, Long cargaId) {

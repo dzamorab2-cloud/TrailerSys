@@ -1,6 +1,6 @@
 (function () {
   const $ = (id) => document.getElementById(id);
-  const badge = { Pendiente: "badge-warning", Asignada: "badge-info", "En Tránsito": "badge-neutral", Entregada: "badge-success" };
+  const badge = { Pendiente: "badge-warning", Asignada: "badge-info", "En Tránsito": "badge-neutral", Entregada: "badge-success", Cancelada: "badge-danger" };
   let pedidos = [], viajes = {}, detalleActual = null, cargaRecepcionId = null, unidadAnterior = "kg", pedidoEditandoId = null;
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const peso = (kg) => `${Number(kg || 0).toLocaleString("es-EC")} kg / ${(Number(kg || 0) * 2.2046226218).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
@@ -11,7 +11,7 @@
   const labelEstadoReclamo = (v) => ({ ABIERTO: "abierto", EN_REVISION: "en revisión", RESUELTO: "resuelto" }[v] || String(v || "").toLowerCase());
 
   function actualizarKpis() {
-    $("pedidoKpiActivos").textContent = pedidos.filter((p) => p.estado !== "Entregada").length;
+    $("pedidoKpiActivos").textContent = pedidos.filter((p) => p.estado !== "Entregada" && p.estado !== "Cancelada").length;
     $("pedidoKpiTransito").textContent = pedidos.filter((p) => p.estado === "En Tránsito").length;
     $("pedidoKpiEntregados").textContent = pedidos.filter((p) => p.estado === "Entregada").length;
     $("pedidoKpiReclamos").textContent = Object.values(viajes).filter((v) => v?.estadoReclamoCliente === "ABIERTO").length;
@@ -147,7 +147,7 @@
   }
 
   async function cancelarPedido(id) {
-    if (!window.confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) return;
+    if (!window.confirm("¿Cancelar este pedido? Quedará registrado como \"Cancelada\" y ya no podrás editarlo.")) return;
     try { await trailersysApiRequest("DELETE", `/mis-cargas/${id}`); await cargar(); }
     catch (err) { alert(err.message || "No se pudo cancelar el pedido."); }
   }

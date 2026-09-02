@@ -207,7 +207,7 @@ class PedidoClienteControllerTest {
     }
 
     @Test
-    void clienteCancelaSuPedidoMientrasSigaPendiente() throws Exception {
+    void clienteCancelaSuPedidoMientrasSigaPendienteYQuedaArchivadoNoBorrado() throws Exception {
         Long clienteId = crearCliente("CI-PED-CANCEL");
         String tokenCliente = crearUsuarioClienteYToken("clientepedidocancel", clienteId);
 
@@ -227,10 +227,23 @@ class PedidoClienteControllerTest {
                         .header("Authorization", "Bearer " + tokenCliente))
                 .andExpect(status().isNoContent());
 
-        String listado = mockMvc.perform(get("/api/mis-cargas").header("Authorization", "Bearer " + tokenCliente))
+        // "Cancelar" ya no borra la fila: queda archivada como "Cancelada",
+        // visible en el listado y el detalle del propio cliente (a
+        // diferencia del comportamiento anterior, donde desaparecia sin
+        // dejar rastro).
+        mockMvc.perform(get("/api/mis-cargas/" + cargaId + "/detalle").header("Authorization", "Bearer " + tokenCliente))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        assertThat(listado).doesNotContain("Pedido a cancelar");
+                .andExpect(jsonPath("$.carga.descripcion").value("Pedido a cancelar"))
+                .andExpect(jsonPath("$.carga.estado").value("Cancelada"));
+
+        mockMvc.perform(get("/api/mis-cargas").header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + cargaId + ")].estado").value("Cancelada"));
+
+        // Ya no esta "Pendiente": ni editarlo ni cancelarlo otra vez funciona.
+        mockMvc.perform(delete("/api/mis-cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isConflict());
     }
 
     @Test

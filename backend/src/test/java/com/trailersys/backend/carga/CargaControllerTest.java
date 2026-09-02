@@ -229,6 +229,38 @@ class CargaControllerTest {
     }
 
     @Test
+    void administradorPuedeCancelarUnaCargaPendienteEditandolaAEstadoCancelada() throws Exception {
+        Long clienteId = crearClienteDePrueba("CI-CARGA-CANCEL");
+        String carga = """
+                {"descripcion":"Pedido que se cancela","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"A","destino":"B","estado":"Pendiente"}
+                """.formatted(clienteId);
+        String creada = mockMvc.perform(post("/api/cargas")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(carga))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creada).get("id").asLong();
+
+        String edicion = """
+                {"descripcion":"Pedido que se cancela","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"A","destino":"B","estado":"Cancelada"}
+                """.formatted(clienteId);
+        mockMvc.perform(put("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("Cancelada"));
+
+        // Ya no esta "Pendiente": queda archivada, ni editable ni eliminable.
+        mockMvc.perform(delete("/api/cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     void eliminarUnaCargaPendienteFunciona() throws Exception {
         Long clienteId = crearClienteDePrueba("CI-CARGA-DEL");
         String carga = """
