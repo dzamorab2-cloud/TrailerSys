@@ -53,7 +53,7 @@
     try {
       cache = await trailersysApiRequest("GET", "/reclamos");
       empty.hidden = cache.length > 0; body.closest(".table-wrap").hidden = cache.length === 0;
-      body.innerHTML = cache.map((v) => `<tr><td>#${v.id}</td><td>${esc(v.clienteNombre)}</td><td>${esc(v.novedadRecepcionCliente)}</td><td>${esc(v.observacionConfirmacionCliente)}</td><td><span class="badge ${v.estadoReclamoCliente === "RESUELTO" ? "badge-success" : "badge-warning"}">${esc(v.estadoReclamoCliente)}</span></td><td><button class="btn btn-ghost" data-action="guia" data-id="${v.id}" title="Ver e imprimir guía"><i class="bi bi-file-earmark-text"></i> Guía</button> <button class="btn btn-ghost" data-action="responder" data-id="${v.id}"><i class="bi bi-reply"></i> Responder</button></td></tr>`).join("");
+      body.innerHTML = cache.map((v) => `<tr><td>#${v.id}</td><td>${esc(v.clienteNombre)}</td><td>${esc(labelNovedad(v.novedadRecepcionCliente))}</td><td>${esc(v.observacionConfirmacionCliente)}</td><td><span class="badge ${v.estadoReclamoCliente === "RESUELTO" ? "badge-success" : "badge-warning"}">${esc(labelEstadoReclamo(v.estadoReclamoCliente))}</span></td><td><button class="btn btn-ghost" data-action="guia" data-id="${v.id}" title="Ver e imprimir guía"><i class="bi bi-file-earmark-text"></i> Guía</button> <button class="btn btn-ghost" data-action="responder" data-id="${v.id}"><i class="bi bi-reply"></i> Responder</button></td></tr>`).join("");
     } catch (e) { body.innerHTML = `<tr><td colspan="6">${esc(e.message)}</td></tr>`; }
   }
   body.onclick = async (e) => {

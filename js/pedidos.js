@@ -5,6 +5,10 @@
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const peso = (kg) => `${Number(kg || 0).toLocaleString("es-EC")} kg / ${(Number(kg || 0) * 2.2046226218).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
   const labelNovedad = (v) => ({ COMPLETO: "Completo", INCOMPLETO: "Incompleto", DANADO: "Dañado", INCORRECTO: "Incorrecto", OTRO: "Otro" }[v] || v || "—");
+  // ABIERTO/EN_REVISION/RESUELTO tal cual llegan del backend no son texto
+  // presentable ("en_revision" con guion bajo, literal) - se muestran en
+  // minúscula para calzar en la frase "Reclamo {estado}".
+  const labelEstadoReclamo = (v) => ({ ABIERTO: "abierto", EN_REVISION: "en revisión", RESUELTO: "resuelto" }[v] || String(v || "").toLowerCase());
 
   function actualizarKpis() {
     $("pedidoKpiActivos").textContent = pedidos.filter((p) => p.estado !== "Entregada").length;
@@ -31,7 +35,7 @@
 
   function tarjeta(c) {
     const v = viajes[c.id];
-    const reclamo = v?.estadoReclamoCliente ? `<span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Reclamo ${esc(v.estadoReclamoCliente.toLowerCase())}</span>` : "";
+    const reclamo = v?.estadoReclamoCliente ? `<span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}</span>` : "";
     const confirmar = v && v.entregaConfirmada && !v.entregaConfirmadaCliente ? `<button class="btn btn-primary" data-action="recibir" data-id="${c.id}"><i class="bi bi-clipboard-check"></i> Confirmar recepción</button>` : "";
     const estadoBadge = estaVerificada(v)
       ? `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada</span>`
@@ -79,7 +83,7 @@
       const estadoBadgeDetalle = estaVerificada(v)
         ? `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada</span>`
         : `<span class="badge ${badge[c.estado] || "badge-neutral"}">${esc(c.estado)}</span>`;
-      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(v.estadoReclamoCliente.toLowerCase())}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}<h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
+      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}<h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
       if (v?.evidenciaRecepcionCliente) {
         const evidencia = document.createElement("img"); evidencia.className = "pedido-evidencia";
         evidencia.src = v.evidenciaRecepcionCliente; evidencia.alt = "Evidencia del reclamo";
