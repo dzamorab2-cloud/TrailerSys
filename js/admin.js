@@ -1,51 +1,53 @@
 (function(){
  const session=trailersysGetSession(); if(session?.role!=="administrador")return;
  const panel=document.getElementById("adminUsuarios"),body=document.getElementById("usuariosBody"),search=document.getElementById("usuarioBuscar"),roleFilter=document.getElementById("usuarioRolFiltro"),modal=document.getElementById("usuarioModalOverlay"),form=document.getElementById("usuarioForm"); let users=[],auditPage=0,auditTimer;
- const rolSelect=document.getElementById("usuarioRol"),fieldCliente=document.getElementById("fieldUsuarioCliente"),clienteSelect=document.getElementById("usuarioCliente");
- const fieldConductor=document.getElementById("fieldUsuarioConductor"),conductorSelect=document.getElementById("usuarioConductor");
+ const rolSelect=document.getElementById("usuarioRol"),fieldCliente=document.getElementById("fieldUsuarioCliente"),fieldConductor=document.getElementById("fieldUsuarioConductor");
+ const inputCliente=document.getElementById("usuarioCliente"),inputClienteBuscar=document.getElementById("usuarioClienteBuscar"),resultadosCliente=document.getElementById("usuarioClienteResultados");
+ const inputConductor=document.getElementById("usuarioConductor"),inputConductorBuscar=document.getElementById("usuarioConductorBuscar"),resultadosConductor=document.getElementById("usuarioConductorResultados");
  // El type="email" nativo del input solo exige un "@" (acepta "a@b" sin
  // dominio real); esta regex es la misma que usan Conductores y Clientes,
  // para que "correo valido" signifique lo mismo en toda la app.
  const EMAIL_REGEX=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
- let clientesCache=[],conductoresCache=[];
  panel.hidden=false;
  const esc=(v)=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const roleLabel=(r)=>({ADMINISTRADOR:"Administrador",COORDINADOR:"Coordinador",MANTENIMIENTO:"Mantenimiento",CONDUCTOR:"Conductor",SUPERVISOR:"Supervisor",CLIENTE:"Cliente"}[r]||r);
  function toast(message,error=false){let el=document.querySelector(".ui-toast");if(!el){el=document.createElement("div");el.className="ui-toast";document.body.appendChild(el);}el.textContent=message;el.classList.toggle("error",error);el.classList.add("show");clearTimeout(el._timer);el._timer=setTimeout(()=>el.classList.remove("show"),2800);}
  async function loadUsers(){body.innerHTML='<tr class="loading-row"><td colspan="5">Cargando usuarios…</td></tr>';try{users=await trailersysApiRequest("GET","/usuarios");renderUsers();}catch(e){body.innerHTML=`<tr class="loading-row"><td colspan="5">${esc(e.message)}</td></tr>`;}}
  function renderUsers(){const q=search.value.trim().toLowerCase(),role=roleFilter.value,filtered=users.filter(u=>(!role||u.rol===role)&&(!q||`${u.username} ${u.nombre} ${u.correo||""}`.toLowerCase().includes(q)));body.innerHTML=filtered.length?filtered.map(u=>`<tr><td><div class="table-primary">@${esc(u.username)}</div><div class="table-secondary">${esc(u.correo||"Sin correo")}</div></td><td>${esc(u.nombre)}</td><td><span class="badge badge-neutral">${roleLabel(u.rol)}</span></td><td><span class="badge ${u.activo?"badge-success":"badge-danger"}">${u.activo?"Activo":"Inactivo"}</span></td><td><div class="table-actions"><button class="icon-btn" data-edit-user="${u.id}" title="Editar usuario" aria-label="Editar ${esc(u.username)}"><i class="bi bi-pencil"></i></button><button class="icon-btn danger" data-delete-user="${u.id}" title="Eliminar usuario" aria-label="Eliminar ${esc(u.username)}"><i class="bi bi-trash3"></i></button></div></td></tr>`).join(""):'<tr class="loading-row"><td colspan="5">No hay usuarios que coincidan.</td></tr>';}
- // Solo se necesita para el selector "Cliente asociado" (rol CLIENTE); se
- // carga una vez con hasta 100 clientes, igual que otros selects del sistema.
- async function refreshClientesCache(){try{clientesCache=(await trailersysPagedRequest("clientes",0,100)).content;}catch{clientesCache=[];}}
- // Que dos cuentas distintas queden vinculadas al mismo Cliente/Conductor
- // (el backend ya lo rechaza, ver UsuarioService.validarClienteDisponible/
- // validarConductorDisponible) tambien se evita aqui, ocultando del select
- // a quien ya tiene cuenta - salvo el propio vinculo del usuario que se esta
- // editando, que debe seguir apareciendo aunque no se toque.
- function idsEnUso(campo,propiaId){return new Set(users.filter(u=>u[campo]!=null&&u.id!==propiaId).map(u=>String(u[campo])));}
- function fillClienteSelect(seleccionado,propiaId){const current=seleccionado!=null?String(seleccionado):clienteSelect.value,enUso=idsEnUso("clienteId",propiaId);clienteSelect.innerHTML='<option value="">Selecciona un cliente</option>';clientesCache.forEach(c=>{if(enUso.has(String(c.id))&&String(c.id)!==current)return;const o=document.createElement("option");o.value=c.id;o.textContent=c.nombre;clienteSelect.appendChild(o);});if(clientesCache.some(c=>String(c.id)===current))clienteSelect.value=current;}
- // Mismo criterio que refreshClientesCache()/fillClienteSelect(), para el
- // selector "Conductor asociado" (rol CONDUCTOR) - con un cuidado extra:
- // a diferencia de Cliente (un puñado de cuentas demo), Conductores tiene
- // decenas de miles de filas reales, asi que el conductor ya vinculado a
- // este usuario (incluirId) puede quedar fuera de los primeros 100
- // (ordenados por id DESC) y el select se veria vacio al editar. Si pasa,
- // se trae aparte y se agrega al cache, igual que refreshRelationOptions()
- // hace en viajes.js para la carga ya asignada de un viaje en edicion.
- async function refreshConductoresCache(incluirId){
-  try{conductoresCache=(await trailersysPagedRequest("conductores",0,100)).content;}catch{conductoresCache=[];}
-  if(incluirId!=null&&!conductoresCache.some(c=>String(c.id)===String(incluirId))){
-   const actual=await trailersysApiRequest("GET",`/conductores/${incluirId}`).catch(()=>null);
-   if(actual)conductoresCache.push(actual);
-  }
- }
- function fillConductorSelect(seleccionado,propiaId){const current=seleccionado!=null?String(seleccionado):conductorSelect.value,enUso=idsEnUso("conductorId",propiaId);conductorSelect.innerHTML='<option value="">Selecciona un conductor</option>';conductoresCache.forEach(c=>{if(enUso.has(String(c.id))&&String(c.id)!==current)return;const o=document.createElement("option");o.value=c.id;o.textContent=c.nombres;conductorSelect.appendChild(o);});if(conductoresCache.some(c=>String(c.id)===current))conductorSelect.value=current;}
+ // Cliente/Conductor pueden tener decenas de miles de filas reales: un
+ // <select> con una lista fija es inutil ahi (y precargarla entera, lento).
+ // Igual que en Viajes/Mantenimientos/Conductores, "Cliente asociado" y
+ // "Conductor asociado" buscan con autocompletado contra el backend en vez
+ // de precargarse (ver trailersysAutocomplete en ui-helpers.js).
+ //
+ // Ademas, filtran del lado del cliente a quien YA tiene una cuenta de
+ // usuario (el backend igual lo rechaza al guardar, ver
+ // UsuarioService.validarClienteDisponible/validarConductorDisponible) -
+ // salvo el propio vinculo del usuario que se esta editando, que debe
+ // seguir apareciendo aunque no se toque. editandoId se actualiza cada vez
+ // que se abre el modal.
+ let editandoId=null;
+ const sinCuentaAjena=(campo)=>(item)=>!users.some(u=>u[campo]!=null&&String(u[campo])===String(item.id)&&u.id!==editandoId);
+ const clienteAutocomplete=trailersysAutocomplete({
+  input:inputClienteBuscar,hidden:inputCliente,resultados:resultadosCliente,recurso:"clientes",
+  etiqueta:c=>c.nombre,detalle:c=>c.identificacion,filtro:sinCuentaAjena("clienteId"),
+ });
+ const conductorAutocomplete=trailersysAutocomplete({
+  input:inputConductorBuscar,hidden:inputConductor,resultados:resultadosConductor,recurso:"conductores",
+  etiqueta:c=>c.nombres,detalle:c=>c.identificacion,filtro:sinCuentaAjena("conductorId"),
+ });
  function actualizarVisibilidadCliente(){fieldCliente.hidden=rolSelect.value!=="CLIENTE";fieldConductor.hidden=rolSelect.value!=="CONDUCTOR";}
  rolSelect.onchange=actualizarVisibilidadCliente;
- function openUser(u=null){form.reset();document.getElementById("usuarioId").value=u?.id||"";document.getElementById("usuarioModalTitle").textContent=u?"Editar usuario":"Nuevo usuario";document.getElementById("usuarioPasswordHint").textContent=u?"(opcional)":"*";if(u){document.getElementById("usuarioUsername").value=u.username;document.getElementById("usuarioNombre").value=u.nombre;document.getElementById("usuarioCorreo").value=u.correo||"";document.getElementById("usuarioRol").value=u.rol;document.getElementById("usuarioActivo").checked=u.activo;}fillClienteSelect(u?.clienteId,u?.id);fillConductorSelect(u?.conductorId,u?.id);actualizarVisibilidadCliente();trailersysOpenModal(modal);}
- const closeUser=()=>trailersysCloseModal(modal); document.getElementById("btnNuevoUsuario").onclick=async()=>{await Promise.all([refreshClientesCache(),refreshConductoresCache()]);openUser();};document.getElementById("usuarioModalClose").onclick=closeUser;document.getElementById("usuarioCancelar").onclick=closeUser;modal.onclick=e=>{if(e.target===modal)closeUser();};search.oninput=renderUsers;roleFilter.onchange=renderUsers;
- body.onclick=async e=>{const edit=e.target.closest("[data-edit-user]"),remove=e.target.closest("[data-delete-user]");if(edit){const u=users.find(x=>x.id===Number(edit.dataset.editUser));await Promise.all([refreshClientesCache(),refreshConductoresCache(u?.conductorId)]);openUser(u);}if(remove){const u=users.find(x=>x.id===Number(remove.dataset.deleteUser));trailersysConfirm({title:"Eliminar usuario",text:`Se eliminará la cuenta @${u.username}. Esta acción quedará auditada.`,onAccept:async()=>{try{await trailersysApiRequest("DELETE",`/usuarios/${u.id}`);toast("Usuario eliminado.");loadUsers();}catch(err){toast(err.message,true);}}});}};
- form.onsubmit=async e=>{e.preventDefault();if(!form.reportValidity())return;const id=document.getElementById("usuarioId").value,password=document.getElementById("usuarioPassword").value,rol=document.getElementById("usuarioRol").value;if(!id&&!password){toast("La contraseña es obligatoria.",true);return;}if(password&&password.length<8){toast("La contraseña debe tener al menos 8 caracteres.",true);return;}if(rol==="CLIENTE"&&!clienteSelect.value){toast("Selecciona el cliente asociado a este usuario.",true);return;}if(rol==="CONDUCTOR"&&!conductorSelect.value){toast("Selecciona el conductor asociado a este usuario.",true);return;}const correo=document.getElementById("usuarioCorreo").value.trim();if(correo&&!EMAIL_REGEX.test(correo)){toast("Ingresa un correo válido.",true);return;}const payload={username:document.getElementById("usuarioUsername").value.trim(),password:password||null,nombre:document.getElementById("usuarioNombre").value.trim(),correo:correo||null,rol,activo:document.getElementById("usuarioActivo").checked,clienteId:rol==="CLIENTE"?Number(clienteSelect.value):null,conductorId:rol==="CONDUCTOR"?Number(conductorSelect.value):null};try{await trailersysApiRequest(id?"PUT":"POST",id?`/usuarios/${id}`:"/usuarios",payload);closeUser();toast(id?"Usuario actualizado.":"Usuario creado.");loadUsers();}catch(err){toast(err.message,true);}};
+ function openUser(u=null){form.reset();editandoId=u?.id??null;document.getElementById("usuarioId").value=u?.id||"";document.getElementById("usuarioModalTitle").textContent=u?"Editar usuario":"Nuevo usuario";document.getElementById("usuarioPasswordHint").textContent=u?"(opcional)":"*";clienteAutocomplete.ocultar();conductorAutocomplete.ocultar();if(u){document.getElementById("usuarioUsername").value=u.username;document.getElementById("usuarioNombre").value=u.nombre;document.getElementById("usuarioCorreo").value=u.correo||"";document.getElementById("usuarioRol").value=u.rol;document.getElementById("usuarioActivo").checked=u.activo;
+  // clienteNombre/conductorNombres ya vienen denormalizados en el usuario
+  // (igual que vehiculoPlaca/conductorNombres en Viaje), asi que no hace
+  // falta pedir aparte /clientes/{id} ni /conductores/{id} para mostrar la
+  // seleccion actual.
+  inputCliente.value=u.clienteId||"";inputClienteBuscar.value=u.clienteNombre||"";inputConductor.value=u.conductorId||"";inputConductorBuscar.value=u.conductorNombres||"";
+ }else{inputCliente.value="";inputClienteBuscar.value="";inputConductor.value="";inputConductorBuscar.value="";}actualizarVisibilidadCliente();trailersysOpenModal(modal);}
+ const closeUser=()=>trailersysCloseModal(modal); document.getElementById("btnNuevoUsuario").onclick=()=>openUser();document.getElementById("usuarioModalClose").onclick=closeUser;document.getElementById("usuarioCancelar").onclick=closeUser;modal.onclick=e=>{if(e.target===modal)closeUser();};search.oninput=renderUsers;roleFilter.onchange=renderUsers;
+ body.onclick=async e=>{const edit=e.target.closest("[data-edit-user]"),remove=e.target.closest("[data-delete-user]");if(edit){const u=users.find(x=>x.id===Number(edit.dataset.editUser));openUser(u);}if(remove){const u=users.find(x=>x.id===Number(remove.dataset.deleteUser));trailersysConfirm({title:"Eliminar usuario",text:`Se eliminará la cuenta @${u.username}. Esta acción quedará auditada.`,onAccept:async()=>{try{await trailersysApiRequest("DELETE",`/usuarios/${u.id}`);toast("Usuario eliminado.");loadUsers();}catch(err){toast(err.message,true);}}});}};
+ form.onsubmit=async e=>{e.preventDefault();if(!form.reportValidity())return;const id=document.getElementById("usuarioId").value,password=document.getElementById("usuarioPassword").value,rol=document.getElementById("usuarioRol").value;if(!id&&!password){toast("La contraseña es obligatoria.",true);return;}if(password&&password.length<8){toast("La contraseña debe tener al menos 8 caracteres.",true);return;}if(rol==="CLIENTE"&&!inputCliente.value){toast("Selecciona el cliente asociado a este usuario.",true);return;}if(rol==="CONDUCTOR"&&!inputConductor.value){toast("Selecciona el conductor asociado a este usuario.",true);return;}const correo=document.getElementById("usuarioCorreo").value.trim();if(correo&&!EMAIL_REGEX.test(correo)){toast("Ingresa un correo válido.",true);return;}const payload={username:document.getElementById("usuarioUsername").value.trim(),password:password||null,nombre:document.getElementById("usuarioNombre").value.trim(),correo:correo||null,rol,activo:document.getElementById("usuarioActivo").checked,clienteId:rol==="CLIENTE"?Number(inputCliente.value):null,conductorId:rol==="CONDUCTOR"?Number(inputConductor.value):null};try{await trailersysApiRequest(id?"PUT":"POST",id?`/usuarios/${id}`:"/usuarios",payload);closeUser();toast(id?"Usuario actualizado.":"Usuario creado.");loadUsers();}catch(err){toast(err.message,true);}};
  // Antes, "Ver cambios" en un UPDATE mostraba solo datosNuevos (el estado
  // actual del registro) - eso es indistinguible de mirar la tabla en vivo,
  // y el boton pierde su sentido: no hay forma de saber que campo cambio ni

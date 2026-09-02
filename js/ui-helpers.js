@@ -69,10 +69,19 @@ const trailersysConfirm = (function () {
  * @param {(item:any) => string} [opts.detalle] - texto secundario opcional.
  * @param {Object|() => Object} [opts.extraParams] - parametros fijos de busqueda
  *   (ej. {estado: "Disponible"}); puede ser una funcion si dependen de otro campo.
+ * @param {(item:any) => boolean} [opts.filtro] - descarta resultados del lado
+ *   del cliente antes de mostrarlos (ej. ocultar del selector de "Conductor
+ *   asociado" a quien ya tiene una cuenta de usuario - un filtro que el
+ *   backend de /conductores no conoce, porque no es un dato suyo). Se aplica
+ *   sobre la pagina que ya llego (12 resultados como mucho), no sobre todo
+ *   el catalogo: si una busqueda muy generica trae varias coincidencias ya
+ *   descartadas, puede mostrar menos de 12 (o ninguna) aunque existan mas
+ *   sin descartar mas adelante en el listado - se acepta ese limite en vez
+ *   de complicar la busqueda con paginacion propia para este caso.
  * @param {(item:any) => void} [opts.onSeleccionar] - callback extra al elegir.
  * @returns {{ seleccionar(item), limpiar(), ocultar() }}
  */
-function trailersysAutocomplete({ input, hidden, resultados, recurso, etiqueta, detalle, extraParams = {}, onSeleccionar }) {
+function trailersysAutocomplete({ input, hidden, resultados, recurso, etiqueta, detalle, extraParams = {}, filtro, onSeleccionar }) {
   const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[char]));
@@ -121,7 +130,7 @@ function trailersysAutocomplete({ input, hidden, resultados, recurso, etiqueta, 
       // coincidencia" de una letra a medio escribir). Se descarta si el
       // input ya no coincide con lo que se pidio.
       if (input.value.trim() !== query) return;
-      render(pagina.content);
+      render(filtro ? pagina.content.filter(filtro) : pagina.content);
     } catch {
       if (input.value.trim() !== query) return;
       resultados.innerHTML = '<div class="autocomplete-empty">No se pudo buscar.</div>';
