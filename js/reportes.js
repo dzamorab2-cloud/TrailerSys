@@ -52,14 +52,19 @@
     }[char]));
   }
 
-  // OJO: no usar new Date().toISOString().slice(0,10) aqui. toISOString()
-  // convierte a UTC, así que en Ecuador (UTC-5) cualquier hora desde las
-  // 19:00 en adelante ya cae en el dia UTC siguiente: el filtro "Hoy"
-  // terminaba mostrando una fecha que todavia no llegaba localmente.
-  function todayIso() {
-    const d = new Date();
+  // OJO: no usar date.toISOString().slice(0,10) para convertir un Date a
+  // texto aqui. toISOString() convierte a UTC, así que en Ecuador (UTC-5)
+  // cualquier hora desde las 19:00 en adelante ya cae en el dia UTC
+  // siguiente: el filtro "Hoy" terminaba mostrando una fecha que todavia
+  // no llegaba localmente. localDateIso() arma el texto a partir de los
+  // componentes locales del Date (año/mes/día), sin pasar por UTC.
+  function localDateIso(d) {
     const pad = (n) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function todayIso() {
+    return localDateIso(new Date());
   }
 
   // Estado de filtros por pestaña. Se mantiene en variables aparte (en vez
@@ -221,24 +226,30 @@
     }
 
     let pagina;
+    let disponibilidad;
     try {
-      pagina = await trailersysPagedRequest("vehiculos", 0, 100, { estado: f.estado });
+      [pagina, disponibilidad] = await Promise.all([
+        trailersysPagedRequest("vehiculos", 0, 100, { estado: f.estado }),
+        trailersysApiRequest("GET", "/dashboard/disponibilidad"),
+      ]);
     } catch (error) {
       mostrarErrorPermiso(error);
       return;
     }
     const vehiculos = pagina.content;
 
-    const counts = { Disponible: 0, "En Ruta": 0, Mantenimiento: 0, "Fuera de Servicio": 0 };
-    vehiculos.forEach((v) => {
-      if (counts[v.estado] !== undefined) counts[v.estado] += 1;
-    });
-
+    // Las tarjetas de desglose usan el conteo real de toda la flota (via
+    // /dashboard/disponibilidad), no una cuenta de los 100 vehiculos que
+    // trae esta pagina: con un catalogo de decenas de miles de filas, esa
+    // cuenta parcial no tenia relacion real con el total (ej. "Disponibles:
+    // 88" en vez de los ~44.900 reales). El desglose es siempre de la flota
+    // completa, sin importar el filtro de estado de la tabla de abajo (que
+    // ya de por si deja el resto de las categorias en cero si se aplica).
     statsRow.innerHTML = [
       statCard("bi-truck", pagina.totalElements.toLocaleString("es-EC"), "Total vehículos"),
-      statCard("bi-check-circle", counts.Disponible, "Disponibles"),
-      statCard("bi-signpost", counts["En Ruta"], "En ruta"),
-      statCard("bi-tools", counts.Mantenimiento + counts["Fuera de Servicio"], "En mantenimiento / fuera de servicio"),
+      statCard("bi-check-circle", disponibilidad.vehiculosDisponibles.toLocaleString("es-EC"), "Disponibles"),
+      statCard("bi-signpost", disponibilidad.vehiculosEnRuta.toLocaleString("es-EC"), "En ruta"),
+      statCard("bi-tools", (disponibilidad.vehiculosMantenimiento + disponibilidad.vehiculosFueraServicio).toLocaleString("es-EC"), "En mantenimiento / fuera de servicio"),
     ].join("");
 
     const headers = ["Placa", "Marca", "Modelo", "Tipo", "Año", "Estado", "Kilometraje", "Capacidad"];
@@ -275,29 +286,28 @@
     }
 
     let pagina;
+    let disponibilidad;
     try {
-      pagina = await trailersysPagedRequest("conductores", 0, 100, { estado: f.estado });
+      [pagina, disponibilidad] = await Promise.all([
+        trailersysPagedRequest("conductores", 0, 100, { estado: f.estado }),
+        trailersysApiRequest("GET", "/dashboard/disponibilidad"),
+      ]);
     } catch (error) {
       mostrarErrorPermiso(error);
       return;
     }
     const conductores = pagina.content;
 
-    const en30Dias = new Date();
-    en30Dias.setDate(en30Dias.getDate() + 30);
-    const en30DiasIso = en30Dias.toISOString().slice(0, 10);
-
-    const activos = conductores.filter((c) => c.estado === "Disponible" || c.estado === "En Ruta").length;
-    const vencidas = conductores.filter((c) => c.licenciaVencida).length;
-    const porVencer = conductores.filter(
-      (c) => !c.licenciaVencida && c.licenciaVencimiento && c.licenciaVencimiento <= en30DiasIso
-    ).length;
+    // Igual que en Vehiculos: el desglose usa el conteo real de todo el
+    // plantel de conductores (via /dashboard/disponibilidad), no una cuenta
+    // de los 100 conductores que trae esta pagina.
+    const activos = disponibilidad.conductoresDisponibles + disponibilidad.conductoresEnRuta;
 
     statsRow.innerHTML = [
       statCard("bi-person-badge", pagina.totalElements.toLocaleString("es-EC"), "Total conductores"),
-      statCard("bi-check-circle", activos, "Activos (disponible / en ruta)"),
-      statCard("bi-exclamation-triangle", vencidas, "Licencias vencidas"),
-      statCard("bi-alarm", porVencer, "Licencias por vencer (30 días)"),
+      statCard("bi-check-circle", activos.toLocaleString("es-EC"), "Activos (disponible / en ruta)"),
+      statCard("bi-exclamation-triangle", disponibilidad.licenciasVencidas.toLocaleString("es-EC"), "Licencias vencidas"),
+      statCard("bi-alarm", disponibilidad.licenciasPorVencer.toLocaleString("es-EC"), "Licencias por vencer (30 días)"),
     ].join("");
 
     const headers = ["Nombres", "Identificación", "Teléfono", "Licencia", "Categoría", "Vencimiento", "Estado", "Vehículo asignado"];
@@ -334,25 +344,27 @@
     }
 
     let pagina;
+    let resumen;
     try {
-      pagina = await trailersysPagedRequest("cargas", 0, 100, { estado: f.estado });
+      [pagina, resumen] = await Promise.all([
+        trailersysPagedRequest("cargas", 0, 100, { estado: f.estado }),
+        trailersysApiRequest("GET", "/reportes/cargas"),
+      ]);
     } catch (error) {
       mostrarErrorPermiso(error);
       return;
     }
     const cargas = pagina.content;
 
-    const counts = { Pendiente: 0, Asignada: 0, "En Tránsito": 0, Entregada: 0, Cancelada: 0 };
-    cargas.forEach((c) => {
-      if (counts[c.estado] !== undefined) counts[c.estado] += 1;
-    });
-
+    // El desglose usa el conteo real de todo el catalogo (via
+    // /reportes/cargas), no una cuenta de las 100 cargas que trae esta
+    // pagina - ver el mismo comentario en renderVehiculosReport.
     statsRow.innerHTML = [
       statCard("bi-box-seam", pagina.totalElements.toLocaleString("es-EC"), "Total cargas"),
-      statCard("bi-exclamation-circle", counts.Pendiente, "Sin viaje asignado"),
-      statCard("bi-signpost", counts["En Tránsito"], "En tránsito"),
-      statCard("bi-check-circle", counts.Entregada, "Entregadas"),
-      statCard("bi-x-circle", counts.Cancelada, "Canceladas"),
+      statCard("bi-exclamation-circle", resumen.pendientes.toLocaleString("es-EC"), "Sin viaje asignado"),
+      statCard("bi-signpost", resumen.enTransito.toLocaleString("es-EC"), "En tránsito"),
+      statCard("bi-check-circle", resumen.entregadas.toLocaleString("es-EC"), "Entregadas"),
+      statCard("bi-x-circle", resumen.canceladas.toLocaleString("es-EC"), "Canceladas"),
     ].join("");
 
     const headers = ["Descripción", "Cliente", "Tipo", "Peso", "Origen", "Destino", "Estado"];
@@ -390,27 +402,30 @@
     }
 
     let pagina;
+    let resumen;
     try {
-      pagina = await trailersysPagedRequest("viajes", 0, 100, { estado: f.estado, desde: f.desde, hasta: f.hasta });
+      [pagina, resumen] = await Promise.all([
+        trailersysPagedRequest("viajes", 0, 100, { estado: f.estado, desde: f.desde, hasta: f.hasta }),
+        trailersysApiRequest("GET", `/reportes/viajes?desde=${f.desde || ""}&hasta=${f.hasta || ""}`),
+      ]);
     } catch (error) {
       mostrarErrorPermiso(error);
       return;
     }
     const viajes = pagina.content;
 
-    const counts = { Programado: 0, "En Curso": 0, Finalizado: 0, Cancelado: 0 };
-    let kmTotales = 0;
-    viajes.forEach((v) => {
-      if (counts[v.estado] !== undefined) counts[v.estado] += 1;
-      if (v.ruta) kmTotales += v.ruta.distanciaKm;
-    });
-
+    // El desglose usa el conteo real dentro del rango de fecha (via
+    // /reportes/viajes), no una cuenta de los 100 viajes que trae esta
+    // pagina - ver el mismo comentario en renderVehiculosReport. A
+    // diferencia de Vehiculos/Cargas/Clientes, aqui si importa el rango de
+    // fecha (para eso existe: sin acotar, el catalogo es de cientos de
+    // miles de filas), pero no el filtro de estado de la tabla.
     statsRow.innerHTML = [
       statCard("bi-signpost-split", pagina.totalElements.toLocaleString("es-EC"), "Total viajes"),
-      statCard("bi-hourglass-split", counts.Programado, "Programados"),
-      statCard("bi-arrow-repeat", counts["En Curso"], "En curso"),
-      statCard("bi-flag", counts.Finalizado, "Finalizados"),
-      statCard("bi-map", `${kmTotales.toFixed(1)} km`, "Distancia total de rutas"),
+      statCard("bi-hourglass-split", resumen.programados.toLocaleString("es-EC"), "Programados"),
+      statCard("bi-arrow-repeat", resumen.enCurso.toLocaleString("es-EC"), "En curso"),
+      statCard("bi-flag", resumen.finalizados.toLocaleString("es-EC"), "Finalizados"),
+      statCard("bi-map", `${resumen.kmTotales.toFixed(1)} km`, "Distancia total de rutas"),
     ].join("");
 
     const headers = ["Origen", "Destino", "Vehículo", "Conductor", "Cliente", "Estado", "Distancia", "Salida", "Entrega confirmada", "Validada por supervisor"];
@@ -470,27 +485,32 @@
     }
 
     let pagina;
+    let resumen;
     try {
-      pagina = await trailersysPagedRequest("mantenimientos", 0, 100, {
-        vehiculoId: f.vehiculoId, tipo: f.tipo, desde: f.desde, hasta: f.hasta,
-      });
+      [pagina, resumen] = await Promise.all([
+        trailersysPagedRequest("mantenimientos", 0, 100, {
+          vehiculoId: f.vehiculoId, tipo: f.tipo, desde: f.desde, hasta: f.hasta,
+        }),
+        trailersysApiRequest("GET",
+          `/reportes/mantenimientos?vehiculoId=${f.vehiculoId || ""}&desde=${f.desde || ""}&hasta=${f.hasta || ""}`),
+      ]);
     } catch (error) {
       mostrarErrorPermiso(error);
       return;
     }
     const mantenimientos = pagina.content;
 
-    const preventivos = mantenimientos.filter((m) => m.tipo === "Preventivo").length;
-    const correctivos = mantenimientos.filter((m) => m.tipo === "Correctivo").length;
-    const vencidos = mantenimientos.filter((m) => m.proximoServicioVencido).length;
-    const costoTotal = mantenimientos.reduce((sum, m) => sum + Number(m.costo || 0), 0);
-
+    // El desglose usa el conteo real dentro del vehiculo/rango de fecha
+    // elegido (via /reportes/mantenimientos), no una cuenta de los 100
+    // registros que trae esta pagina - ver el mismo comentario en
+    // renderVehiculosReport. No respeta el filtro de tipo a proposito: ese
+    // es justamente el desglose que muestran Preventivos/Correctivos.
     statsRow.innerHTML = [
       statCard("bi-tools", pagina.totalElements.toLocaleString("es-EC"), "Total registros"),
-      statCard("bi-cash-coin", formatCosto(costoTotal), "Costo total"),
-      statCard("bi-arrow-repeat", preventivos, "Preventivos"),
-      statCard("bi-exclamation-triangle", correctivos, "Correctivos"),
-      statCard("bi-calendar-x", vencidos, "Próximos servicios vencidos"),
+      statCard("bi-cash-coin", formatCosto(resumen.costoTotal), "Costo total"),
+      statCard("bi-arrow-repeat", resumen.preventivos.toLocaleString("es-EC"), "Preventivos"),
+      statCard("bi-exclamation-triangle", resumen.correctivos.toLocaleString("es-EC"), "Correctivos"),
+      statCard("bi-calendar-x", resumen.vencidos.toLocaleString("es-EC"), "Próximos servicios vencidos"),
     ].join("");
 
     const headers = ["Vehículo", "Tipo", "Fecha", "Kilometraje", "Costo", "Próximo servicio", "Descripción"];
@@ -529,23 +549,26 @@
     }
 
     let pagina;
+    let resumen;
     try {
-      pagina = await trailersysPagedRequest("clientes", 0, 100, { estado: f.estado });
+      [pagina, resumen] = await Promise.all([
+        trailersysPagedRequest("clientes", 0, 100, { estado: f.estado }),
+        trailersysApiRequest("GET", "/reportes/clientes"),
+      ]);
     } catch (error) {
       mostrarErrorPermiso(error);
       return;
     }
     const clientes = pagina.content;
 
-    const activos = clientes.filter((c) => c.estado === "Activo").length;
-    const inactivos = clientes.filter((c) => c.estado === "Inactivo").length;
-    const conCorreo = clientes.filter((c) => c.correo).length;
-
+    // El desglose usa el conteo real de todo el catalogo (via
+    // /reportes/clientes), no una cuenta de los 100 clientes que trae esta
+    // pagina - ver el mismo comentario en renderVehiculosReport.
     statsRow.innerHTML = [
       statCard("bi-building", pagina.totalElements.toLocaleString("es-EC"), "Total clientes"),
-      statCard("bi-check-circle", activos, "Activos"),
-      statCard("bi-x-circle", inactivos, "Inactivos"),
-      statCard("bi-envelope", conCorreo, "Con correo registrado"),
+      statCard("bi-check-circle", resumen.activos.toLocaleString("es-EC"), "Activos"),
+      statCard("bi-x-circle", resumen.inactivos.toLocaleString("es-EC"), "Inactivos"),
+      statCard("bi-envelope", resumen.conCorreo.toLocaleString("es-EC"), "Con correo registrado"),
     ].join("");
 
     const headers = ["Nombre", "Identificación", "Estado", "Teléfono", "Correo", "Dirección", "Servicios"];

@@ -42,4 +42,30 @@ public interface MantenimientoRepository extends JpaRepository<Mantenimiento, Lo
     List<Mantenimiento> findTop2000ByProximoServicioLessThanEqualOrderByProximoServicioAsc(LocalDate fecha);
 
     List<Mantenimiento> findByProximoServicioBetweenOrderByProximoServicioAsc(LocalDate desde, LocalDate hasta);
+
+    /**
+     * Conteo real (preventivos/correctivos/vencidos) y costo total dentro de
+     * un vehiculo y/o rango de fecha opcional - a diferencia de buscar()
+     * arriba, esto no pagina: es para las tarjetas de resumen del modulo
+     * Reportes, que antes se calculaban en el frontend contando solo la
+     * pagina de 100 filas que se mostraba en pantalla (ver
+     * ReporteResumenController). No filtra por tipo a proposito: ese es
+     * justamente el desglose que muestran preventivos/correctivos.
+     */
+    @Query("""
+            select
+              sum(case when m.tipo = :preventivo then 1L else 0L end),
+              sum(case when m.tipo = :correctivo then 1L else 0L end),
+              sum(case when m.proximoServicio < current_date then 1L else 0L end),
+              coalesce(sum(m.costo), 0.0)
+            from Mantenimiento m
+            where (:vehiculoId is null or m.vehiculo.id = :vehiculoId)
+              and (cast(:desde as date) is null or m.fecha >= :desde)
+              and (cast(:hasta as date) is null or m.fecha <= :hasta)
+            """)
+    List<Object[]> resumen(@Param("preventivo") TipoMantenimiento preventivo,
+                            @Param("correctivo") TipoMantenimiento correctivo,
+                            @Param("vehiculoId") Long vehiculoId,
+                            @Param("desde") LocalDate desde,
+                            @Param("hasta") LocalDate hasta);
 }

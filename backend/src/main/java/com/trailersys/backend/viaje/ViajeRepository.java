@@ -68,4 +68,29 @@ public interface ViajeRepository extends JpaRepository<Viaje, Long> {
     List<Viaje> findTop100ByEntregaConfirmadaTrueAndEntregaValidadaFalseOrderByFechaEntregaConfirmadaDesc();
 
     List<Viaje> findByEstadoReclamoClienteIsNotNullOrderByFechaConfirmacionClienteDesc();
+
+    /**
+     * Conteo real por estado (mas la distancia total de ruta), dentro de un
+     * rango de fecha opcional - a diferencia de buscar() arriba, esto no
+     * pagina: es para las tarjetas de resumen del modulo Reportes, que antes
+     * se calculaban en el frontend contando solo la pagina de 100 filas que
+     * se mostraba en pantalla (ver ReporteResumenController).
+     */
+    @Query("""
+            select
+              sum(case when v.estado = :programado then 1L else 0L end),
+              sum(case when v.estado = :enCurso then 1L else 0L end),
+              sum(case when v.estado = :finalizado then 1L else 0L end),
+              sum(case when v.estado = :cancelado then 1L else 0L end),
+              coalesce(sum(v.rutaDistanciaKm), 0.0)
+            from Viaje v
+            where (cast(:desde as timestamp) is null or v.fechaSalida >= :desde)
+              and (cast(:hasta as timestamp) is null or v.fechaSalida <= :hasta)
+            """)
+    List<Object[]> resumenPorFecha(@Param("programado") EstadoViaje programado,
+                                    @Param("enCurso") EstadoViaje enCurso,
+                                    @Param("finalizado") EstadoViaje finalizado,
+                                    @Param("cancelado") EstadoViaje cancelado,
+                                    @Param("desde") LocalDateTime desde,
+                                    @Param("hasta") LocalDateTime hasta);
 }

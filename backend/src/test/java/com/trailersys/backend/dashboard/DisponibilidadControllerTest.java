@@ -2,6 +2,7 @@ package com.trailersys.backend.dashboard;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -83,5 +84,36 @@ class DisponibilidadControllerTest {
         String token = tokenPara("clientedisponibilidad", Rol.CLIENTE);
         mockMvc.perform(get("/api/dashboard/disponibilidad").header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
+    }
+
+    // Antes, el modulo Reportes calculaba "licencias por vencer en 30 dias"
+    // contando solo los 100 conductores de la pagina visible en pantalla.
+    // Esta prueba cubre el conteo real que ahora expone este endpoint.
+    @Test
+    void cuentaLicenciasQueVencenDentroDeLosProximos30DiasPeroNoLasQueYaVencieronNiLasLejanas() throws Exception {
+        String token = tokenPara("admindisponibilidadlicencias", Rol.ADMINISTRADOR);
+        crearConductorConVencimiento(token, "CI-DISP-VENCIDA", java.time.LocalDate.now().minusDays(5));
+        crearConductorConVencimiento(token, "CI-DISP-PORVENCER", java.time.LocalDate.now().plusDays(10));
+        crearConductorConVencimiento(token, "CI-DISP-LEJANA", java.time.LocalDate.now().plusDays(90));
+
+        String cuerpo = mockMvc.perform(get("/api/dashboard/disponibilidad").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var nodo = objectMapper.readTree(cuerpo);
+        org.assertj.core.api.Assertions.assertThat(nodo.get("licenciasVencidas").asLong()).isGreaterThanOrEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(nodo.get("licenciasPorVencer").asLong()).isGreaterThanOrEqualTo(1);
+    }
+
+    private void crearConductorConVencimiento(String token, String identificacion, java.time.LocalDate vencimiento) throws Exception {
+        String conductor = """
+                {"nombres":"Conductor Disp","identificacion":"%s","telefono":"0999999999",
+                 "licenciaNumero":"LIC-%s","licenciaCategoria":"Tipo E",
+                 "licenciaVencimiento":"%s","estado":"Disponible"}
+                """.formatted(identificacion, identificacion, vencimiento);
+        mockMvc.perform(post("/api/conductores")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conductor))
+                .andExpect(status().isCreated());
     }
 }
