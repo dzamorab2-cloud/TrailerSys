@@ -1,5 +1,7 @@
 package com.trailersys.backend.usuario;
 
+import java.time.LocalDateTime;
+
 import com.trailersys.backend.cliente.Cliente;
 import com.trailersys.backend.conductor.Conductor;
 
@@ -71,6 +73,25 @@ public class Usuario {
      */
     @Column(columnDefinition = "TEXT")
     private String foto;
+
+    /**
+     * Proteccion contra fuerza bruta en el login (AuthController.login()):
+     * cuenta los intentos con contraseña incorrecta seguidos y, al llegar al
+     * limite, fija bloqueadoHasta para rechazar cualquier intento (ni
+     * siquiera revisa la contraseña) hasta esa fecha. Un login correcto, o
+     * que un Administrador le resetee la contraseña desde Configuracion
+     * (UsuarioService.actualizar()), limpia ambos campos.
+     */
+    // columnDefinition con "default 0" a proposito: la tabla ya tiene filas
+    // (las cuentas demo, los usuarios reales creados hasta ahora) y
+    // ddl-auto=update genera un simple "add column ... not null" sin default
+    // - eso lo rechaza Postgres apenas la tabla no esta vacia ("la columna
+    // contiene valores null"), porque no sabe con que llenar las filas
+    // existentes.
+    @Column(nullable = false, columnDefinition = "integer not null default 0")
+    private int intentosFallidos = 0;
+
+    private LocalDateTime bloqueadoHasta;
 
     protected Usuario() {
     }
@@ -158,5 +179,21 @@ public class Usuario {
 
     public void setFoto(String foto) {
         this.foto = foto;
+    }
+
+    public int getIntentosFallidos() {
+        return intentosFallidos;
+    }
+
+    public void setIntentosFallidos(int intentosFallidos) {
+        this.intentosFallidos = intentosFallidos;
+    }
+
+    public LocalDateTime getBloqueadoHasta() {
+        return bloqueadoHasta;
+    }
+
+    public void setBloqueadoHasta(LocalDateTime bloqueadoHasta) {
+        this.bloqueadoHasta = bloqueadoHasta;
     }
 }

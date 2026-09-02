@@ -66,6 +66,13 @@ public class UsuarioService {
         usuario.setConductor(resolverConductorSiAplica(request.rol(), request.conductorId()));
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPasswordHash(passwordEncoder.encode(request.password()));
+            // Si la cuenta estaba bloqueada por intentos fallidos (ver
+            // AuthController.login()), una contraseña nueva de parte de un
+            // Administrador la desbloquea de una vez - si no, quien la
+            // resetea se queda sin poder entrar hasta que venza el bloqueo,
+            // aun con la contraseña correcta.
+            usuario.setIntentosFallidos(0);
+            usuario.setBloqueadoHasta(null);
         }
         return usuario;
     }
