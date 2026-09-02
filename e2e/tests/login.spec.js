@@ -29,7 +29,12 @@ test.describe('Login', () => {
 
     // navigation.js activa el modulo "dashboard" por defecto y pinta la sesion en el topbar.
     await expect(page.locator('#module-dashboard')).toBeVisible();
-    await expect(page.locator('#module-dashboard h1')).toHaveText('Dashboard');
+    // #module-dashboard contiene las 4 variantes de dashboard (generica +
+    // conductor/supervisor/mantenimiento, ver app.html); solo la vista
+    // #dashboardGenericView queda visible para un Administrador (las otras
+    // 3 arrancan con "hidden" y solo se muestran si session.role coincide,
+    // ver conductor-dashboard.js/supervisor-dashboard.js/mantenimiento-dashboard.js).
+    await expect(page.locator('#dashboardGenericView h1')).toHaveText('Dashboard');
     await expect(page.locator('#userName')).toHaveText(USUARIO_VALIDO);
   });
 
@@ -102,7 +107,12 @@ test.describe('Casos de la actividad: Login', () => {
 
     await expect(page).toHaveURL(/\/app\.html$/);
     await expect(page.locator('#module-dashboard')).toBeVisible();
-    await expect(page.locator('#module-dashboard h1')).toHaveText('Dashboard');
+    // #module-dashboard contiene las 4 variantes de dashboard (generica +
+    // conductor/supervisor/mantenimiento, ver app.html); solo la vista
+    // #dashboardGenericView queda visible para un Administrador (las otras
+    // 3 arrancan con "hidden" y solo se muestran si session.role coincide,
+    // ver conductor-dashboard.js/supervisor-dashboard.js/mantenimiento-dashboard.js).
+    await expect(page.locator('#dashboardGenericView h1')).toHaveText('Dashboard');
 
     await evidencia(page, 'CP-01-login-exitoso');
   });

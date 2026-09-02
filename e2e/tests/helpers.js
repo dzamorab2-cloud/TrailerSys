@@ -81,6 +81,37 @@ async function crearClienteConUsuario(request, adminToken, { nombreCliente, iden
   return cliente;
 }
 
+/**
+ * Crea un Conductor vinculado a un usuario CONDUCTOR recien creado (via API,
+ * como admin) y devuelve el Conductor + sus credenciales. Necesario porque
+ * ViajeService.verificarPropioViajeSiEsConductor / SeguimientoService ya no
+ * dejan que un usuario CONDUCTOR confirme la llegada ni gestione eventos de
+ * un viaje que no sea del Conductor vinculado a su propia cuenta (Usuario.conductor):
+ * reutilizar la cuenta compartida "conductor"/"conductor1234" (vinculada a
+ * "Luis Herrera" por DataSeeder) fallaria con 403 para un viaje de prueba
+ * con un Conductor distinto.
+ */
+async function crearConductorConUsuario(request, adminToken, { nombresConductor, identificacionConductor, username, password }) {
+  const conductor = await apiPost(request, adminToken, '/conductores', {
+    nombres: nombresConductor,
+    identificacion: identificacionConductor,
+    telefono: '0999999999',
+    licenciaNumero: `LIC${identificacionConductor}`,
+    licenciaCategoria: 'E',
+    licenciaVencimiento: '2030-01-01',
+    estado: 'Disponible',
+  });
+  await apiPost(request, adminToken, '/usuarios', {
+    username,
+    password,
+    nombre: nombresConductor,
+    rol: 'CONDUCTOR',
+    activo: true,
+    conductorId: conductor.id,
+  });
+  return conductor;
+}
+
 module.exports = {
   API_BASE,
   uid,
@@ -92,4 +123,5 @@ module.exports = {
   irAlModulo,
   evidencia,
   crearClienteConUsuario,
+  crearConductorConUsuario,
 };
