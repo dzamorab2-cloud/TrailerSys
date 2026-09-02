@@ -20,7 +20,13 @@ const TRAILERSYS_ROLES = {
   },
   coordinador: {
     label: "Coordinador / Operador",
-    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento", "guias", "reclamos"],
+    // "configuracion" solo le muestra su propia tarjeta de cuenta (nombre,
+    // rol, correo, foto de perfil) - el panel "Usuarios y acceso" de esa
+    // misma pantalla ya esta acotado aparte a administrador en admin.js, no
+    // por este arreglo. Antes Coordinador era el unico rol interno sin
+    // ningun lugar para subir su propia foto de perfil (Mantenimiento y
+    // Supervisor la suben desde su Dashboard; Administrador, desde aqui).
+    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento", "guias", "reclamos", "configuracion"],
     manage: ["vehiculos", "conductores", "cargas", "viajes", "seguimiento", "reclamos"],
   },
   mantenimiento: {
