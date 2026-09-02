@@ -22,7 +22,7 @@
         { titulo: "Novedad reportada por el cliente", icono: "bi-exclamation-triangle", campos: [
           ["Tipo de novedad", labelNovedad(v.novedadRecepcionCliente)],
           ["Detalle del cliente", v.observacionConfirmacionCliente || "Sin detalle"],
-          ["Evidencia fotográfica", v.evidenciaRecepcionCliente ? "Adjunta (ver en el sistema)" : "No adjunta"],
+          ["Evidencia fotográfica", v.evidenciaRecepcionCliente ? "Adjunta" : "No adjunta"],
           ["Reportado el", v.fechaConfirmacionCliente ? trailersysFormatDateTime(v.fechaConfirmacionCliente) : "—"]
         ] },
         { titulo: "Resolución", icono: "bi-reply", campos: [
@@ -47,6 +47,23 @@
         ] }
       ]
     });
+
+    // trailersysShowGuide() solo arma campos de texto (etiqueta/valor); la
+    // foto que el cliente adjunta al reportar la novedad no entra ahi. Antes
+    // el campo "Evidencia fotográfica" decia "Adjunta (ver en el sistema)"
+    // sin que hubiera ningun lugar donde verla - js/pedidos.js si la muestra,
+    // pero solo en la vista del propio cliente. Se inserta la imagen real
+    // (misma clase que ya usa pedidos.js) en la primera seccion de la guia.
+    if (v.evidenciaRecepcionCliente) {
+      const primeraSeccion = document.getElementById("guiaModalContent").querySelector(".guia-section");
+      if (primeraSeccion) {
+        const img = document.createElement("img");
+        img.className = "pedido-evidencia";
+        img.src = v.evidenciaRecepcionCliente;
+        img.alt = "Evidencia fotográfica adjuntada por el cliente";
+        primeraSeccion.appendChild(img);
+      }
+    }
   }
 
   async function render() {
