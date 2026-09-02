@@ -1,9 +1,12 @@
 package com.trailersys.backend.usuario;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -183,5 +186,123 @@ class UsuarioControllerTest {
                                  "activo":true,"conductorId":%d}
                                 """.formatted(conductorOcupado)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void noSePuedeEliminarLaPropiaCuenta() throws Exception {
+        Usuario propio = usuarioRepository.findByUsernameIgnoreCase("admintestusuario").orElseThrow();
+
+        mockMvc.perform(delete("/api/usuarios/" + propio.getId())
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("No puedes eliminar tu propia cuenta."));
+    }
+
+    @Test
+    void noSePuedeEliminarAlUltimoAdministradorActivo() throws Exception {
+        Long unicoAdminId = crearAdministrador("unicoadmineliminar");
+        List<Long> desactivados = desactivarTodosLosAdministradoresMenos(unicoAdminId);
+        try {
+            mockMvc.perform(delete("/api/usuarios/" + unicoAdminId)
+                            .header("Authorization", "Bearer " + tokenAdmin))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value("Debe existir al menos un administrador activo."));
+        } finally {
+            reactivar(desactivados);
+        }
+    }
+
+    @Test
+    void noSePuedeDesactivarAlUltimoAdministradorActivo() throws Exception {
+        Long unicoAdminId = crearAdministrador("unicoadmindesactivar");
+        List<Long> desactivados = desactivarTodosLosAdministradoresMenos(unicoAdminId);
+        try {
+            mockMvc.perform(put("/api/usuarios/" + unicoAdminId)
+                            .header("Authorization", "Bearer " + tokenAdmin)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"username":"unicoadmindesactivar","nombre":"Unico Admin",
+                                     "rol":"ADMINISTRADOR","activo":false}
+                                    """))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value("Debe existir al menos un administrador activo."));
+        } finally {
+            reactivar(desactivados);
+        }
+    }
+
+    @Test
+    void noSePuedeCambiarleElRolAlUltimoAdministradorActivo() throws Exception {
+        Long unicoAdminId = crearAdministrador("unicoadminrol");
+        List<Long> desactivados = desactivarTodosLosAdministradoresMenos(unicoAdminId);
+        try {
+            mockMvc.perform(put("/api/usuarios/" + unicoAdminId)
+                            .header("Authorization", "Bearer " + tokenAdmin)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"username":"unicoadminrol","nombre":"Unico Admin",
+                                     "rol":"COORDINADOR","activo":true}
+                                    """))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value("Debe existir al menos un administrador activo."));
+        } finally {
+            reactivar(desactivados);
+        }
+    }
+
+    @Test
+    void siHayOtroAdministradorActivoSiSePuedeEliminarUno() throws Exception {
+        Long otroAdminId = crearAdministrador("otroadmineliminable");
+
+        // admintestusuario (u otro admin de otra clase de prueba) sigue
+        // activo, asi que este no es "el ultimo" y la eliminacion procede.
+        mockMvc.perform(delete("/api/usuarios/" + otroAdminId)
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isNoContent());
+    }
+
+    private Long crearAdministrador(String username) throws Exception {
+        String payload = """
+                {"username":"%s","password":"clave1234","nombre":"Admin %s","rol":"ADMINISTRADOR","activo":true}
+                """.formatted(username, username);
+        String creado = mockMvc.perform(post("/api/usuarios")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(creado).get("id").asLong();
+    }
+
+    // El contexto de pruebas (H2 en memoria) puede compartirse entre esta
+    // clase y otras que ya crearon su propio usuario ADMINISTRADOR activo
+    // (ver @BeforeEach de este archivo y de otros, incluido admintestusuario
+    // mismo - la sesion con la que este archivo hace todas sus llamadas).
+    // Para probar la regla "no puede quedar sin administradores activos"
+    // hace falta primero dejar exactamente uno: se desactiva el resto
+    // directo por repositorio (no por la API, para no toparse con esta
+    // misma regla al hacerlo) y se devuelven los ids afectados para
+    // restaurarlos despues con reactivar() - si no, admintestusuario (o el
+    // admin de otra clase) queda inactivo y el @BeforeEach de la siguiente
+    // prueba (que hace login de nuevo) falla, porque un usuario inactivo no
+    // puede autenticarse (ver AuthController.login()). El token ya emitido
+    // (tokenAdmin) sigue funcionando igual mientras tanto: el filtro JWT no
+    // vuelve a consultar "activo" en cada request, solo valida la firma.
+    private List<Long> desactivarTodosLosAdministradoresMenos(Long idQueQueda) {
+        List<Usuario> afectados = usuarioRepository.findAll().stream()
+                .filter(u -> u.getRol() == Rol.ADMINISTRADOR && u.isActivo() && !u.getId().equals(idQueQueda))
+                .toList();
+        afectados.forEach(u -> {
+            u.setActivo(false);
+            usuarioRepository.save(u);
+        });
+        return afectados.stream().map(Usuario::getId).toList();
+    }
+
+    private void reactivar(List<Long> ids) {
+        ids.forEach(id -> usuarioRepository.findById(id).ifPresent(u -> {
+            u.setActivo(true);
+            usuarioRepository.save(u);
+        }));
     }
 }
