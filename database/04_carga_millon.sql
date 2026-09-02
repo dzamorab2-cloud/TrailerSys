@@ -95,7 +95,7 @@ SELECT (ARRAY['Carlos','Luis','José','Jorge','Miguel','Andrés','Diego','Fernan
        (ARRAY['Macias','Alvarado','Chávez','Delgado','Reyes','Ponce','Carrillo','Cabrera','Suárez','Acosta',
               'Benítez','Córdova','Flores','Herrera','Jaramillo','León','Molina','Pazmiño','Rojas','Valencia'])[((mezcla.n / 8000) % 20) + 1],
        'SYN-CON-' || lpad(g::text, 6, '0'),
-       '08' || lpad((g % 100000000)::text, 8, '0'), 'conductor' || g || '@carga.test',
+       '09' || lpad((g % 100000000)::text, 8, '0'), 'conductor' || g || '@carga.test',
        'SYN-LIC-' || lpad(g::text, 6, '0'), 'Tipo E', DATE '2027-01-01' + (g % 1460),
        CASE WHEN g % 5 = 0 THEN 'EN_RUTA' ELSE 'DISPONIBLE' END,
        NULL, 'Registro generado para prueba de volumen', NULL
