@@ -112,3 +112,44 @@ activas y al finalizar se ejecuta `VACUUM (ANALYZE)`.
 
 La ejecución real y la comparación de rendimiento están documentadas en
 [`VALIDACION_MILLON_REGISTROS.md`](VALIDACION_MILLON_REGISTROS.md).
+
+## Procedimientos, funciones, cursores y disparadores
+
+El archivo `08_procedimientos_funciones_cursores_disparadores.sql` instala:
+
+- 10 procedimientos transaccionales relacionados con clientes, cargas,
+  asignación, viajes, seguimiento, entregas, mantenimiento y reasignación;
+- funciones de disponibilidad, resumen del cliente, próximos mantenimientos e
+  historial del viaje;
+- un cursor explícito para recorrer viajes programados o en curso;
+- disparadores de integridad para cargas, mantenimientos y seguimiento.
+
+Estos objetos complementan la práctica de PostgreSQL y no sustituyen las
+transacciones del backend. Los procedimientos con `COMMIT`/`ROLLBACK` deben
+invocarse mediante un `CALL` independiente y con autocommit habilitado.
+
+```powershell
+psql -U postgres -d trailersys -v ON_ERROR_STOP=1 -f database/08_procedimientos_funciones_cursores_disparadores.sql
+psql -U postgres -d trailersys -f database/09_pruebas_objetos_postgresql.sql
+```
+
+`09_pruebas_objetos_postgresql.sql` contiene casos correctos e incorrectos,
+consulta del inventario de objetos y una prueba visible del cursor.
+
+## Vistas y restricciones de integridad
+
+`10_vistas_y_restricciones.sql` crea cuatro vistas para consultar viajes,
+disponibilidad, mantenimientos y reclamos desde pgAdmin. También instala
+restricciones `CHECK` para evitar pesos, capacidades, kilómetros, costos,
+fechas y rutas inválidas.
+
+Las restricciones se crean inicialmente con `NOT VALID`: comienzan a proteger
+las operaciones nuevas sin impedir la instalación por posibles registros
+masivos antiguos. El diagnóstico incluido al final muestra los incumplimientos
+y el script valida automáticamente cada restricción cuyo resultado sea cero. Si
+encuentra datos antiguos inválidos, conserva la protección para datos nuevos y
+emite un aviso indicando la regla pendiente.
+
+```powershell
+psql -U postgres -d trailersys -v ON_ERROR_STOP=1 -f database/10_vistas_y_restricciones.sql
+```
