@@ -192,9 +192,17 @@
   flex-shrink: 0;
 }
 
-.dashboard-donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 140px; }
-.dashboard-donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; overflow-wrap: anywhere; }
-.dashboard-donut-legend-item strong { margin-left: auto; }
+.dashboard-donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 170px; }
+.dashboard-donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+/* "Mantenimiento"/"Fuera de Servicio" son las etiquetas mas largas de este
+   panel: con "overflow-wrap: anywhere" (y sin "min-width: 0" en un hijo
+   flex, que por defecto no encoge por debajo de su contenido) partian a la
+   mitad de la palabra en vez de bajar de linea entera ("Mantenimient" /
+   "o"), y hasta el numero de al lado quedaba empujado a partirse tambien.
+   Ahora la etiqueta puede bajar de linea completa (o partirse solo si una
+   palabra sola no entra ni en toda la fila) sin desarmar el numero. */
+.dashboard-donut-legend-item span:not(.dashboard-donut-dot) { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.dashboard-donut-legend-item strong { margin-left: auto; flex-shrink: 0; }
 .dashboard-donut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
 .dashboard-bar-chart {
