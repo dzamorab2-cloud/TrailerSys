@@ -16,6 +16,7 @@
   const TAB_LABELS = {
     vehiculos: "Vehículos",
     conductores: "Conductores",
+    cargas: "Cargas",
     viajes: "Viajes",
     mantenimientos: "Mantenimientos",
     clientes: "Clientes",
@@ -32,6 +33,7 @@
   const TAB_ROLES = {
     vehiculos: ["administrador", "coordinador", "mantenimiento", "supervisor"],
     conductores: ["administrador", "coordinador"],
+    cargas: ["administrador", "coordinador"],
     viajes: ["administrador", "coordinador", "conductor", "supervisor"],
     mantenimientos: ["administrador", "mantenimiento"],
     clientes: ["administrador", "coordinador"],
@@ -73,6 +75,7 @@
   const filtros = {
     vehiculos: { estado: "" },
     conductores: { estado: "" },
+    cargas: { estado: "" },
     viajes: { estado: "", desde: todayIso(), hasta: todayIso() },
     mantenimientos: { vehiculoId: "", tipo: "", desde: todayIso(), hasta: todayIso() },
     clientes: { estado: "" },
@@ -315,6 +318,60 @@
     updatePrintHeader(f.estado ? `Estado: ${f.estado}` : "");
   }
 
+  // --- Reporte: Cargas ---
+  async function renderCargasReport({ rebuildFilters = false } = {}) {
+    const f = filtros.cargas;
+    if (rebuildFilters) {
+      filtersContainer.innerHTML = `
+        <select id="reportFiltroEstado" class="select-pill">
+          ${selectOption("", "Todos los estados", f.estado)}
+          ${["Pendiente", "Asignada", "En Tránsito", "Entregada", "Cancelada"].map((e) => selectOption(e, e, f.estado)).join("")}
+        </select>`;
+      document.getElementById("reportFiltroEstado").addEventListener("change", (event) => {
+        f.estado = event.target.value;
+        renderCargasReport();
+      });
+    }
+
+    let pagina;
+    try {
+      pagina = await trailersysPagedRequest("cargas", 0, 100, { estado: f.estado });
+    } catch (error) {
+      mostrarErrorPermiso(error);
+      return;
+    }
+    const cargas = pagina.content;
+
+    const counts = { Pendiente: 0, Asignada: 0, "En Tránsito": 0, Entregada: 0, Cancelada: 0 };
+    cargas.forEach((c) => {
+      if (counts[c.estado] !== undefined) counts[c.estado] += 1;
+    });
+
+    statsRow.innerHTML = [
+      statCard("bi-box-seam", pagina.totalElements.toLocaleString("es-EC"), "Total cargas"),
+      statCard("bi-exclamation-circle", counts.Pendiente, "Sin viaje asignado"),
+      statCard("bi-signpost", counts["En Tránsito"], "En tránsito"),
+      statCard("bi-check-circle", counts.Entregada, "Entregadas"),
+      statCard("bi-x-circle", counts.Cancelada, "Canceladas"),
+    ].join("");
+
+    const headers = ["Descripción", "Cliente", "Tipo", "Peso", "Origen", "Destino", "Estado"];
+    const rows = cargas.map((c) => [
+      escapeHtml(c.descripcion),
+      escapeHtml(c.clienteNombre),
+      escapeHtml(c.tipo),
+      `${Number(c.peso).toLocaleString("es-EC")} kg`,
+      escapeHtml(c.origen),
+      escapeHtml(c.destino),
+      escapeHtml(c.estado),
+    ]);
+
+    renderTable(headers, rows);
+    setExportData(headers, rows, "reporte-cargas");
+    updateScopeNote(pagina.totalElements, cargas.length);
+    updatePrintHeader(f.estado ? `Estado: ${f.estado}` : "");
+  }
+
   // --- Reporte: Viajes ---
   async function renderViajesReport({ rebuildFilters = false } = {}) {
     const f = filtros.viajes;
@@ -511,6 +568,7 @@
   const RENDERERS = {
     vehiculos: renderVehiculosReport,
     conductores: renderConductoresReport,
+    cargas: renderCargasReport,
     viajes: renderViajesReport,
     mantenimientos: renderMantenimientosReport,
     clientes: renderClientesReport,
