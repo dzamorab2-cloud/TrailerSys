@@ -123,9 +123,27 @@
     form.reset(); unidadAnterior = "kg"; pedidoEditandoId = null;
     $("pedidoModalTitulo").textContent = "Hacer un pedido";
     $("pedidoSubmitTexto").textContent = "Enviar pedido";
+    // Reinicia el select al catalogo completo: puede haber quedado con una
+    // opcion "extra" (ver asegurarOpcionLugar) de una edicion anterior.
+    trailersysPoblarLugaresEcuador($("pedidoOrigen"));
+    trailersysPoblarLugaresEcuador($("pedidoDestino"));
     trailersysOpenModal(modal);
   };
   $("pedidoModalClose").onclick = $("pedidoCancelar").onclick = () => trailersysCloseModal(modal);
+
+  // Origen/Destino son un <select> con las 65 ciudades del catalogo
+  // compartido (ecuador-locations.js) - el origen/destino real de un
+  // pedido no siempre es exactamente el texto de una de esas 65 opciones
+  // (por ejemplo si el pedido lo creo/edito antes un Administrador desde
+  // Cargas, donde el mismo problema ya se corrigio). Sin esto, el select
+  // quedaba en blanco al editar un pedido asi.
+  function asegurarOpcionLugar(select, valor) {
+    if (!valor || [...select.options].some((o) => o.value === valor)) return;
+    const opcion = document.createElement("option");
+    opcion.value = valor;
+    opcion.textContent = valor;
+    select.appendChild(opcion);
+  }
 
   // Reutiliza el mismo modal/formulario de "Hacer un pedido": precarga los
   // valores actuales y cambia el envio a PUT en vez de POST (ver
@@ -140,6 +158,12 @@
     $("pedidoTipo").value = c.tipo || "";
     $("pedidoPesoUnidad").value = "kg"; unidadAnterior = "kg";
     $("pedidoPeso").value = c.peso ?? "";
+    // Reinicia el select al catalogo completo: puede haber quedado con una
+    // opcion "extra" (ver asegurarOpcionLugar) de una edicion anterior.
+    trailersysPoblarLugaresEcuador($("pedidoOrigen"));
+    trailersysPoblarLugaresEcuador($("pedidoDestino"));
+    asegurarOpcionLugar($("pedidoOrigen"), c.origen);
+    asegurarOpcionLugar($("pedidoDestino"), c.destino);
     $("pedidoOrigen").value = c.origen || "";
     $("pedidoDestino").value = c.destino || "";
     $("pedidoObservaciones").value = c.observaciones || "";

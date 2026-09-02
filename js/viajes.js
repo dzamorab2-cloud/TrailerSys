@@ -393,6 +393,23 @@
     grid.innerHTML = filtrados.map((v) => renderCard(v, canManage)).join("");
   }
 
+  // Origen/Destino son un <select> con las 65 ciudades del catalogo
+  // compartido (ecuador-locations.js), poblado una sola vez al cargar la
+  // pagina - pero el origen/destino real de un viaje (o de la carga que lo
+  // origino) no siempre es exactamente el texto de una de esas 65 opciones
+  // (los datos sembrados con SQL usan libremente "Ciudad, Ecuador", no el
+  // nombre pelado que espera el select). Sin esto, el select quedaba en
+  // blanco al editar un viaje asi - y guardar sin darse cuenta le cambiaba
+  // el origen/destino real a otra ciudad distinta (mismo problema, mismo
+  // arreglo, que ya se aplico en cargas.js).
+  function asegurarOpcionLugar(select, valor) {
+    if (!valor || [...select.options].some((o) => o.value === valor)) return;
+    const opcion = document.createElement("option");
+    opcion.value = valor;
+    opcion.textContent = valor;
+    select.appendChild(opcion);
+  }
+
   // --- Modal de alta / edicion ---
   async function openForm(viaje) {
     clearFieldErrors();
@@ -402,6 +419,10 @@
     conductorAutocomplete.ocultar();
     clienteAutocomplete.ocultar();
     await refreshRelationOptions(viaje);
+    // Reinicia el select al catalogo completo: puede haber quedado con una
+    // opcion "extra" (ver asegurarOpcionLugar) de una edicion anterior.
+    trailersysPoblarLugaresEcuador(inputOrigen);
+    trailersysPoblarLugaresEcuador(inputDestino);
 
     if (viaje) {
       modalTitle.textContent = "Editar viaje";
@@ -416,6 +437,8 @@
       inputCliente.value = viaje.clienteId;
       inputClienteBuscar.value = viaje.clienteNombre || "";
       selectCarga.value = viaje.cargaId || "";
+      asegurarOpcionLugar(inputOrigen, viaje.origen);
+      asegurarOpcionLugar(inputDestino, viaje.destino);
       inputOrigen.value = viaje.origen;
       inputDestino.value = viaje.destino;
       inputFechaSalida.value = viaje.fechaSalida ? viaje.fechaSalida.slice(0, 16) : "";
@@ -463,6 +486,8 @@
     if (!selectCarga.value) return;
     const carga = cargasCache.find((c) => String(c.id) === selectCarga.value);
     if (!carga) return;
+    asegurarOpcionLugar(inputOrigen, carga.origen);
+    asegurarOpcionLugar(inputDestino, carga.destino);
     inputOrigen.value = carga.origen;
     inputDestino.value = carga.destino;
     if (carga.clienteId) {
