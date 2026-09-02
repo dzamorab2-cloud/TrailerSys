@@ -6,9 +6,11 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,6 +53,24 @@ public class PedidoClienteController {
     public ResponseEntity<CargaResponse> crear(@Valid @RequestBody PedidoCargaRequest request, Principal principal) {
         Carga creada = service.crearPedido(principal.getName(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(CargaResponse.from(creada));
+    }
+
+    /**
+     * Solo mientras el pedido sigue "Pendiente" (ver
+     * PedidoClienteService.miCargaPendiente) - en cuanto Operacion le
+     * asigna un viaje, editar o cancelar queda fuera del alcance del
+     * cliente.
+     */
+    @PutMapping("/{id}")
+    public CargaResponse actualizar(@PathVariable Long id, @Valid @RequestBody PedidoCargaRequest request,
+                                     Principal principal) {
+        return CargaResponse.from(service.actualizarPedido(principal.getName(), id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id, Principal principal) {
+        service.eliminarPedido(principal.getName(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/viaje")

@@ -1,7 +1,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const badge = { Pendiente: "badge-warning", Asignada: "badge-info", "En Tránsito": "badge-neutral", Entregada: "badge-success" };
-  let pedidos = [], viajes = {}, detalleActual = null, cargaRecepcionId = null, unidadAnterior = "kg";
+  let pedidos = [], viajes = {}, detalleActual = null, cargaRecepcionId = null, unidadAnterior = "kg", pedidoEditandoId = null;
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const peso = (kg) => `${Number(kg || 0).toLocaleString("es-EC")} kg / ${(Number(kg || 0) * 2.2046226218).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
   const labelNovedad = (v) => ({ COMPLETO: "Completo", INCOMPLETO: "Incompleto", DANADO: "Dañado", INCORRECTO: "Incorrecto", OTRO: "Otro" }[v] || v || "—");
@@ -36,7 +36,14 @@
     const estadoBadge = estaVerificada(v)
       ? `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada</span>`
       : `<span class="badge ${badge[c.estado] || "badge-neutral"}">${esc(c.estado)}</span>`;
-    return `<article class="card item-card pedido-card"><div class="item-banner"><i class="bi bi-box-seam"></i><div class="item-banner-title"><div class="item-title">Pedido #${c.id} · ${esc(c.descripcion)}</div><div class="item-subtitle">${esc(c.tipo)}</div></div></div><div class="item-body"><div class="item-route"><i class="bi bi-geo-alt"></i><span>${esc(c.origen)}</span><i class="bi bi-arrow-right"></i><span>${esc(c.destino)}</span></div><div class="item-meta">${estadoBadge}<span><i class="bi bi-box-seam"></i>${peso(c.peso)}</span><span><i class="bi bi-truck"></i>${esc(v?.estado || "Sin asignar")}</span></div><div class="pedido-card-actions">${reclamo}<button class="btn btn-ghost" data-action="detalle" data-id="${c.id}"><i class="bi bi-eye"></i> Ver detalle y guía</button>${confirmar}</div></div></article>`;
+    // Editar/cancelar solo mientras el pedido sigue "Pendiente": una vez
+    // que Operación le asigna un viaje, el backend ya rechaza ambas
+    // acciones (ver PedidoClienteService.miCargaPendiente), asi que ni se
+    // ofrecen los botones.
+    const gestion = c.estado === "Pendiente"
+      ? `<button class="btn btn-ghost" data-action="editar" data-id="${c.id}"><i class="bi bi-pencil"></i> Editar</button><button class="btn btn-ghost" data-action="cancelar" data-id="${c.id}"><i class="bi bi-x-circle"></i> Cancelar pedido</button>`
+      : "";
+    return `<article class="card item-card pedido-card"><div class="item-banner"><i class="bi bi-box-seam"></i><div class="item-banner-title"><div class="item-title">Pedido #${c.id} · ${esc(c.descripcion)}</div><div class="item-subtitle">${esc(c.tipo)}</div></div></div><div class="item-body"><div class="item-route"><i class="bi bi-geo-alt"></i><span>${esc(c.origen)}</span><i class="bi bi-arrow-right"></i><span>${esc(c.destino)}</span></div><div class="item-meta">${estadoBadge}<span><i class="bi bi-box-seam"></i>${peso(c.peso)}</span><span><i class="bi bi-truck"></i>${esc(v?.estado || "Sin asignar")}</span></div><div class="pedido-card-actions">${reclamo}<button class="btn btn-ghost" data-action="detalle" data-id="${c.id}"><i class="bi bi-eye"></i> Ver detalle y guía</button>${confirmar}${gestion}</div></div></article>`;
   }
 
   function filtrar() {
@@ -108,16 +115,53 @@
   }
 
   const modal = $("pedidoModalOverlay"), form = $("pedidoForm");
-  $("btnNuevoPedido").onclick = () => { form.reset(); unidadAnterior = "kg"; trailersysOpenModal(modal); };
+  $("btnNuevoPedido").onclick = () => {
+    form.reset(); unidadAnterior = "kg"; pedidoEditandoId = null;
+    $("pedidoModalTitulo").textContent = "Hacer un pedido";
+    $("pedidoSubmitTexto").textContent = "Enviar pedido";
+    trailersysOpenModal(modal);
+  };
   $("pedidoModalClose").onclick = $("pedidoCancelar").onclick = () => trailersysCloseModal(modal);
+
+  // Reutiliza el mismo modal/formulario de "Hacer un pedido": precarga los
+  // valores actuales y cambia el envio a PUT en vez de POST (ver
+  // form.onsubmit). Solo se llega aca para un pedido todavia "Pendiente"
+  // (unico boton que la muestra, ver tarjeta()).
+  function abrirEdicion(c) {
+    form.reset();
+    pedidoEditandoId = c.id;
+    $("pedidoModalTitulo").textContent = `Editar pedido #${c.id}`;
+    $("pedidoSubmitTexto").textContent = "Guardar cambios";
+    $("pedidoDescripcion").value = c.descripcion || "";
+    $("pedidoTipo").value = c.tipo || "";
+    $("pedidoPesoUnidad").value = "kg"; unidadAnterior = "kg";
+    $("pedidoPeso").value = c.peso ?? "";
+    $("pedidoOrigen").value = c.origen || "";
+    $("pedidoDestino").value = c.destino || "";
+    $("pedidoObservaciones").value = c.observaciones || "";
+    trailersysOpenModal(modal);
+  }
+
+  async function cancelarPedido(id) {
+    if (!window.confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) return;
+    try { await trailersysApiRequest("DELETE", `/mis-cargas/${id}`); await cargar(); }
+    catch (err) { alert(err.message || "No se pudo cancelar el pedido."); }
+  }
   $("pedidoPesoUnidad").onchange = () => { const input = $("pedidoPeso"), valor = Number(input.value); if (input.value) { const kg = unidadAnterior === "lb" ? valor / 2.2046226218 : valor; input.value = ($("pedidoPesoUnidad").value === "lb" ? kg * 2.2046226218 : kg).toFixed(2); } unidadAnterior = $("pedidoPesoUnidad").value; };
   // pesoTexto en vez de leer el peso ya convertido a Number directamente:
   // Number("") es 0, asi que dejar el campo vacio pasaba silenciosamente
   // como un pedido de "0 kg" en vez de pedir el dato. Con este sentinel
   // (igual que en cargas.js/mantenimientos.js) un campo vacio se detecta
   // como tal en vez de convertirse en un numero valido por accidente.
-  form.onsubmit = async (e) => { e.preventDefault(); const pesoTexto = $("pedidoPeso").value; const valor = Number(pesoTexto), kg = $("pedidoPesoUnidad").value === "lb" ? valor / 2.2046226218 : valor; const data = { descripcion: $("pedidoDescripcion").value.trim(), tipo: $("pedidoTipo").value.trim(), peso: pesoTexto === "" ? "" : Math.round(kg), origen: $("pedidoOrigen").value, destino: $("pedidoDestino").value, observaciones: $("pedidoObservaciones").value.trim() }; if (!data.descripcion || !data.tipo || !data.origen || !data.destino || data.peso === "" || Number.isNaN(data.peso) || data.peso < 0) return alert("Completa los campos obligatorios."); try { await trailersysApiRequest("POST", "/mis-cargas", data); trailersysCloseModal(modal); await cargar(); } catch (err) { alert(err.message); } };
-  $("pedidoGrid").onclick = (e) => { const b = e.target.closest("button[data-action]"); if (!b) return; if (b.dataset.action === "detalle") abrirDetalle(b.dataset.id); else { cargaRecepcionId = b.dataset.id; $("pedidoRecepcionForm").reset(); trailersysOpenModal($("pedidoRecepcionOverlay")); } };
+  form.onsubmit = async (e) => { e.preventDefault(); const pesoTexto = $("pedidoPeso").value; const valor = Number(pesoTexto), kg = $("pedidoPesoUnidad").value === "lb" ? valor / 2.2046226218 : valor; const data = { descripcion: $("pedidoDescripcion").value.trim(), tipo: $("pedidoTipo").value.trim(), peso: pesoTexto === "" ? "" : Math.round(kg), origen: $("pedidoOrigen").value, destino: $("pedidoDestino").value, observaciones: $("pedidoObservaciones").value.trim() }; if (!data.descripcion || !data.tipo || !data.origen || !data.destino || data.peso === "" || Number.isNaN(data.peso) || data.peso < 0) return alert("Completa los campos obligatorios."); try { if (pedidoEditandoId) await trailersysApiRequest("PUT", `/mis-cargas/${pedidoEditandoId}`, data); else await trailersysApiRequest("POST", "/mis-cargas", data); trailersysCloseModal(modal); await cargar(); } catch (err) { alert(err.message); } };
+  $("pedidoGrid").onclick = (e) => {
+    const b = e.target.closest("button[data-action]"); if (!b) return;
+    const id = b.dataset.id;
+    if (b.dataset.action === "detalle") abrirDetalle(id);
+    else if (b.dataset.action === "editar") { const c = pedidos.find((p) => String(p.id) === id); if (c) abrirEdicion(c); }
+    else if (b.dataset.action === "cancelar") cancelarPedido(id);
+    else { cargaRecepcionId = id; $("pedidoRecepcionForm").reset(); trailersysOpenModal($("pedidoRecepcionOverlay")); }
+  };
   $("pedidoDetalleClose").onclick = $("pedidoDetalleAceptar").onclick = () => trailersysCloseModal($("pedidoDetalleOverlay")); $("pedidoImprimirGuia").onclick = imprimirGuia;
   $("pedidoRecepcionClose").onclick = $("pedidoRecepcionCancelar").onclick = () => trailersysCloseModal($("pedidoRecepcionOverlay"));
   $("pedidoRecepcionForm").onsubmit = async (e) => { e.preventDefault(); const tipo = $("pedidoRecepcionTipo").value, obs = $("pedidoRecepcionObservacion").value.trim(), file = $("pedidoRecepcionEvidencia").files[0]; if (tipo !== "COMPLETO" && !obs) return alert("Describe el problema para registrar el reclamo."); if (file && file.size > 4 * 1024 * 1024) return alert("La imagen supera 4 MB."); const evidencia = file ? await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); }) : null; try { await trailersysApiRequest("POST", `/mis-cargas/${cargaRecepcionId}/confirmar-recepcion`, { observacion: obs, novedad: tipo, evidencia }); trailersysCloseModal($("pedidoRecepcionOverlay")); await cargar(); } catch (err) { alert(err.message); } };

@@ -83,6 +83,40 @@ public class PedidoClienteService {
         return cargaRepository.save(carga);
     }
 
+    /**
+     * El cliente solo puede editar/cancelar su pedido mientras sigue
+     * "Pendiente" (todavia sin viaje asignado, nadie de Operacion
+     * comprometio un vehiculo/conductor con el). En cuanto Coordinador lo
+     * asigna a un viaje, queda fuera de su alcance - igual que
+     * confirmarRecepcion() ya exige lo contrario (una carga con viaje) para
+     * su propio paso.
+     */
+    private Carga miCargaPendiente(String username, Long cargaId) {
+        Carga carga = miCarga(username, cargaId);
+        if (carga.getEstado() != EstadoCarga.PENDIENTE) {
+            throw new ConflictException("Ya no puedes modificar este pedido: Operación ya le asignó un viaje.");
+        }
+        return carga;
+    }
+
+    @Transactional
+    public Carga actualizarPedido(String username, Long cargaId, PedidoCargaRequest request) {
+        Carga carga = miCargaPendiente(username, cargaId);
+        carga.setDescripcion(request.descripcion());
+        carga.setTipo(request.tipo());
+        carga.setPeso(request.peso());
+        carga.setOrigen(request.origen());
+        carga.setDestino(request.destino());
+        carga.setObservaciones(request.observaciones());
+        return carga;
+    }
+
+    @Transactional
+    public void eliminarPedido(String username, Long cargaId) {
+        Carga carga = miCargaPendiente(username, cargaId);
+        cargaRepository.delete(carga);
+    }
+
     public Viaje obtenerViajeDeMiCarga(String username, Long cargaId) {
         Carga carga = miCarga(username, cargaId);
         return viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId()).orElse(null);

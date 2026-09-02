@@ -1,8 +1,10 @@
 package com.trailersys.backend.pedido;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -168,6 +170,143 @@ class PedidoClienteControllerTest {
         // Todavia no tiene viaje: 204 en vez de un error.
         mockMvc.perform(get("/api/mis-cargas/" + cargaId + "/viaje").header("Authorization", "Bearer " + tokenCliente))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void clienteEditaSuPedidoMientrasSigaPendiente() throws Exception {
+        Long clienteId = crearCliente("CI-PED-EDIT");
+        String tokenCliente = crearUsuarioClienteYToken("clientepedidoedit", clienteId);
+
+        String pedido = """
+                {"descripcion":"Pedido original","tipo":"General","peso":100,
+                 "origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedido))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creado).get("id").asLong();
+
+        String edicion = """
+                {"descripcion":"Pedido corregido","tipo":"Textiles","peso":250,
+                 "origen":"Cuenca","destino":"Loja","observaciones":"Fragil"}
+                """;
+        mockMvc.perform(put("/api/mis-cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.descripcion").value("Pedido corregido"))
+                .andExpect(jsonPath("$.tipo").value("Textiles"))
+                .andExpect(jsonPath("$.peso").value(250))
+                .andExpect(jsonPath("$.origen").value("Cuenca"))
+                .andExpect(jsonPath("$.destino").value("Loja"))
+                .andExpect(jsonPath("$.estado").value("Pendiente"));
+    }
+
+    @Test
+    void clienteCancelaSuPedidoMientrasSigaPendiente() throws Exception {
+        Long clienteId = crearCliente("CI-PED-CANCEL");
+        String tokenCliente = crearUsuarioClienteYToken("clientepedidocancel", clienteId);
+
+        String pedido = """
+                {"descripcion":"Pedido a cancelar","tipo":"General","peso":100,
+                 "origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedido))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(delete("/api/mis-cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isNoContent());
+
+        String listado = mockMvc.perform(get("/api/mis-cargas").header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(listado).doesNotContain("Pedido a cancelar");
+    }
+
+    @Test
+    void clienteNoPuedeEditarNiCancelarUnPedidoYaAsignadoAUnViaje() throws Exception {
+        Long clienteId = crearCliente("CI-PED-ASIG");
+        String tokenCliente = crearUsuarioClienteYToken("clientepedidoasig", clienteId);
+        Long vehiculoId = crearVehiculo("PED-ASIG-01");
+        Long conductorId = crearConductor("CI-PED-ASIG-COND");
+
+        String pedido = """
+                {"descripcion":"Pedido ya en proceso","tipo":"General","peso":100,
+                 "origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedido))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creado).get("id").asLong();
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"Quito","destino":"Guayaquil","fechaSalida":"2026-08-15T08:00:00","estado":"Programado"}
+                """.formatted(vehiculoId, conductorId, clienteId, cargaId);
+        mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated());
+
+        String edicion = """
+                {"descripcion":"Intento de edicion","tipo":"General","peso":100,
+                 "origen":"Quito","destino":"Guayaquil"}
+                """;
+        mockMvc.perform(put("/api/mis-cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(delete("/api/mis-cargas/" + cargaId)
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void clienteNoPuedeEditarNiEliminarUnPedidoDeOtroCliente() throws Exception {
+        Long clienteAId = crearCliente("CI-PED-EDITA");
+        Long clienteBId = crearCliente("CI-PED-EDITB");
+        String tokenA = crearUsuarioClienteYToken("clientepedidoedita", clienteAId);
+        String tokenB = crearUsuarioClienteYToken("clientepedidoeditb", clienteBId);
+
+        String pedidoA = """
+                {"descripcion":"Pedido privado de A","tipo":"General","peso":100,"origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedidoA))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaDeA = objectMapper.readTree(creado).get("id").asLong();
+
+        String edicion = """
+                {"descripcion":"Intento ajeno","tipo":"General","peso":100,"origen":"Quito","destino":"Guayaquil"}
+                """;
+        mockMvc.perform(put("/api/mis-cargas/" + cargaDeA)
+                        .header("Authorization", "Bearer " + tokenB)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(edicion))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/mis-cargas/" + cargaDeA)
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
     }
 
     @Test
