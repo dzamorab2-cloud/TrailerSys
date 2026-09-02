@@ -8,6 +8,8 @@
   const emptyState = document.getElementById("perfilEmptyState");
   const emptyText = document.getElementById("perfilEmptyText");
 
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
   const avatarEl = document.getElementById("perfilAvatar");
   const nombreEl = document.getElementById("perfilNombre");
   const usernameEl = document.getElementById("perfilUsername");
@@ -50,7 +52,7 @@
           ["Razón social", empresa.nombre], ["RUC / identificación", empresa.identificacion],
           ["Teléfono", empresa.telefono], ["Correo", empresa.correo || "Sin registrar"],
           ["Dirección", empresa.direccion], ["Servicios", empresa.servicios || "Sin registrar"],
-        ].map(([label, value]) => `<div class="route-stat"><div class="route-stat-label">${label}</div><div class="route-stat-value">${String(value ?? "—").replace(/[&<>]/g, "")}</div></div>`).join("");
+        ].map(([label, value]) => `<div class="route-stat"><div class="route-stat-label">${esc(label)}</div><div class="route-stat-value">${esc(value ?? "—")}</div></div>`).join("");
       } catch { empresaCard.hidden = true; }
     }
   }
