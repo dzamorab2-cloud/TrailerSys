@@ -44,13 +44,40 @@ public class SeguimientoService {
         this.usuarioRepository = usuarioRepository;
     }
 
-    public List<SeguimientoEvento> listarEventos(Long viajeId) {
+    /**
+     * verificarPropioViajeSiEsConductor() ya impedia que un Conductor
+     * creara/borrara eventos de un viaje ajeno, pero nada acotaba la
+     * LECTURA: cualquier cuenta CONDUCTOR podia pedir /eventos sin viajeId
+     * (bitacora de TODA la flota) o con el viajeId de otro conductor, y
+     * verla igual - exactamente lo que roles.js dice a proposito que este
+     * rol no deberia ver ("Mis viajes" reemplazo a "Seguimiento" por eso).
+     * Administrador/Coordinador/Supervisor (sin Conductor vinculado a su
+     * Usuario) siguen viendo todo, igual que antes.
+     */
+    public List<SeguimientoEvento> listarEventos(Long viajeId, String username) {
+        Conductor conductorPropio = conductorDelUsuario(username);
+
         if (viajeId != null) {
+            if (conductorPropio != null) {
+                Viaje viaje = viajeRepository.findById(viajeId).orElse(null);
+                if (viaje != null && !conductorPropio.getId().equals(viaje.getConductor().getId())) {
+                    throw new AccessDeniedException("Solo puedes consultar eventos de tus propios viajes.");
+                }
+            }
             return repository.findByViajeIdOrderByFechaHoraDesc(viajeId);
+        }
+
+        if (conductorPropio != null) {
+            return repository.findByViaje_Conductor_IdOrderByFechaHoraDesc(conductorPropio.getId());
         }
         return repository.findAll().stream()
                 .sorted(Comparator.comparing(SeguimientoEvento::getFechaHora).reversed())
                 .toList();
+    }
+
+    private Conductor conductorDelUsuario(String username) {
+        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username).orElse(null);
+        return usuario == null ? null : usuario.getConductor();
     }
 
     @Transactional
@@ -83,11 +110,11 @@ public class SeguimientoService {
      * ya gestionan cualquier viaje desde el modulo Seguimiento.
      */
     private void verificarPropioViajeSiEsConductor(Viaje viaje, String username) {
-        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username).orElse(null);
-        if (usuario == null || usuario.getConductor() == null) {
+        Conductor conductorPropio = conductorDelUsuario(username);
+        if (conductorPropio == null) {
             return;
         }
-        if (!usuario.getConductor().getId().equals(viaje.getConductor().getId())) {
+        if (!conductorPropio.getId().equals(viaje.getConductor().getId())) {
             throw new AccessDeniedException("Solo puedes gestionar eventos de tus propios viajes.");
         }
     }

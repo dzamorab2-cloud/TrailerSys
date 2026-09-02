@@ -276,6 +276,77 @@ class SeguimientoControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    /**
+     * verificarPropioViajeSiEsConductor() ya impedia crear/borrar eventos de
+     * un viaje ajeno, pero nada acotaba la LECTURA: antes de este fix, un
+     * Conductor autenticado podia pedir /eventos?viajeId=<ajeno> y ver la
+     * bitacora completa de un viaje que no era suyo.
+     */
+    @Test
+    void unConductorNoPuedeVerEventosDeUnViajeAjenoAunPidiendoloPorViajeId() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-LEC-AJENO-01", "Disponible");
+        Long conductorDelViajeId = crearConductor("CI-SEG-LEC-DUENO", "2030-01-01");
+        Long otroConductorId = crearConductor("CI-SEG-LEC-OTRO", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-LEC-CLI-01");
+        Long viajeId = crearViaje(vehiculoId, conductorDelViajeId, clienteId, "Origen Lectura Ajena", "Destino Lectura Ajena",
+                "2026-08-15T08:00:00", "En Curso");
+
+        String tokenOtroConductor = crearUsuarioConductorYToken("conductorseguimientolecajeno", otroConductorId);
+        mockMvc.perform(get("/api/seguimiento/eventos")
+                        .param("viajeId", String.valueOf(viajeId))
+                        .header("Authorization", "Bearer " + tokenOtroConductor))
+                .andExpect(status().isForbidden());
+    }
+
+    /**
+     * Antes de este fix, un Conductor pidiendo /eventos SIN viajeId recibia
+     * la bitacora de TODA la flota (repository.findAll()), exactamente lo
+     * que roles.js dice a proposito que este rol no deberia ver ("Mis
+     * viajes" reemplazo al generico "Seguimiento" por eso mismo).
+     */
+    @Test
+    void unConductorSinViajeIdSoloVeEventosDeSusPropiosViajes() throws Exception {
+        Long vehiculoPropioId = crearVehiculo("SEG-LEC-PROPIO-02", "Disponible");
+        Long conductorPropioId = crearConductor("CI-SEG-LEC-PROPIO-02", "2030-01-01");
+        Long vehiculoAjenoId = crearVehiculo("SEG-LEC-AJENO-02", "Disponible");
+        Long conductorAjenoId = crearConductor("CI-SEG-LEC-AJENO-02", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-LEC-CLI-02");
+
+        // Ambos viajes "En Curso" dejan un evento de Salida automatico.
+        Long viajePropioId = crearViaje(vehiculoPropioId, conductorPropioId, clienteId, "Origen Propio Lectura", "Destino Propio Lectura",
+                "2026-08-15T08:00:00", "En Curso");
+        Long viajeAjenoId = crearViaje(vehiculoAjenoId, conductorAjenoId, clienteId, "Origen Ajeno Lectura", "Destino Ajeno Lectura",
+                "2026-08-15T08:00:00", "En Curso");
+
+        String tokenConductorPropio = crearUsuarioConductorYToken("conductorseguimientosoloelsuyo", conductorPropioId);
+        String listado = mockMvc.perform(get("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenConductorPropio))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        boolean vePropio = false;
+        for (JsonNode evento : objectMapper.readTree(listado)) {
+            assertThat(evento.get("viajeId").asLong()).isNotEqualTo(viajeAjenoId);
+            if (evento.get("viajeId").asLong() == viajePropioId) vePropio = true;
+        }
+        assertThat(vePropio).isTrue();
+    }
+
+    /**
+     * Alertas es siempre fleet-wide (licencias, vehiculos, mantenimientos de
+     * TODA la operacion) - no hay forma de acotarla por conductor, asi que
+     * este rol queda excluido del todo (PUEDE_VER_ALERTAS), a diferencia de
+     * PUEDE_CONSULTAR para /eventos.
+     */
+    @Test
+    void unConductorNoPuedeConsultarAlertas() throws Exception {
+        Long conductorId = crearConductor("CI-SEG-LEC-ALERT", "2030-01-01");
+        String tokenConductor = crearUsuarioConductorYToken("conductorseguimientoalertas", conductorId);
+        mockMvc.perform(get("/api/seguimiento/alertas")
+                        .header("Authorization", "Bearer " + tokenConductor))
+                .andExpect(status().isForbidden());
+    }
+
     @Test
     void alertasDetectanLicenciaVencidaYVehiculoEnMantenimiento() throws Exception {
         // El vehiculo se crea Disponible (ValidarDisponibilidad exige ese

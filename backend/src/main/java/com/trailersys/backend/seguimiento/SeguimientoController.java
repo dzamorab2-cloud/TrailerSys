@@ -22,10 +22,16 @@ import com.trailersys.backend.seguimiento.dto.SeguimientoEventoResponse;
 import jakarta.validation.Valid;
 
 /**
- * Segun TRAILERSYS_ROLES (js/roles.js), Administrador, Coordinador y
- * Conductor tienen "seguimiento" tanto en modulos como en manage (el
- * conductor puede registrar sus propios eventos de ruta aunque no
- * gestione Viajes). Supervisor solo consulta (necesita leer eventos/alertas
+ * Segun TRAILERSYS_ROLES (js/roles.js), "seguimiento" ya no esta entre los
+ * modulos de Conductor - tiene su propio "mis-viajes" en su lugar,
+ * justamente porque el generico "exponia el resto de la flota y una
+ * bitacora manual que no le corresponden" (comentario textual en
+ * roles.js). Aun asi, Conductor sigue en PUEDE_GESTIONAR/PUEDE_CONSULTAR
+ * porque puede registrar/consultar eventos de sus PROPIOS viajes via API
+ * directa (SeguimientoService acota eso por Conductor, no por el modulo) -
+ * pero nunca fleet-wide: alertas() usa PUEDE_VER_ALERTAS, sin Conductor,
+ * porque esas si son siempre de toda la flota y no hay forma de acotarlas
+ * por conductor. Supervisor solo consulta eventos/alertas (necesita leer
  * para poder validar una entrega desde Viajes), por eso las lecturas y las
  * escrituras tienen @PreAuthorize separados.
  */
@@ -35,6 +41,7 @@ public class SeguimientoController {
 
     private static final String PUEDE_CONSULTAR = "hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR','SUPERVISOR')";
     private static final String PUEDE_GESTIONAR = "hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR')";
+    private static final String PUEDE_VER_ALERTAS = "hasAnyRole('ADMINISTRADOR','COORDINADOR','SUPERVISOR')";
 
     private final SeguimientoService service;
 
@@ -44,8 +51,8 @@ public class SeguimientoController {
 
     @GetMapping("/eventos")
     @PreAuthorize(PUEDE_CONSULTAR)
-    public List<SeguimientoEventoResponse> listarEventos(@RequestParam(required = false) Long viajeId) {
-        return service.listarEventos(viajeId).stream().map(SeguimientoEventoResponse::from).toList();
+    public List<SeguimientoEventoResponse> listarEventos(@RequestParam(required = false) Long viajeId, Principal principal) {
+        return service.listarEventos(viajeId, principal.getName()).stream().map(SeguimientoEventoResponse::from).toList();
     }
 
     @PostMapping("/eventos")
@@ -64,7 +71,7 @@ public class SeguimientoController {
     }
 
     @GetMapping("/alertas")
-    @PreAuthorize(PUEDE_CONSULTAR)
+    @PreAuthorize(PUEDE_VER_ALERTAS)
     public List<AlertaDto> alertas() {
         return service.obtenerAlertas();
     }

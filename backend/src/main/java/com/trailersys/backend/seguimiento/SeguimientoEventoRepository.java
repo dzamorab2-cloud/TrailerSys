@@ -8,5 +8,8 @@ public interface SeguimientoEventoRepository extends JpaRepository<SeguimientoEv
 
     List<SeguimientoEvento> findByViajeIdOrderByFechaHoraDesc(Long viajeId);
 
+    /** Para acotar el listado sin viajeId a las propias rutas de un Conductor (ver SeguimientoService.listarEventos). */
+    List<SeguimientoEvento> findByViaje_Conductor_IdOrderByFechaHoraDesc(Long conductorId);
+
     void deleteByViajeId(Long viajeId);
 }
