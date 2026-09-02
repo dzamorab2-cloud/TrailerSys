@@ -1,4 +1,6 @@
 (function () {
+  // Ver el mismo comentario en js/vehiculos.js.
+  if (!["administrador", "coordinador"].includes(trailersysGetSession()?.role)) return;
   const ESTADOS = ["Pendiente", "Asignada", "En Tránsito", "Entregada", "Cancelada"];
   const ESTADO_BADGE = {
     Pendiente: "badge-warning",

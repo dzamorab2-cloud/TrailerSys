@@ -1,4 +1,7 @@
 (function () {
+  // Ver el mismo comentario en js/vehiculos.js. "clientes" es de
+  // Administrador unicamente (ni Coordinador lo tiene, ver roles.js).
+  if (trailersysGetSession()?.role !== "administrador") return;
   const ESTADO_BADGE = {
     Activo: "badge-success",
     Inactivo: "badge-neutral",

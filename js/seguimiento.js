@@ -1,4 +1,8 @@
 (function () {
+  // Ver el mismo comentario en js/vehiculos.js. Conductor no entra aqui:
+  // ver el comentario en roles.js sobre por que "seguimiento" ya no esta
+  // entre sus modulos ("Mis viajes" lo reemplazo).
+  if (!["administrador", "coordinador", "supervisor"].includes(trailersysGetSession()?.role)) return;
   const MODULE_KEY = "seguimiento";
   const ESTADO_BADGE = {
     Programado: "badge-info",

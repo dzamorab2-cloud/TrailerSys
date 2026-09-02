@@ -1,4 +1,11 @@
 (function () {
+  // Sin esta guarda, render() de mas abajo pedia /paginas/vehiculos igual
+  // para cualquier sesion (Conductor, Cliente) apenas cargaba la pagina -
+  // 403 silencioso (el backend ya lo rechaza) pero una peticion de red y un
+  // error en consola de mas en cada login que no tuviera este modulo, para
+  // una seccion que ademas queda oculta por navigation.js igual. Mismo
+  // patron ya usado en js/dashboard.js, js/mis-viajes.js, etc.
+  if (!["administrador", "coordinador", "mantenimiento", "supervisor"].includes(trailersysGetSession()?.role)) return;
   const ESTADOS = ["Disponible", "En Ruta", "Mantenimiento", "Fuera de Servicio"];
   const ESTADO_BADGE = {
     Disponible: "badge-success",

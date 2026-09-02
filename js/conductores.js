@@ -1,4 +1,6 @@
 (function () {
+  // Ver el mismo comentario en js/vehiculos.js.
+  if (!["administrador", "coordinador"].includes(trailersysGetSession()?.role)) return;
   const ESTADOS = ["Disponible", "En Ruta", "Descanso", "Inactivo"];
   const ESTADO_BADGE = {
     Disponible: "badge-success",

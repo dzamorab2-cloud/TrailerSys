@@ -1,4 +1,6 @@
 (function () {
+  // Ver el mismo comentario en js/vehiculos.js.
+  if (!["administrador", "mantenimiento"].includes(trailersysGetSession()?.role)) return;
   const TIPOS = ["Preventivo", "Correctivo"];
 
   // Caches del ultimo listado cargado desde la API.

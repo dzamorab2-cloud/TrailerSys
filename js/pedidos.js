@@ -1,4 +1,13 @@
 (function () {
+  // "pedidos" es el autoservicio exclusivo de Cliente (roles.js): ningun
+  // otro rol lo tiene entre sus modulos. Sin esta guarda, cargar() de mas
+  // abajo pedia GET /mis-cargas igual para cualquier sesion (Administrador,
+  // Coordinador, Mantenimiento, Conductor, Supervisor) apenas cargaba la
+  // pagina - 403 silencioso (el backend ya lo rechaza) pero una peticion de
+  // red y un error en consola de mas en cada login que no fuera Cliente,
+  // para una seccion que ademas queda oculta por navigation.js igual.
+  // Mismo patron ya usado en js/dashboard.js para el caso inverso.
+  if (trailersysGetSession()?.role !== "cliente") return;
   const $ = (id) => document.getElementById(id);
   const badge = { Pendiente: "badge-warning", Asignada: "badge-info", "En Tránsito": "badge-neutral", Entregada: "badge-success", Cancelada: "badge-danger" };
   let pedidos = [], viajes = {}, detalleActual = null, cargaRecepcionId = null, unidadAnterior = "kg", pedidoEditandoId = null;

@@ -1,4 +1,8 @@
 (function () {
+  // Ver el mismo comentario en js/vehiculos.js. Conductor no entra aqui:
+  // tiene su propio "mis-viajes" (autoservicio, acotado a lo suyo) en vez
+  // de este modulo general.
+  if (!["administrador", "coordinador", "supervisor"].includes(trailersysGetSession()?.role)) return;
   const ESTADOS = ["Programado", "En Curso", "Finalizado", "Cancelado"];
   const ESTADO_BADGE = {
     Programado: "badge-info",
