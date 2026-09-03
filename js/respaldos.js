@@ -1,14 +1,12 @@
 /**
  * Respaldos de la base de datos - exclusivo del rol Administrador. Vive
- * dentro de la pantalla de Configuración, junto a "Usuarios y acceso"
- * (mismo patrón que admin.js: panel propio, guardado/oculto por rol).
+ * dentro de la pantalla de Configuración, en su propia pestaña junto a
+ * "Usuarios y acceso" (ver configuracion-tabs.js, que controla cuál de las
+ * dos está visible - este archivo ya no decide su propia visibilidad).
  */
 (function () {
   const session = trailersysGetSession();
   if (session?.role !== "administrador") return;
-
-  const panel = document.getElementById("adminRespaldos");
-  panel.hidden = false;
 
   const body = document.getElementById("respaldosBody");
   const configForm = document.getElementById("respaldoConfigForm");
@@ -156,6 +154,14 @@
     }
   });
 
-  cargarConfiguracion();
-  cargarHistorial();
+  // No se carga hasta que la pestaña "Respaldos de la base de datos" se abre
+  // por primera vez (ver configuracion-tabs.js) - así el admin que nunca
+  // llega a abrir esa pestaña no dispara /respaldos ni /respaldos/configuracion
+  // en cada visita a Configuración. Se refresca cada vez que se reabre la
+  // pestaña (mismo criterio que el Calendario de Mantenimientos).
+  window.addEventListener("trailersys:configuracion-tab-activada", (event) => {
+    if (event.detail?.vista !== "respaldos") return;
+    cargarConfiguracion();
+    cargarHistorial();
+  });
 })();

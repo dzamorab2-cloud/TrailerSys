@@ -834,8 +834,14 @@
             <p id="perfilEmptyText">Ocurrió un error al conectar con el servidor.</p>
           </div>
 
+          <div id="adminGestionTabs" hidden>
+            <div class="maintenance-tabs" id="configuracionTabs">
+              <button class="maintenance-tab active" data-view="usuarios"><i class="bi bi-people"></i> Usuarios y acceso</button>
+              <button class="maintenance-tab" data-view="respaldos"><i class="bi bi-hdd-stack"></i> Respaldos de la base de datos</button>
+            </div>
+          </div>
+
           <div class="admin-users" id="adminRespaldos" hidden>
-            <div class="section-heading"><div><h2>Respaldos de la base de datos</h2><p>El primero es completo; los siguientes solo capturan lo que cambió desde el último respaldo.</p></div></div>
             <div class="card" id="respaldoConfigCard">
               <form id="respaldoConfigForm" class="form-grid">
                 <div class="field">
@@ -2073,6 +2079,7 @@
   <script src="js/configuracion.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/respaldos.js"></script>
+  <script src="js/configuracion-tabs.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>
