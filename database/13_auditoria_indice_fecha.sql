@@ -1,0 +1,15 @@
+-- La pantalla de Auditoria, al abrirse SIN filtros (el caso mas comun: un
+-- Administrador entra a revisar los ultimos cambios), ejecuta
+-- "... FROM auditoria ORDER BY fecha_hora DESC LIMIT 25 OFFSET 0". Los
+-- indices que ya existen (idx_auditoria_tabla_fecha, idx_auditoria_usuario_
+-- fecha, ver 02_auditoria_indices.sql) empiezan por "tabla"/"usuario_app":
+-- sin filtrar por esas columnas, Postgres no puede usarlos para el ORDER BY
+-- y termina haciendo un Seq Scan + sort de TODA la tabla.
+--
+-- Con ~1.6 millones de filas reales (bulk de pruebas de volumen incluido),
+-- eso medido en vivo tardaba ~6.2s solo en esa consulta (~9s la pagina
+-- completa contando el conteo total) - la vista por defecto de Auditoria
+-- practicamente no cargaba. Un indice simple en fecha_hora DESC deja que
+-- Postgres resuelva el ORDER BY + LIMIT con un Index Scan hacia atras,
+-- sin ordenar nada.
+CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria (fecha_hora DESC);
