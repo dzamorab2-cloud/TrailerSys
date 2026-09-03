@@ -793,34 +793,54 @@
             </div>
           </div>
 
-          <div class="card profile-card" id="perfilCard">
-            <div class="person-header">
-              <div class="person-avatar" id="perfilAvatar">—</div>
-              <div class="person-identity">
-                <div class="person-name" id="perfilNombre">—</div>
-                <div class="person-id" id="perfilUsername">—</div>
+          <div class="profile-row">
+            <div class="card profile-card" id="perfilCard">
+              <div class="person-header">
+                <div class="person-avatar" id="perfilAvatar">—</div>
+                <div class="person-identity">
+                  <div class="person-name" id="perfilNombre">—</div>
+                  <div class="person-id" id="perfilUsername">—</div>
+                </div>
+              </div>
+              <div class="photo-upload-actions" id="perfilFotoActions">
+                <label class="btn btn-ghost" for="perfilFoto"><i class="bi bi-camera"></i> Cambiar foto</label>
+                <input type="file" id="perfilFoto" accept="image/*" />
+              </div>
+              <div class="route-summary-grid profile-detail-grid">
+                <div class="route-stat">
+                  <div class="route-stat-label">Rol</div>
+                  <div class="route-stat-value" id="perfilRol">—</div>
+                </div>
+                <div class="route-stat">
+                  <div class="route-stat-label">Correo</div>
+                  <div class="route-stat-value" id="perfilCorreo">—</div>
+                </div>
+                <div class="route-stat">
+                  <div class="route-stat-label">ID de usuario</div>
+                  <div class="route-stat-value" id="perfilId">—</div>
+                </div>
+                <div class="route-stat">
+                  <div class="route-stat-label">Sesión iniciada</div>
+                  <div class="route-stat-value" id="perfilSesion">—</div>
+                </div>
               </div>
             </div>
-            <div class="photo-upload-actions" id="perfilFotoActions">
-              <label class="btn btn-ghost" for="perfilFoto"><i class="bi bi-camera"></i> Cambiar foto</label>
-              <input type="file" id="perfilFoto" accept="image/*" />
-            </div>
-            <div class="route-summary-grid profile-detail-grid">
-              <div class="route-stat">
-                <div class="route-stat-label">Rol</div>
-                <div class="route-stat-value" id="perfilRol">—</div>
-              </div>
-              <div class="route-stat">
-                <div class="route-stat-label">Correo</div>
-                <div class="route-stat-value" id="perfilCorreo">—</div>
-              </div>
-              <div class="route-stat">
-                <div class="route-stat-label">ID de usuario</div>
-                <div class="route-stat-value" id="perfilId">—</div>
-              </div>
-              <div class="route-stat">
-                <div class="route-stat-label">Sesión iniciada</div>
-                <div class="route-stat-value" id="perfilSesion">—</div>
+
+            <div class="card profile-card" id="resumenSistemaCard" hidden>
+              <div class="section-heading"><div><h2>Resumen del sistema</h2><p>Un vistazo rápido sin cambiar de pestaña.</p></div></div>
+              <div class="route-summary-grid profile-detail-grid">
+                <div class="route-stat">
+                  <div class="route-stat-label">Usuarios activos</div>
+                  <div class="route-stat-value" id="resumenUsuariosActivos">—</div>
+                </div>
+                <div class="route-stat">
+                  <div class="route-stat-label">Último respaldo</div>
+                  <div class="route-stat-value" id="resumenUltimoRespaldo">—</div>
+                </div>
+                <div class="route-stat">
+                  <div class="route-stat-label">Próximo respaldo programado</div>
+                  <div class="route-stat-value" id="resumenProximoRespaldo">—</div>
+                </div>
               </div>
             </div>
           </div>
@@ -2080,6 +2100,7 @@
   <script src="js/admin.js"></script>
   <script src="js/respaldos.js"></script>
   <script src="js/configuracion-tabs.js"></script>
+  <script src="js/configuracion-resumen.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>

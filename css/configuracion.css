@@ -1,5 +1,16 @@
+/* Fila para la tarjeta de perfil + "Resumen del sistema" (administrador):
+   en pantallas anchas quedaban una al lado de la otra con un vacío enorme a
+   la derecha (perfil topa en max-width:560px, pero nada mas ocupaba el
+   resto de la fila). flex-wrap para que en pantallas angostas se apilen. */
+.profile-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
 .profile-card {
   max-width: 560px;
+  flex: 1 1 380px;
   margin-bottom: 18px;
 }
 
