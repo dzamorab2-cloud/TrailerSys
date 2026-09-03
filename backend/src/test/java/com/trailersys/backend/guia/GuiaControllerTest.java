@@ -16,9 +16,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trailersys.backend.carga.CargaRepository;
 import com.trailersys.backend.usuario.Rol;
 import com.trailersys.backend.usuario.Usuario;
 import com.trailersys.backend.usuario.UsuarioRepository;
+import com.trailersys.backend.viaje.ViajeRepository;
 
 /**
  * GuiaController arma el listado a mano con SQL crudo (JdbcTemplate) y
@@ -44,6 +46,12 @@ class GuiaControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private ViajeRepository viajeRepository;
+
+    @Autowired
+    private CargaRepository cargaRepository;
 
     private String tokenAdmin;
 
@@ -231,5 +239,76 @@ class GuiaControllerTest {
                         .value("Viaje sin carga"))
                 .andExpect(jsonPath("$.content[?(@.referenciaId == " + viajeId + " && @.tipo == 'VIAJE')].estado")
                         .value("Programado"));
+    }
+
+    /**
+     * Sin texto de busqueda, listar() usa el camino rapido (listarSinBusqueda):
+     * empuja el filtro de tipo/estado y el ORDER BY+LIMIT antes de los JOIN,
+     * en vez de armar el UNION completo y recien ahi filtrar/ordenar/paginar
+     * (ver el comentario de ese metodo). Estas pruebas cubren ese camino
+     * directamente, sin "search", que es justo lo que las de mas arriba NO
+     * cubren (todas pasan "search").
+     */
+    @Test
+    void sinBusquedaElFiltroDeTipoSoloTraeCargas() throws Exception {
+        Long clienteId = crearClienteDePrueba("CI-GUIA-RAPIDO-TIPO");
+        String carga = """
+                {"descripcion":"Carga camino rapido tipo","clienteId":%d,"tipo":"General",
+                 "peso":100,"origen":"A","destino":"B","estado":"Pendiente"}
+                """.formatted(clienteId);
+        String creada = mockMvc.perform(post("/api/cargas")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(carga))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creada).get("id").asLong();
+
+        // size grande para no depender del orden entre pruebas que comparten la misma base H2.
+        mockMvc.perform(get("/api/guias").param("tipo", "CARGA").param("size", "100")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.tipo == 'VIAJE')]").doesNotExist())
+                .andExpect(jsonPath("$.content[?(@.referenciaId == " + cargaId + " && @.tipo == 'CARGA')]").exists());
+    }
+
+    @Test
+    void sinBusquedaElFiltroDeEstadoEncuentraElViajeCorrecto() throws Exception {
+        Long clienteId = crearClienteDePrueba("CI-GUIA-RAPIDO-EST");
+        Long vehiculoId = crearVehiculoDePrueba("GUIA-RAPIDO");
+        Long conductorId = crearConductorDePrueba("CI-GUIA-RAPIDO-COND");
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
+                 "origen":"Guia Rapido Origen","destino":"Guia Rapido Destino",
+                 "fechaSalida":"2026-08-15T08:00:00","estado":"Cancelado"}
+                """.formatted(vehiculoId, conductorId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(get("/api/guias").param("tipo", "VIAJE").param("estado", "Cancelado").param("size", "100")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.referenciaId == " + viajeId + " && @.tipo == 'VIAJE')].estado")
+                        .value("Cancelado"))
+                .andExpect(jsonPath("$.content[?(@.referenciaId == " + viajeId + " && @.tipo == 'VIAJE' && @.origen == 'Guia Rapido Origen')]")
+                        .exists());
+    }
+
+    @Test
+    void sinBusquedaElTotalCoincideConLaSumaDeViajesYCargas() throws Exception {
+        long totalReal = viajeRepository.count() + cargaRepository.count();
+
+        String body = mockMvc.perform(get("/api/guias").param("size", "12")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        long totalDelEndpoint = objectMapper.readTree(body).get("totalElements").asLong();
+        org.junit.jupiter.api.Assertions.assertEquals(totalReal, totalDelEndpoint);
     }
 }
