@@ -834,12 +834,6 @@
             <p id="perfilEmptyText">Ocurrió un error al conectar con el servidor.</p>
           </div>
 
-          <div class="admin-users" id="adminUsuarios" hidden>
-            <div class="section-heading"><div><h2>Usuarios y acceso</h2><p>Administra cuentas, roles y estado de acceso.</p></div><button class="btn btn-primary" id="btnNuevoUsuario"><i class="bi bi-person-plus"></i>Nuevo usuario</button></div>
-            <div class="toolbar"><div class="toolbar-search"><i class="bi bi-search"></i><input id="usuarioBuscar" type="search" placeholder="Buscar usuario, nombre o correo" /></div><div class="toolbar-filters"><select id="usuarioRolFiltro" class="select-pill"><option value="">Todos los roles</option><option>ADMINISTRADOR</option><option>COORDINADOR</option><option>MANTENIMIENTO</option><option>CONDUCTOR</option><option>SUPERVISOR</option><option>CLIENTE</option></select></div></div>
-            <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
-          </div>
-
           <div class="admin-users" id="adminRespaldos" hidden>
             <div class="section-heading"><div><h2>Respaldos de la base de datos</h2><p>El primero es completo; los siguientes solo capturan lo que cambió desde el último respaldo.</p></div></div>
             <div class="card" id="respaldoConfigCard">
@@ -883,6 +877,12 @@
               <button class="btn btn-ghost" id="btnRespaldoIncremental"><i class="bi bi-layers"></i>Respaldo incremental ahora</button>
             </div>
             <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Tamaño</th><th>Registros</th><th>Estado</th><th>Generado por</th><th>Acciones</th></tr></thead><tbody id="respaldosBody"></tbody></table></div>
+          </div>
+
+          <div class="admin-users" id="adminUsuarios" hidden>
+            <div class="section-heading"><div><h2>Usuarios y acceso</h2><p>Administra cuentas, roles y estado de acceso.</p></div><button class="btn btn-primary" id="btnNuevoUsuario"><i class="bi bi-person-plus"></i>Nuevo usuario</button></div>
+            <div class="toolbar"><div class="toolbar-search"><i class="bi bi-search"></i><input id="usuarioBuscar" type="search" placeholder="Buscar usuario, nombre o correo" /></div><div class="toolbar-filters"><select id="usuarioRolFiltro" class="select-pill"><option value="">Todos los roles</option><option>ADMINISTRADOR</option><option>COORDINADOR</option><option>MANTENIMIENTO</option><option>CONDUCTOR</option><option>SUPERVISOR</option><option>CLIENTE</option></select></div></div>
+            <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
           </div>
         </section>
 

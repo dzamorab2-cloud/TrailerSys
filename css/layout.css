@@ -1,7 +1,14 @@
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  min-height: 100vh;
+  /* Antes era min-height: podia crecer mas alla del viewport con una pantalla
+     larga (ej. Configuracion con el panel de Respaldos), y como nada mas
+     limitaba la altura, el scroll quedaba a nivel de toda la pagina - el
+     sidebar (columna hermana) se iba para arriba junto con el contenido en
+     vez de quedarse fijo. Con una altura fija, cada columna llena ese alto
+     (stretch, el default de grid) y es .main-content quien scrollea por su
+     cuenta (ver mas abajo), no la pagina entera. */
+  height: 100vh;
   transition: grid-template-columns var(--transition);
 }
 
@@ -219,11 +226,22 @@
   color: var(--color-danger);
 }
 
+/* Columna derecha (topbar + contenido): flex para que .main-content sea la
+   unica parte que scrollea, dejando .topbar y .sidebar fijos en su sitio. */
+.app-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* Contenido principal */
 .main-content {
   padding: 28px;
   min-width: 0;
+  min-height: 0;
+  flex: 1;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .module {
