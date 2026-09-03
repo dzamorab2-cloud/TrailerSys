@@ -1,4 +1,6 @@
 (function () {
+  const session = trailersysGetSession();
+  if (!["administrador", "coordinador"].includes(session?.role)) return;
   const body = document.getElementById("reclamosBody");
   if (!body) return;
   const empty = document.getElementById("reclamosEmpty");
