@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Respaldos generados (no son codigo fuente) ###
+backups/

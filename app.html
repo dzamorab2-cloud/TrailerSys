@@ -839,6 +839,51 @@
             <div class="toolbar"><div class="toolbar-search"><i class="bi bi-search"></i><input id="usuarioBuscar" type="search" placeholder="Buscar usuario, nombre o correo" /></div><div class="toolbar-filters"><select id="usuarioRolFiltro" class="select-pill"><option value="">Todos los roles</option><option>ADMINISTRADOR</option><option>COORDINADOR</option><option>MANTENIMIENTO</option><option>CONDUCTOR</option><option>SUPERVISOR</option><option>CLIENTE</option></select></div></div>
             <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
           </div>
+
+          <div class="admin-users" id="adminRespaldos" hidden>
+            <div class="section-heading"><div><h2>Respaldos de la base de datos</h2><p>El primero es completo; los siguientes solo capturan lo que cambió desde el último respaldo.</p></div></div>
+            <div class="card" id="respaldoConfigCard">
+              <form id="respaldoConfigForm" class="form-grid">
+                <div class="field">
+                  <label for="respaldoFrecuencia">Frecuencia</label>
+                  <div class="input-wrap"><i class="bi bi-arrow-repeat"></i>
+                    <select id="respaldoFrecuencia">
+                      <option value="DIARIO">Diario</option>
+                      <option value="SEMANAL">Semanal</option>
+                      <option value="MENSUAL">Mensual</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field"><label for="respaldoHora">Hora</label><div class="input-wrap"><i class="bi bi-clock"></i><input type="time" id="respaldoHora" required /></div></div>
+                <div class="field" id="fieldRespaldoDiaSemana" hidden>
+                  <label for="respaldoDiaSemana">Día de la semana</label>
+                  <div class="input-wrap"><i class="bi bi-calendar-week"></i>
+                    <select id="respaldoDiaSemana">
+                      <option value="MONDAY">Lunes</option>
+                      <option value="TUESDAY">Martes</option>
+                      <option value="WEDNESDAY">Miércoles</option>
+                      <option value="THURSDAY">Jueves</option>
+                      <option value="FRIDAY">Viernes</option>
+                      <option value="SATURDAY">Sábado</option>
+                      <option value="SUNDAY">Domingo</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field" id="fieldRespaldoDiaMes" hidden>
+                  <label for="respaldoDiaMes">Día del mes</label>
+                  <div class="input-wrap"><i class="bi bi-calendar-date"></i><input type="number" id="respaldoDiaMes" min="1" max="31" /></div>
+                  <small class="field-help">Si el mes no tiene ese día (ej. 31), corre el último día del mes.</small>
+                </div>
+                <label class="switch-row"><input id="respaldoActivo" type="checkbox" /><span>Respaldo automático activado</span></label>
+                <div class="field field-span-2"><button type="submit" class="btn btn-primary"><i class="bi bi-save"></i>Guardar configuración</button></div>
+              </form>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-ghost" id="btnRespaldoCompleto"><i class="bi bi-hdd"></i>Respaldo completo ahora</button>
+              <button class="btn btn-ghost" id="btnRespaldoIncremental"><i class="bi bi-layers"></i>Respaldo incremental ahora</button>
+            </div>
+            <div class="table-wrap card admin-table-card"><table class="report-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Tamaño</th><th>Registros</th><th>Estado</th><th>Generado por</th><th>Acciones</th></tr></thead><tbody id="respaldosBody"></tbody></table></div>
+          </div>
         </section>
 
         <section class="module" id="module-pedidos" data-module="pedidos" hidden>
@@ -2027,6 +2072,7 @@
   <script src="js/mantenimiento-dashboard.js"></script>
   <script src="js/configuracion.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/respaldos.js"></script>
   <script src="js/navigation.js"></script>
 </body>
 </html>

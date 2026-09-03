@@ -14,3 +14,6 @@ backend/target/
 *-run-error.log
 backend/*-run.log
 backend/*-run-error.log
+
+# Clases compiladas de las utilidades Java+JDBC sueltas en database/
+database/*.class
