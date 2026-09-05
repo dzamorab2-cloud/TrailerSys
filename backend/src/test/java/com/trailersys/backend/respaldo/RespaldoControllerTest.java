@@ -1,13 +1,19 @@
 package com.trailersys.backend.respaldo;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,6 +48,12 @@ class RespaldoControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RespaldoRepository respaldoRepository;
+
+    @TempDir
+    private Path tempDir;
 
     private String tokenAdmin;
     private String tokenSupervisor;
@@ -205,5 +217,33 @@ class RespaldoControllerTest {
         mockMvc.perform(get("/api/respaldos/999999/descargar")
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Regresion del bug real reportado por el equipo: sin exponer
+     * "Content-Disposition" via corsConfigurationSource().setExposedHeaders(),
+     * el navegador bloquea la lectura de ese header desde JS en una peticion
+     * cross-origin (frontend en localhost:5173, backend en localhost:8080),
+     * asi que js/respaldos.js terminaba usando un nombre generico
+     * ("respaldo-{id}") en vez del nombre real del archivo, tanto en el boton
+     * de descarga manual como al guardar en la carpeta elegida.
+     */
+    @Test
+    void laDescargaDeUnRespaldoExponeElHeaderContentDispositionEnPeticionesCrossOrigin() throws Exception {
+        Path archivo = tempDir.resolve("completo-test.dump");
+        Files.writeString(archivo, "contenido de prueba");
+
+        Respaldo respaldo = new Respaldo(TipoRespaldo.COMPLETO, "admintestrespaldo", null);
+        respaldo.setEstado(EstadoRespaldo.COMPLETADO);
+        respaldo.setArchivoRuta(archivo.toAbsolutePath().toString());
+        respaldo.setTamanoBytes(Files.size(archivo));
+        respaldo = respaldoRepository.save(respaldo);
+
+        mockMvc.perform(get("/api/respaldos/" + respaldo.getId() + "/descargar")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .header("Origin", "http://localhost:5173"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Expose-Headers", containsString("Content-Disposition")))
+                .andExpect(header().string("Content-Disposition", containsString("completo-test.dump")));
     }
 }

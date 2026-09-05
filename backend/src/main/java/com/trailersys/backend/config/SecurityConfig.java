@@ -70,6 +70,11 @@ public class SecurityConfig {
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
+        // Sin esto, el navegador no deja leer este header desde JS en
+        // peticiones cross-origin (ej. localhost:5173 -> localhost:8080),
+        // aunque el backend lo mande - rompe la deteccion del nombre real
+        // del archivo al descargar/guardar un respaldo desde el frontend.
+        config.setExposedHeaders(List.of("Content-Disposition"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
