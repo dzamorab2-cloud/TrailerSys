@@ -19,14 +19,59 @@
   const activoInput = document.getElementById("respaldoActivo");
   const btnCompleto = document.getElementById("btnRespaldoCompleto");
   const btnIncremental = document.getElementById("btnRespaldoIncremental");
+  const btnElegirCarpeta = document.getElementById("btnRespaldoElegirCarpeta");
+  const carpetaInfo = document.getElementById("respaldoCarpetaInfo");
+
+  // Subida aqui arriba (antes vivia mas abajo, junto a toast()) porque
+  // actualizarCarpetaInfo() ya la necesita al llamarse de forma inmediata
+  // unas lineas mas abajo, al terminar de evaluarse este modulo.
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // File System Access API (showDirectoryPicker): solo Chrome/Edge la
+  // soportan hoy. El "directory handle" que devuelve no se puede persistir
+  // entre recargas (limitacion normal de la API, no un descuido nuestro),
+  // asi que vive solo en esta variable de modulo: si se recarga la pagina,
+  // hay que volver a elegir la carpeta.
+  let carpetaHandle = null;
+  const soportaDirectoryPicker = typeof window.showDirectoryPicker === "function";
+
+  function actualizarCarpetaInfo() {
+    if (!soportaDirectoryPicker) {
+      carpetaInfo.hidden = false;
+      carpetaInfo.innerHTML = `<i class="bi bi-exclamation-circle"></i> Elegir carpeta no está disponible en este navegador (usa Chrome o Edge).`;
+      return;
+    }
+    if (carpetaHandle) {
+      carpetaInfo.hidden = false;
+      carpetaInfo.innerHTML = `<i class="bi bi-folder-check"></i> Los respaldos se guardarán también en: <strong>${esc(carpetaHandle.name)}</strong>`;
+    } else {
+      carpetaInfo.hidden = true;
+    }
+  }
+
+  if (!soportaDirectoryPicker) {
+    btnElegirCarpeta.disabled = true;
+  } else {
+    btnElegirCarpeta.addEventListener("click", async () => {
+      try {
+        // "readwrite": sin este modo explicito el permiso queda solo de
+        // lectura y getFileHandle(..., {create:true})/createWritable() del
+        // paso b) fallarian con NotAllowedError al intentar escribir.
+        carpetaHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+        actualizarCarpetaInfo();
+      } catch (e) {
+        // AbortError: el usuario cerro el selector sin elegir nada - no es un error real.
+        if (e?.name !== "AbortError") toast(e.message || "No se pudo seleccionar la carpeta.", true);
+      }
+    });
+  }
+  actualizarCarpetaInfo();
 
   function actualizarVisibilidadFrecuencia() {
     fieldDiaSemana.hidden = frecuenciaInput.value !== "SEMANAL";
     fieldDiaMes.hidden = frecuenciaInput.value !== "MENSUAL";
   }
   frecuenciaInput.addEventListener("change", actualizarVisibilidadFrecuencia);
-
-  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   function toast(message, error = false) {
     let el = document.querySelector(".ui-toast");
@@ -116,14 +161,55 @@
     }
   }
 
+  // Escribe el respaldo recien generado dentro de la carpeta que el admin
+  // eligio con "Elegir carpeta de guardado" (ver btnElegirCarpeta arriba),
+  // ademas de la copia que el servidor ya guarda en su carpeta por defecto.
+  // Reutiliza el mismo endpoint de descarga que ya usaba el boton manual de
+  // la tabla, solo que en vez de bajarlo con <a download> lo escribe
+  // directo en el directory handle.
+  async function guardarEnCarpetaElegida(id) {
+    try {
+      const response = await fetch(`${TRAILERSYS_API_BASE_URL}/respaldos/${id}/descargar`, { headers: apiHeaders() });
+      if (!response.ok) throw new Error("No se pudo obtener el respaldo para guardarlo en la carpeta elegida.");
+      const disposition = response.headers.get("content-disposition") || "";
+      const nombre = /filename="([^"]+)"/.exec(disposition)?.[1] || `respaldo-${id}`;
+      const contenido = await response.arrayBuffer();
+
+      const archivoHandle = await carpetaHandle.getFileHandle(nombre, { create: true });
+      const escritor = await archivoHandle.createWritable();
+      await escritor.write(contenido);
+      await escritor.close();
+
+      toast(`Respaldo guardado también en "${carpetaHandle.name}/${nombre}".`);
+    } catch (e) {
+      // No se revierte ni se le resta importancia al respaldo ya generado en
+      // el servidor (eso ya paso bien) - solo se avisa que la copia local no
+      // se pudo escribir, para que el admin no crea que si quedo guardada.
+      toast(e.message || "El respaldo se generó, pero no se pudo guardar en la carpeta elegida.", true);
+    }
+  }
+
   async function dispararRespaldo(tipo, boton) {
     boton.disabled = true;
     const textoOriginal = boton.innerHTML;
-    boton.innerHTML = `<i class="bi bi-hourglass-split"></i>Generando…`;
+    const etiquetaTipo = tipo === "completo" ? "completo" : "incremental";
+    // El boton deja de decir solo "Generando…" (generico) para dejar clara
+    // cual de las dos operaciones esta en curso, con un spinner animado
+    // (misma clase .spinner que ya usa el modulo de Viajes) en vez del
+    // icono estatico de reloj de arena que habia antes.
+    boton.innerHTML = `<span class="spinner"></span>Generando respaldo ${etiquetaTipo}...`;
+    toast(`Generando respaldo ${etiquetaTipo}…`);
     try {
-      await trailersysApiRequest("POST", `/respaldos/${tipo}`);
+      const respaldo = await trailersysApiRequest("POST", `/respaldos/${tipo}`);
       toast(tipo === "completo" ? "Respaldo completo generado." : "Respaldo incremental generado.");
       await cargarHistorial();
+      // Si el admin ya eligio una carpeta local, se guarda ahi una copia
+      // automatica; si no, el comportamiento sigue siendo el de siempre
+      // (el respaldo queda en el servidor y se descarga a mano desde la
+      // tabla, con el boton de descarga de cada fila).
+      if (carpetaHandle && respaldo?.estado === "COMPLETADO" && respaldo?.id) {
+        await guardarEnCarpetaElegida(respaldo.id);
+      }
     } catch (e) {
       toast(e.message || "No se pudo generar el respaldo.", true);
     } finally {
