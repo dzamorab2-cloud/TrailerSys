@@ -87,6 +87,17 @@
     }[char]));
   }
 
+  // Reutiliza trailersysFormatDuration (la misma que arma "Duración
+  // estimada" en renderResumen) para expresar hace cuanto se reporto una
+  // ubicacion manual del conductor, en vez de repetir la logica de horas/
+  // minutos aparte.
+  function formatHaceTiempo(fechaHoraIso) {
+    const fecha = new Date(fechaHoraIso);
+    if (Number.isNaN(fecha.getTime())) return "hace un momento";
+    const minutos = Math.max(0, (Date.now() - fecha.getTime()) / 60000);
+    return minutos < 1 ? "hace un momento" : `hace ${trailersysFormatDuration(minutos)}`;
+  }
+
   function nowForInput() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, "0");
@@ -399,12 +410,36 @@
     iconAnchor: [15, 15],
   });
 
-  // Posicion simulada del vehiculo sobre viaje.ruta.path, interpolando
-  // segun cuanto tiempo real transcurrio desde fechaSalida frente a la
-  // duracion estimada de la ruta. No hay telemetria real: es la misma idea
-  // que ya aplica ViajeSimulacionService en el backend para las paradas
-  // automaticas, pero calculada aca para animar el marcador.
-  function calcularPosicionSimulada(viaje) {
+  // Distancia euclidiana simple entre dos puntos [lat,lng] - no hace falta
+  // una proyeccion geodesica exacta solo para encontrar cual punto de la
+  // ruta ya calculada queda mas cerca de una ubicacion reportada a mano.
+  function indicePathMasCercano(path, lat, lng) {
+    let mejorIndice = 0;
+    let mejorDistancia = Infinity;
+    path.forEach((punto, indice) => {
+      const distancia = Math.hypot(punto[0] - lat, punto[1] - lng);
+      if (distancia < mejorDistancia) {
+        mejorDistancia = distancia;
+        mejorIndice = indice;
+      }
+    });
+    return mejorIndice;
+  }
+
+  // Posicion simulada del vehiculo sobre viaje.ruta.path. Sin corregir
+  // (ubicacionReportada == null), interpola segun cuanto tiempo real
+  // transcurrio desde fechaSalida frente a la duracion estimada de la ruta -
+  // no hay telemetria real: es la misma idea que ya aplica
+  // ViajeSimulacionService en el backend para las paradas automaticas, pero
+  // calculada aca para animar el marcador.
+  //
+  // Cuando SI hay una ubicacionReportada (el Conductor marco a mano donde
+  // esta en js/mis-viajes.js, ver SeguimientoService.obtenerUbicacionReportada),
+  // el progreso ya no se calcula solo por tiempo: se ubica el punto de la
+  // ruta mas cercano a esa marca y se sigue avanzando desde ahi al ritmo
+  // normal, para que el marcador "salte" de inmediato a donde de verdad
+  // esta en vez de ignorar el reporte.
+  function calcularPosicionSimulada(viaje, ubicacionReportada) {
     const path = viaje.ruta?.path;
     if (!path || path.length < 2 || !viaje.fechaSalida || !viaje.ruta.duracionMin) {
       return null;
@@ -414,7 +449,17 @@
     const duracionMs = viaje.ruta.duracionMin * 60000;
     if (duracionMs <= 0) return null;
 
-    const progreso = Math.min(1, Math.max(0, (Date.now() - salida) / duracionMs));
+    let progreso;
+    if (ubicacionReportada) {
+      const indiceReportado = indicePathMasCercano(path, ubicacionReportada.lat, ubicacionReportada.lng);
+      const fraccionReal = indiceReportado / (path.length - 1);
+      const reportadoEn = new Date(ubicacionReportada.fechaHora).getTime();
+      const avanceDesdeElReporte = Number.isNaN(reportadoEn) ? 0 : (Date.now() - reportadoEn) / duracionMs;
+      progreso = Math.min(1, Math.max(0, fraccionReal + avanceDesdeElReporte));
+    } else {
+      progreso = Math.min(1, Math.max(0, (Date.now() - salida) / duracionMs));
+    }
+
     const posicionExacta = progreso * (path.length - 1);
     const indiceBase = Math.floor(posicionExacta);
     const indiceSiguiente = Math.min(path.length - 1, indiceBase + 1);
@@ -428,7 +473,7 @@
     ];
   }
 
-  function actualizarMarcadorVehiculo(viaje) {
+  async function actualizarMarcadorVehiculo(viaje) {
     if (!leafletMapInstance) return;
 
     if (viaje.estado !== "En Curso") {
@@ -439,15 +484,34 @@
       return;
     }
 
-    const posicion = calcularPosicionSimulada(viaje);
+    // Si el Conductor ya reporto una ubicacion real para este viaje, se usa
+    // para corregir la simulacion (ver calcularPosicionSimulada). Cualquier
+    // error de red aca deja ubicacionReportada en null y el marcador sigue
+    // exactamente con el calculo puro por tiempo, igual que antes de esto.
+    let ubicacionReportada = null;
+    try {
+      const evento = await trailersysApiRequest("GET", `/seguimiento/eventos/ubicacion-reportada?viajeId=${viaje.id}`);
+      if (evento) {
+        ubicacionReportada = { lat: evento.latitudReportada, lng: evento.longitudReportada, fechaHora: evento.fechaHora };
+      }
+    } catch {
+      ubicacionReportada = null;
+    }
+
+    const posicion = calcularPosicionSimulada(viaje, ubicacionReportada);
     if (!posicion) return;
+
+    const popupTexto = ubicacionReportada
+      ? `Última ubicación reportada por el conductor ${formatHaceTiempo(ubicacionReportada.fechaHora)}`
+      : "Posición estimada (simulada)";
 
     if (vehiculoMarker) {
       vehiculoMarker.setLatLng(posicion);
+      vehiculoMarker.setPopupContent(popupTexto);
     } else {
       vehiculoMarker = L.marker(posicion, { icon: VEHICULO_ICON })
         .addTo(leafletMapInstance)
-        .bindPopup("Posición estimada del vehículo (simulada)");
+        .bindPopup(popupTexto);
     }
   }
 
@@ -499,7 +563,7 @@
       leafletMapInstance.fitBounds(L.latLngBounds([origenLatLng, destinoLatLng]), { padding: [24, 24] });
     }
 
-    actualizarMarcadorVehiculo(viaje);
+    await actualizarMarcadorVehiculo(viaje);
 
     setTimeout(() => {
       if (leafletMapInstance) leafletMapInstance.invalidateSize();
@@ -588,7 +652,7 @@
       renderResumen(viaje);
       renderReporteEntrega(viaje);
       await renderTimeline(viaje.id);
-      actualizarMarcadorVehiculo(viaje);
+      await actualizarMarcadorVehiculo(viaje);
     }, 10000);
   }
 

@@ -2068,6 +2068,65 @@
 
       <div id="misViajesReporteEntrega" class="delivery-report" hidden></div>
 
+      <form id="misViajesEventoForm" class="event-form" novalidate hidden>
+        <p class="timeline-title">Registrar evento de mi viaje</p>
+        <div class="form-grid">
+          <div class="field" id="fieldMisViajesEventoFecha">
+            <label for="misViajesEventoFecha">Fecha y hora</label>
+            <div class="input-wrap">
+              <i class="bi bi-clock"></i>
+              <input type="datetime-local" id="misViajesEventoFecha" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field">
+            <label for="misViajesEventoTipo">Evento</label>
+            <div class="input-wrap">
+              <i class="bi bi-flag"></i>
+              <select id="misViajesEventoTipo">
+                <option value="Salida">Salida</option>
+                <option value="Parada">Parada</option>
+                <option value="Retraso">Retraso</option>
+                <option value="Incidente">Incidente</option>
+                <option value="Llegada">Llegada</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field field-span-2" id="fieldMisViajesEventoUbicacion">
+            <label for="misViajesEventoUbicacion">Ubicación</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt"></i>
+              <input type="text" id="misViajesEventoUbicacion" placeholder="Ej. Km 45 vía Quito - Guayaquil" />
+            </div>
+            <span class="field-error"></span>
+          </div>
+
+          <div class="field field-span-2">
+            <label for="misViajesEventoObservacion">Observación (opcional)</label>
+            <div class="input-wrap">
+              <i class="bi bi-card-text"></i>
+              <input type="text" id="misViajesEventoObservacion" placeholder="Observación opcional" />
+            </div>
+          </div>
+        </div>
+
+        <div class="field field-span-2">
+          <label>Marca en el mapa dónde estás realmente (opcional)</label>
+          <div id="misViajesEventoMapaContainer" class="route-map"></div>
+          <span class="field-help" id="misViajesEventoUbicacionInfo">Si no marcas nada, el evento se registra igual, sin ubicación exacta en el mapa.</span>
+        </div>
+
+        <div class="event-form-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i>
+            Agregar evento
+          </button>
+        </div>
+      </form>
+
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" id="misViajesVerGuia"><i class="bi bi-file-earmark-text"></i> Ver/descargar guía</button>
         <button type="button" class="btn btn-primary" id="misViajesDetalleCerrarBtn">Cerrar</button>

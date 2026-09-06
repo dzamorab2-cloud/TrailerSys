@@ -15,13 +15,16 @@ public record SeguimientoEventoResponse(
         LocalDateTime fechaHora,
         TipoEvento evento,
         String ubicacion,
-        String observacion
+        String observacion,
+        Double latitudReportada,
+        Double longitudReportada
 ) {
     public static SeguimientoEventoResponse from(SeguimientoEvento e) {
         return new SeguimientoEventoResponse(
                 e.getId(),
                 e.getViaje().getId(), e.getViaje().getOrigen(), e.getViaje().getDestino(),
                 e.getVehiculo().getId(), e.getVehiculo().getPlaca(),
-                e.getFechaHora(), e.getEvento(), e.getUbicacion(), e.getObservacion());
+                e.getFechaHora(), e.getEvento(), e.getUbicacion(), e.getObservacion(),
+                e.getLatitudReportada(), e.getLongitudReportada());
     }
 }

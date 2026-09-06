@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -88,8 +89,23 @@ public class SeguimientoService {
 
         SeguimientoEvento evento = new SeguimientoEvento(
                 viaje, viaje.getVehiculo(), request.fechaHora(), request.evento(),
-                request.ubicacion(), request.observacion());
+                request.ubicacion(), request.observacion(),
+                request.latitudReportada(), request.longitudReportada());
         return repository.save(evento);
+    }
+
+    /**
+     * El evento con ubicacion marcada a mano mas reciente de este viaje (si
+     * existe alguno) - lo consulta el mapa en vivo (js/seguimiento.js) para
+     * corregir de un salto la posicion simulada del vehiculo. Mismo control
+     * de acceso que listarEventos(viajeId): un Conductor solo puede
+     * consultar esto de sus propios viajes.
+     */
+    public Optional<SeguimientoEvento> obtenerUbicacionReportada(Long viajeId, String username) {
+        Viaje viaje = viajeRepository.findById(viajeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Viaje no encontrado: " + viajeId));
+        verificarPropioViajeSiEsConductor(viaje, username);
+        return repository.findFirstByViajeIdAndLatitudReportadaIsNotNullAndLongitudReportadaIsNotNullOrderByFechaHoraDesc(viajeId);
     }
 
     @Transactional

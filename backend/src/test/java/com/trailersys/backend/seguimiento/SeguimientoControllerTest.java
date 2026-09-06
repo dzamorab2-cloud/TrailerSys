@@ -177,6 +177,104 @@ class SeguimientoControllerTest {
         assertThat(objectMapper.readTree(listadoTrasEliminar)).hasSize(1);
     }
 
+    /** Crea un evento directo con control fino sobre observacion/coordenadas, para armar escenarios mixtos. */
+    private void crearEventoDirecto(Long viajeId, String fechaHora, String tipo, String ubicacion,
+                                     String observacion, Double lat, Double lng) throws Exception {
+        String evento = """
+                {"viajeId":%d,"fechaHora":"%s","evento":"%s","ubicacion":"%s","observacion":%s,
+                 "latitudReportada":%s,"longitudReportada":%s}
+                """.formatted(viajeId, fechaHora, tipo, ubicacion,
+                        observacion == null ? "null" : "\"" + observacion + "\"",
+                        lat == null ? "null" : lat,
+                        lng == null ? "null" : lng);
+        mockMvc.perform(post("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(evento))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void crearEventoConUbicacionReportadaQuedaGuardadaCorrectamente() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-UBIC-01", "Disponible");
+        Long conductorId = crearConductor("CI-SEG-UBIC-01", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-UBIC-CLI-01");
+        Long viajeId = crearViaje(vehiculoId, conductorId, clienteId, "Origen Ubicacion", "Destino Ubicacion",
+                "2026-08-15T08:00:00", "En Curso");
+
+        String evento = """
+                {"viajeId":%d,"fechaHora":"2026-08-15T09:00:00","evento":"Parada",
+                 "ubicacion":"Km 20 vía de prueba","observacion":"Marcada en el mapa",
+                 "latitudReportada":-1.234567,"longitudReportada":-78.123456}
+                """.formatted(viajeId);
+
+        String creado = mockMvc.perform(post("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(evento))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.latitudReportada").value(-1.234567))
+                .andExpect(jsonPath("$.longitudReportada").value(-78.123456))
+                .andReturn().getResponse().getContentAsString();
+        Long eventoId = objectMapper.readTree(creado).get("id").asLong();
+
+        // Tambien debe quedar asi al releerlo, no solo en la respuesta del POST.
+        String listado = mockMvc.perform(get("/api/seguimiento/eventos")
+                        .param("viajeId", String.valueOf(viajeId))
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andReturn().getResponse().getContentAsString();
+        boolean encontrado = false;
+        for (JsonNode e : objectMapper.readTree(listado)) {
+            if (e.get("id").asLong() == eventoId) {
+                encontrado = true;
+                assertThat(e.get("latitudReportada").asDouble()).isEqualTo(-1.234567);
+                assertThat(e.get("longitudReportada").asDouble()).isEqualTo(-78.123456);
+            }
+        }
+        assertThat(encontrado).isTrue();
+    }
+
+    @Test
+    void ubicacionReportadaDevuelveSinContenidoCuandoNingunEventoTieneCoordenadas() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-UBIC-02", "Disponible");
+        Long conductorId = crearConductor("CI-SEG-UBIC-02", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-UBIC-CLI-02");
+        // El viaje "En Curso" ya deja el evento automatico de Salida, sin coordenadas.
+        Long viajeId = crearViaje(vehiculoId, conductorId, clienteId, "Origen Ubicacion 2", "Destino Ubicacion 2",
+                "2026-08-15T08:00:00", "En Curso");
+
+        mockMvc.perform(get("/api/seguimiento/eventos/ubicacion-reportada")
+                        .param("viajeId", String.valueOf(viajeId))
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void ubicacionReportadaDevuelveElEventoConCoordenadasMasRecienteEntreVariosMezclados() throws Exception {
+        Long vehiculoId = crearVehiculo("SEG-UBIC-03", "Disponible");
+        Long conductorId = crearConductor("CI-SEG-UBIC-03", "2030-01-01");
+        Long clienteId = crearCliente("CI-SEG-UBIC-CLI-03");
+        Long viajeId = crearViaje(vehiculoId, conductorId, clienteId, "Origen Ubicacion 3", "Destino Ubicacion 3",
+                "2026-08-15T08:00:00", "En Curso");
+
+        // Sin coordenadas (como los automaticos de la simulacion).
+        crearEventoDirecto(viajeId, "2026-08-15T09:00:00", "Parada", "Km 5", null, null, null);
+        // Con coordenadas, pero mas antiguo que el siguiente.
+        crearEventoDirecto(viajeId, "2026-08-15T10:00:00", "Parada", "Km 20", null, -1.0, -78.0);
+        // Con coordenadas y el mas reciente de todos - este es el que debe ganar.
+        crearEventoDirecto(viajeId, "2026-08-15T11:00:00", "Parada", "Km 35", null, -1.5, -78.5);
+        // Sin coordenadas, pero mas reciente que el anterior - no debe "ganarle" al de arriba.
+        crearEventoDirecto(viajeId, "2026-08-15T12:00:00", "Retraso", "Km 40", "Tráfico", null, null);
+
+        mockMvc.perform(get("/api/seguimiento/eventos/ubicacion-reportada")
+                        .param("viajeId", String.valueOf(viajeId))
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ubicacion").value("Km 35"))
+                .andExpect(jsonPath("$.latitudReportada").value(-1.5))
+                .andExpect(jsonPath("$.longitudReportada").value(-78.5));
+    }
+
     @Test
     void crearEventoConViajeInexistenteDevuelveNoEncontrado() throws Exception {
         String evento = """

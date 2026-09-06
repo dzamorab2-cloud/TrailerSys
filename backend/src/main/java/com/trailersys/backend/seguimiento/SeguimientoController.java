@@ -55,6 +55,21 @@ public class SeguimientoController {
         return service.listarEventos(viajeId, principal.getName()).stream().map(SeguimientoEventoResponse::from).toList();
     }
 
+    /**
+     * 204 cuando el viaje no tiene ningun evento con ubicacion marcada a
+     * mano todavia (el caso normal mientras el Conductor no reporta nada) -
+     * lo consume el mapa en vivo (js/seguimiento.js) para decidir si corrige
+     * la posicion simulada o sigue con el calculo puro por tiempo.
+     */
+    @GetMapping("/eventos/ubicacion-reportada")
+    @PreAuthorize(PUEDE_CONSULTAR)
+    public ResponseEntity<SeguimientoEventoResponse> ubicacionReportada(@RequestParam Long viajeId, Principal principal) {
+        return service.obtenerUbicacionReportada(viajeId, principal.getName())
+                .map(SeguimientoEventoResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @PostMapping("/eventos")
     @PreAuthorize(PUEDE_GESTIONAR)
     public ResponseEntity<SeguimientoEventoResponse> crearEvento(

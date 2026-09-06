@@ -52,17 +52,37 @@ public class SeguimientoEvento {
     @Column(columnDefinition = "TEXT")
     private String observacion;
 
+    /**
+     * No hay telemetria GPS real conectada al vehiculo (ver la misma
+     * aclaracion en ViajeSimulacionService y calcularPosicionSimulada en
+     * js/seguimiento.js): estas dos columnas son opcionales y solo se
+     * llenan cuando el propio Conductor marca en el mapa, a mano, donde
+     * esta en realidad al registrar un evento (ver js/mis-viajes.js). Los
+     * eventos automaticos de la simulacion (SALIDA/PARADA/LLEGADA creados
+     * desde ViajeService/ViajeSimulacionService) las dejan en null.
+     */
+    private Double latitudReportada;
+
+    private Double longitudReportada;
+
     protected SeguimientoEvento() {
     }
 
     public SeguimientoEvento(Viaje viaje, Vehiculo vehiculo, LocalDateTime fechaHora, TipoEvento evento,
                               String ubicacion, String observacion) {
+        this(viaje, vehiculo, fechaHora, evento, ubicacion, observacion, null, null);
+    }
+
+    public SeguimientoEvento(Viaje viaje, Vehiculo vehiculo, LocalDateTime fechaHora, TipoEvento evento,
+                              String ubicacion, String observacion, Double latitudReportada, Double longitudReportada) {
         this.viaje = viaje;
         this.vehiculo = vehiculo;
         this.fechaHora = fechaHora;
         this.evento = evento;
         this.ubicacion = ubicacion;
         this.observacion = observacion;
+        this.latitudReportada = latitudReportada;
+        this.longitudReportada = longitudReportada;
     }
 
     public Long getId() {
@@ -91,5 +111,13 @@ public class SeguimientoEvento {
 
     public String getObservacion() {
         return observacion;
+    }
+
+    public Double getLatitudReportada() {
+        return latitudReportada;
+    }
+
+    public Double getLongitudReportada() {
+        return longitudReportada;
     }
 }

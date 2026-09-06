@@ -31,6 +31,22 @@
   let leafletMapInstance = null;
   let viajeActualId = null;
 
+  // --- Mapa pequeño para marcar "aquí estoy" al registrar un evento ---
+  // No hay telemetría GPS real conectada (misma aclaración que
+  // ViajeSimulacionService/calcularPosicionSimulada en el backend/
+  // js/seguimiento.js): esta es la única forma de que el conductor corrija
+  // a mano la posición que el mapa en vivo de Administrador/Coordinador/
+  // Supervisor calcula por tiempo transcurrido.
+  let eventoMapaInstance = null;
+  let eventoMarcador = null;
+  let eventoUbicacionMarcada = null; // { lat, lng } o null si no se marcó nada
+  const EVENTO_MARCADOR_ICON = L.divIcon({
+    className: "vehicle-marker",
+    html: '<i class="bi bi-geo-alt-fill"></i>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+  });
+
   const grid = $("misViajesGrid");
   const emptyState = $("misViajesEmptyState");
   const emptyTitle = $("misViajesEmptyTitle");
@@ -46,6 +62,26 @@
   const meta = $("misViajesMeta");
   const mapaContainer = $("misViajesMapaContainer");
   const reporteEntrega = $("misViajesReporteEntrega");
+
+  const eventoForm = $("misViajesEventoForm");
+  const inputEventoFecha = $("misViajesEventoFecha");
+  const selectEventoTipo = $("misViajesEventoTipo");
+  const inputEventoUbicacion = $("misViajesEventoUbicacion");
+  const inputEventoObservacion = $("misViajesEventoObservacion");
+  const eventoMapaContainer = $("misViajesEventoMapaContainer");
+  const eventoUbicacionInfo = $("misViajesEventoUbicacionInfo");
+
+  function nowForInput() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function setFieldError(fieldWrapId, message) {
+    const wrap = $(fieldWrapId);
+    wrap.classList.toggle("has-error", Boolean(message));
+    wrap.querySelector(".field-error").textContent = message || "";
+  }
 
   function eta(viaje) {
     if (!viaje.ruta || !viaje.fechaSalida) return null;
@@ -245,6 +281,124 @@
     setTimeout(() => { if (leafletMapInstance) leafletMapInstance.invalidateSize(); }, 200);
   }
 
+  function limpiarMarcaEvento() {
+    eventoUbicacionMarcada = null;
+    if (eventoMarcador && eventoMapaInstance) eventoMapaInstance.removeLayer(eventoMarcador);
+    eventoMarcador = null;
+  }
+
+  function destroyEventoMapa() {
+    if (eventoMapaInstance) { eventoMapaInstance.remove(); eventoMapaInstance = null; }
+    eventoMarcador = null;
+  }
+
+  // Mapa pequeño, de solo referencia, dentro del formulario de "Registrar
+  // evento de mi viaje": dibuja la misma ruta que renderMapa (reutiliza
+  // viaje.ruta.path, ya resuelto por esa llamada) para que el conductor
+  // ubique donde va, y deja que haga clic para marcar "aquí estoy
+  // realmente" - un dato opcional que corrige el mapa en vivo de
+  // Administrador/Coordinador/Supervisor (ver js/seguimiento.js).
+  async function renderEventoMapa(viaje) {
+    destroyEventoMapa();
+    eventoMapaContainer.innerHTML = "";
+    if (typeof L === "undefined" || !viaje.ruta) return;
+
+    let path = viaje.ruta.path;
+    if (!path) {
+      const ruta = await trailersysGetRoute(viaje.ruta.origenCoords, viaje.ruta.destinoCoords);
+      if (ruta) path = ruta.path;
+      viaje.ruta.path = path;
+    }
+
+    eventoMapaInstance = L.map(eventoMapaContainer, { scrollWheelZoom: true });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; colaboradores de OpenStreetMap", maxZoom: 18 }).addTo(eventoMapaInstance);
+
+    const origenLatLng = [viaje.ruta.origenCoords.lat, viaje.ruta.origenCoords.lng];
+    const destinoLatLng = [viaje.ruta.destinoCoords.lat, viaje.ruta.destinoCoords.lng];
+    L.marker(origenLatLng).addTo(eventoMapaInstance).bindPopup(`Origen: ${esc(viaje.origen)}`);
+    L.marker(destinoLatLng).addTo(eventoMapaInstance).bindPopup(`Destino: ${esc(viaje.destino)}`);
+    if (path && path.length) {
+      const polyline = L.polyline(path, { color: "#f2874b", weight: 4 }).addTo(eventoMapaInstance);
+      eventoMapaInstance.fitBounds(polyline.getBounds(), { padding: [24, 24] });
+    } else {
+      eventoMapaInstance.fitBounds(L.latLngBounds([origenLatLng, destinoLatLng]), { padding: [24, 24] });
+    }
+
+    eventoMapaInstance.on("click", (e) => {
+      eventoUbicacionMarcada = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (eventoMarcador) {
+        eventoMarcador.setLatLng(e.latlng);
+      } else {
+        eventoMarcador = L.marker(e.latlng, { icon: EVENTO_MARCADOR_ICON }).addTo(eventoMapaInstance);
+      }
+      eventoUbicacionInfo.textContent = "Ubicación marcada: se guardará junto con este evento.";
+    });
+
+    setTimeout(() => { if (eventoMapaInstance) eventoMapaInstance.invalidateSize(); }, 200);
+  }
+
+  // Solo tiene sentido registrar un evento de ruta (Parada, Retraso...)
+  // mientras el viaje esta realmente en curso - igual que "Confirmar
+  // llegada" en renderReporteEntrega, que tampoco se ofrece en otros estados.
+  function prepararEventoForm(viaje) {
+    const puedeRegistrar = viaje.estado === "En Curso";
+    eventoForm.hidden = !puedeRegistrar;
+    if (!puedeRegistrar) return;
+    eventoForm.reset();
+    inputEventoFecha.value = nowForInput();
+    inputEventoFecha.max = nowForInput();
+    setFieldError("fieldMisViajesEventoFecha", "");
+    setFieldError("fieldMisViajesEventoUbicacion", "");
+    limpiarMarcaEvento();
+    eventoUbicacionInfo.textContent = "Si no marcas nada, el evento se registra igual, sin ubicación exacta en el mapa.";
+  }
+
+  const submitEventoBtn = eventoForm.querySelector('button[type="submit"]');
+
+  eventoForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    let valid = true;
+    if (!inputEventoFecha.value) {
+      setFieldError("fieldMisViajesEventoFecha", "La fecha y hora son obligatorias.");
+      valid = false;
+    } else if (new Date(inputEventoFecha.value) > new Date()) {
+      setFieldError("fieldMisViajesEventoFecha", "La fecha y hora no pueden ser futuras.");
+      valid = false;
+    } else {
+      setFieldError("fieldMisViajesEventoFecha", "");
+    }
+
+    const ubicacion = inputEventoUbicacion.value.trim();
+    if (!ubicacion) {
+      setFieldError("fieldMisViajesEventoUbicacion", "La ubicación es obligatoria.");
+      valid = false;
+    } else {
+      setFieldError("fieldMisViajesEventoUbicacion", "");
+    }
+
+    if (!valid) return;
+
+    submitEventoBtn.disabled = true;
+    try {
+      await trailersysApiRequest("POST", "/seguimiento/eventos", {
+        viajeId: viajeActualId,
+        fechaHora: inputEventoFecha.value,
+        evento: selectEventoTipo.value,
+        ubicacion,
+        observacion: inputEventoObservacion.value.trim(),
+        latitudReportada: eventoUbicacionMarcada?.lat ?? null,
+        longitudReportada: eventoUbicacionMarcada?.lng ?? null,
+      });
+      const viaje = viajesCache.find((v) => String(v.id) === String(viajeActualId));
+      if (viaje) prepararEventoForm(viaje);
+    } catch (error) {
+      alert(error.message || "No se pudo registrar el evento.");
+    } finally {
+      submitEventoBtn.disabled = false;
+    }
+  });
+
   function formatPesoDoble(kg) {
     const kilos = Number(kg) || 0;
     return `${kilos.toLocaleString("es-EC")} kg / ${(kilos * 2.2046226218).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
@@ -287,8 +441,11 @@
     renderResumen(viaje);
     trailersysRenderViajeSecciones(meta, viaje);
     renderReporteEntrega(viaje);
+    prepararEventoForm(viaje);
     trailersysOpenModal(detalleOverlay);
-    renderMapa(viaje);
+    // renderEventoMapa reutiliza viaje.ruta.path ya resuelto por renderMapa,
+    // asi que espera a que esa termine en vez de pedir la ruta dos veces.
+    renderMapa(viaje).then(() => renderEventoMapa(viaje));
   }
 
   async function abrirDetallePorId(id) {
@@ -305,6 +462,7 @@
   function closeDetalle() {
     trailersysCloseModal(detalleOverlay);
     destroyLeafletMap();
+    destroyEventoMapa();
     viajeActualId = null;
   }
 
