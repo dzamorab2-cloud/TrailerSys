@@ -451,4 +451,35 @@ class PedidoClienteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("Finalizado"));
     }
+
+    /**
+     * Encontrado revisando en vivo el flujo de Cliente: /api/mis-cargas/{id}
+     * existe como @PutMapping y @DeleteMapping, pero no como @GetMapping (el
+     * detalle real es /api/mis-cargas/{id}/detalle). Antes, pedir esa misma
+     * URL con GET caia en el @ExceptionHandler(Exception.class) generico de
+     * GlobalExceptionHandler y devolvia 500 "Ocurrio un error inesperado" -
+     * un verbo HTTP no soportado en una ruta que si existe es un 405, no una
+     * falla del servidor. No es un caso especial de mis-cargas: aplica a
+     * cualquier ruta de toda la aplicacion.
+     */
+    @Test
+    void unVerboHttpNoSoportadoEnUnaRutaExistenteDa405NoUn500() throws Exception {
+        Long clienteId = crearCliente("CI-PED-405");
+        String tokenCliente = crearUsuarioClienteYToken("clientepedido405", clienteId);
+
+        String pedido = """
+                {"descripcion":"Pedido para probar 405","tipo":"General","peso":100,"origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedido))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creado).get("id").asLong();
+
+        // /api/mis-cargas/{id} solo existe como PUT y DELETE, nunca GET.
+        mockMvc.perform(get("/api/mis-cargas/" + cargaId).header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isMethodNotAllowed());
+    }
 }

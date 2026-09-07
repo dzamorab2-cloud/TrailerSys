@@ -10,6 +10,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -107,6 +108,25 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT,
                 "No se puede eliminar: otros registros (por ejemplo, viajes) todavia hacen referencia a este.", request);
+    }
+
+    /**
+     * Encontrado revisando en vivo el flujo de Cliente: una URL valida (existe
+     * @PutMapping/@DeleteMapping("/{id}") en el mismo controlador) llamada con
+     * un verbo que esa ruta no soporta (ej. GET /api/mis-cargas/{id}, que solo
+     * existe como PUT/DELETE - el detalle real es GET /api/mis-cargas/{id}/detalle)
+     * caia en handleGeneric() y devolvia 500 "Ocurrio un error inesperado".
+     * Esto no es un problema de un solo endpoint: aplica a CUALQUIER ruta de
+     * toda la aplicacion llamada con un verbo no soportado. Un verbo
+     * equivocado en la URL no es un fallo del servidor - es un 405, el mismo
+     * criterio ya usado aqui para MethodArgumentTypeMismatchException y
+     * DataIntegrityViolationException (no dejar que un error de quien llama
+     * a la API se disfrace de error interno).
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        String soportados = ex.getSupportedMethods() == null ? "" : " Metodos permitidos: " + String.join(", ", ex.getSupportedMethods()) + ".";
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "El metodo '" + ex.getMethod() + "' no esta permitido en esta ruta." + soportados, request);
     }
 
     @ExceptionHandler(Exception.class)
