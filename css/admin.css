@@ -12,9 +12,22 @@
 .pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; color:var(--color-text-muted); font-size:.82rem; }
 .pagination-actions { display:flex; gap:6px; }
 .pagination .btn { padding:8px 13px; }
-.audit-details { max-width:360px; white-space:normal; }
-.audit-details summary { color:var(--color-primary-dark); cursor:pointer; font-weight:600; }
-.audit-json { margin-top:8px; max-height:180px; overflow:auto; padding:10px; border-radius:8px; background:#182026; color:#d8e4e8; font:11px/1.5 Consolas,monospace; white-space:pre-wrap; }
+.audit-ver-cambios { background:none; border:none; padding:0; font:inherit; font-weight:600; color:var(--color-primary-dark); cursor:pointer; }
+.audit-ver-cambios:hover { text-decoration:underline; }
+.audit-json { padding:12px; border-radius:8px; background:#182026; color:#d8e4e8; font:12.5px/1.6 Consolas,monospace; white-space:pre-wrap; max-height:60vh; overflow:auto; }
+.audit-sin-cambios { color:var(--color-text-muted); font-size:.85rem; }
+/* Diff campo por campo de un UPDATE: "Antes" y "Despues" en columnas propias
+   (en vez de una sola linea "campo: antes → despues") para que ambos lados
+   sean igual de visibles, no solo el valor nuevo. Mismo par rojo/verde que
+   ya usan las badges de DELETE/INSERT, asi que "que color es cual" no hay
+   que aprenderlo de nuevo aqui. */
+.audit-diff-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+.audit-diff-table th,.audit-diff-table td { padding:9px 12px; text-align:left; vertical-align:top; word-break:break-word; border-bottom:1px solid var(--color-border); }
+.audit-diff-table th { color:var(--color-text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+.audit-diff-table tbody tr:last-child td { border-bottom:none; }
+.audit-diff-table .audit-campo { font-weight:600; width:34%; }
+.audit-diff-table .audit-antes { color:var(--color-danger); width:33%; }
+.audit-diff-table .audit-despues { color:var(--color-success); font-weight:600; }
 .switch-row { display:flex; align-items:center; gap:10px; padding:12px 0; font-weight:600; }
 .switch-row input { width:18px; height:18px; accent-color:var(--color-primary); }
 .ui-toast { position:fixed; right:24px; bottom:24px; z-index:100; min-width:260px; max-width:420px; padding:13px 16px; border-radius:12px; background:#243239; color:#fff; box-shadow:var(--shadow-lg); transform:translateY(20px); opacity:0; pointer-events:none; transition:.2s ease; }

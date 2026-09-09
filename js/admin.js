@@ -1,6 +1,7 @@
 (function(){
  const session=trailersysGetSession(); if(session?.role!=="administrador")return;
- const panel=document.getElementById("adminUsuarios"),body=document.getElementById("usuariosBody"),search=document.getElementById("usuarioBuscar"),roleFilter=document.getElementById("usuarioRolFiltro"),modal=document.getElementById("usuarioModalOverlay"),form=document.getElementById("usuarioForm"); let users=[],auditPage=0,auditTimer;
+ const panel=document.getElementById("adminUsuarios"),body=document.getElementById("usuariosBody"),search=document.getElementById("usuarioBuscar"),roleFilter=document.getElementById("usuarioRolFiltro"),modal=document.getElementById("usuarioModalOverlay"),form=document.getElementById("usuarioForm"); let users=[],auditPage=0,auditTimer,auditCache=[];
+ const cambiosOverlay=document.getElementById("auditoriaCambiosModalOverlay"),cambiosTitle=document.getElementById("auditoriaCambiosTitle"),cambiosContent=document.getElementById("auditoriaCambiosContent");
  const rolSelect=document.getElementById("usuarioRol"),fieldCliente=document.getElementById("fieldUsuarioCliente"),fieldConductor=document.getElementById("fieldUsuarioConductor");
  const inputCliente=document.getElementById("usuarioCliente"),inputClienteBuscar=document.getElementById("usuarioClienteBuscar"),resultadosCliente=document.getElementById("usuarioClienteResultados");
  const inputConductor=document.getElementById("usuarioConductor"),inputConductorBuscar=document.getElementById("usuarioConductorBuscar"),resultadosConductor=document.getElementById("usuarioConductorResultados");
@@ -51,12 +52,40 @@
  // Antes, "Ver cambios" en un UPDATE mostraba solo datosNuevos (el estado
  // actual del registro) - eso es indistinguible de mirar la tabla en vivo,
  // y el boton pierde su sentido: no hay forma de saber que campo cambio ni
- // cual era su valor anterior, aunque el backend ya guarda ambos lados. En
- // un UPDATE se arma un diff campo por campo (solo los que cambiaron); en
- // INSERT/DELETE no hay "antes" o "despues" con que comparar, asi que se
- // mantiene el volcado JSON completo de ese unico lado.
- function formatCambios(a){if(a.operacion!=="UPDATE"||!a.datosAnteriores||!a.datosNuevos)return esc(a.datosNuevos||a.datosAnteriores||"Sin detalle");try{const antes=JSON.parse(a.datosAnteriores),despues=JSON.parse(a.datosNuevos),campos=[...new Set([...Object.keys(antes),...Object.keys(despues)])].filter(k=>JSON.stringify(antes[k])!==JSON.stringify(despues[k]));return campos.length?campos.map(k=>`${esc(k)}: ${esc(antes[k])} → ${esc(despues[k])}`).join("\n"):"Sin cambios en los campos registrados.";}catch{return esc(a.datosNuevos);}}
- async function loadAudit(page=0){auditPage=page;const auditBody=document.getElementById("auditoriaBody");auditBody.innerHTML='<tr class="loading-row"><td colspan="6">Cargando auditoría…</td></tr>';const p=new URLSearchParams({page:String(page),size:"25"}),t=document.getElementById("auditoriaTabla").value,o=document.getElementById("auditoriaOperacion").value,q=document.getElementById("auditoriaBuscar").value.trim();if(t)p.set("tabla",t);if(o)p.set("operacion",o);if(q)p.set("search",q);try{const d=await trailersysApiRequest("GET",`/auditoria?${p}`);auditBody.innerHTML=d.content.length?d.content.map(a=>`<tr><td>${trailersysFormatDateTime(a.fechaHora)}</td><td><div class="table-primary">${esc(a.usuarioApp||a.usuarioBd)}</div><div class="table-secondary">${esc(a.usuarioBd)}</div></td><td><span class="badge ${a.operacion==='DELETE'?'badge-danger':a.operacion==='INSERT'?'badge-success':'badge-warning'}">${a.operacion}</span></td><td>${esc(a.tabla)}</td><td>#${esc(a.registroId||'—')}</td><td><details class="audit-details"><summary>Ver cambios</summary><pre class="audit-json">${formatCambios(a)}</pre></details></td></tr>`).join(""):'<tr class="loading-row"><td colspan="6">No hay operaciones registradas.</td></tr>';renderPager(d);}catch(e){auditBody.innerHTML=`<tr class="loading-row"><td colspan="6">${esc(e.message)}</td></tr>`;}}
+ // cual era su valor anterior, aunque el backend ya guarda ambos lados. Se
+ // arma un diff campo por campo (solo los que cambiaron) en una tabla con
+ // columnas "Antes"/"Despues" bien separadas y con color (rojo/verde, igual
+ // criterio que las badges de INSERT/DELETE). En INSERT/DELETE no hay
+ // "antes" o "despues" con que comparar, asi que se mantiene el volcado
+ // JSON completo de ese unico lado.
+ //
+ // Este detalle se abre en un modal (igual patron que "Historial del viaje")
+ // en vez del <details>/<summary> inline que tenia antes: la columna
+ // "Detalle" es angosta (una de seis en la tabla), y ahi dentro una tabla de
+ // 3 columnas quedaba tan comprimida que en la practica solo se alcanzaba a
+ // leer el valor "Despues" - el "Antes" tecnicamente estaba pero era
+ // ilegible. El modal le da el ancho que la comparacion necesita.
+ const fmtValor=(v)=>v===undefined?"—":v===null?"null":typeof v==="object"?JSON.stringify(v):String(v);
+ function formatCambios(a){
+  if(a.operacion==="UPDATE"&&a.datosAnteriores&&a.datosNuevos){
+   try{
+    const antes=JSON.parse(a.datosAnteriores),despues=JSON.parse(a.datosNuevos);
+    const campos=[...new Set([...Object.keys(antes),...Object.keys(despues)])].filter(k=>JSON.stringify(antes[k])!==JSON.stringify(despues[k]));
+    if(!campos.length)return '<p class="audit-sin-cambios">Sin cambios en los campos registrados.</p>';
+    const filas=campos.map(k=>`<tr><td class="audit-campo">${esc(k)}</td><td class="audit-antes">${esc(fmtValor(antes[k]))}</td><td class="audit-despues">${esc(fmtValor(despues[k]))}</td></tr>`).join("");
+    return `<table class="audit-diff-table"><thead><tr><th>Campo</th><th>Antes</th><th>Después</th></tr></thead><tbody>${filas}</tbody></table>`;
+   }catch{ /* JSON invalido o inesperado: cae al volcado crudo de abajo. */ }
+  }
+  const etiqueta=a.operacion==="DELETE"?"Datos eliminados":a.operacion==="INSERT"?"Datos registrados":"Detalle";
+  const valor=a.datosNuevos||a.datosAnteriores;
+  return `<pre class="audit-json">${valor?`${esc(etiqueta)}:\n${esc(valor)}`:"Sin detalle"}</pre>`;
+ }
+ async function loadAudit(page=0){auditPage=page;const auditBody=document.getElementById("auditoriaBody");auditBody.innerHTML='<tr class="loading-row"><td colspan="6">Cargando auditoría…</td></tr>';const p=new URLSearchParams({page:String(page),size:"25"}),t=document.getElementById("auditoriaTabla").value,o=document.getElementById("auditoriaOperacion").value,q=document.getElementById("auditoriaBuscar").value.trim();if(t)p.set("tabla",t);if(o)p.set("operacion",o);if(q)p.set("search",q);try{const d=await trailersysApiRequest("GET",`/auditoria?${p}`);auditCache=d.content;auditBody.innerHTML=d.content.length?d.content.map(a=>`<tr><td>${trailersysFormatDateTime(a.fechaHora)}</td><td><div class="table-primary">${esc(a.usuarioApp||a.usuarioBd)}</div><div class="table-secondary">${esc(a.usuarioBd)}</div></td><td><span class="badge ${a.operacion==='DELETE'?'badge-danger':a.operacion==='INSERT'?'badge-success':'badge-warning'}">${a.operacion}</span></td><td>${esc(a.tabla)}</td><td>#${esc(a.registroId||'—')}</td><td><button type="button" class="audit-ver-cambios" data-audit-id="${a.id}">Ver cambios</button></td></tr>`).join(""):'<tr class="loading-row"><td colspan="6">No hay operaciones registradas.</td></tr>';renderPager(d);}catch(e){auditBody.innerHTML=`<tr class="loading-row"><td colspan="6">${esc(e.message)}</td></tr>`;}}
  function renderPager(d){document.getElementById("auditoriaPager").innerHTML=`<span>${d.totalElements.toLocaleString("es-EC")} operaciones · Página ${d.page+1} de ${Math.max(1,d.totalPages)}</span><div class="pagination-actions"><button class="btn btn-ghost" id="auditPrev" ${d.page===0?'disabled':''}>Anterior</button><button class="btn btn-ghost" id="auditNext" ${d.page+1>=d.totalPages?'disabled':''}>Siguiente</button></div>`;document.getElementById("auditPrev").onclick=()=>loadAudit(auditPage-1);document.getElementById("auditNext").onclick=()=>loadAudit(auditPage+1);}
+ const closeCambios=()=>trailersysCloseModal(cambiosOverlay);
+ document.getElementById("auditoriaCambiosClose").onclick=closeCambios;
+ document.getElementById("auditoriaCambiosCerrarBtn").onclick=closeCambios;
+ cambiosOverlay.onclick=e=>{if(e.target===cambiosOverlay)closeCambios();};
+ document.getElementById("auditoriaBody").onclick=e=>{const btn=e.target.closest("[data-audit-id]");if(!btn)return;const a=auditCache.find(x=>String(x.id)===btn.dataset.auditId);if(!a)return;cambiosTitle.textContent=`${a.operacion} en ${a.tabla} #${a.registroId||"—"}`;cambiosContent.innerHTML=formatCambios(a);trailersysOpenModal(cambiosOverlay);};
  document.getElementById("auditoriaTabla").onchange=()=>loadAudit(0);document.getElementById("auditoriaOperacion").onchange=()=>loadAudit(0);document.getElementById("auditoriaBuscar").oninput=()=>{clearTimeout(auditTimer);auditTimer=setTimeout(()=>loadAudit(0),350);};loadUsers();loadAudit();
 })();
