@@ -99,8 +99,11 @@ public class CatalogoPageController {
     // catalogos con decenas o cientos de miles de filas y se mostraban como
     // si fueran el total; acotando por fecha (ej. "hoy", o un rango) el
     // conteo real que devuelve la pagina vuelve a ser representativo.
+    // Sin CONDUCTOR: viajes.buscar(...) no filtra por conductor, asi que este
+    // endpoint pagina sobre TODA la flota. El "Mis viajes" del conductor usa
+    // /api/mis-viajes (acotado por usuario). Ver ViajeController.
     @GetMapping("/viajes")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','SUPERVISOR')")
     public Page<ViajeResponse> viajes(@RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="24") int size,
             @RequestParam(defaultValue="") String search,
@@ -124,7 +127,10 @@ public class CatalogoPageController {
         TipoMantenimiento tipoFiltro = tipo == null || tipo.isBlank() ? null : TipoMantenimiento.desdeEtiqueta(tipo);
         return mantenimientos.buscar(search.trim(), vehiculoId, tipoFiltro, desde, hasta, page(page,size)).map(MantenimientoResponse::from);
     }
+    // Sin CONDUCTOR: eventos.findAll(...) devuelve la bitacora de TODA la
+    // flota sin filtrar. El conductor consulta los eventos de sus propios
+    // viajes por /api/seguimiento/eventos (acotado por usuario en el servicio).
     @GetMapping("/eventos")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR','SUPERVISOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COORDINADOR','SUPERVISOR')")
     public Page<SeguimientoEventoResponse> eventos(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="24") int size){return eventos.findAll(page(page,size)).map(SeguimientoEventoResponse::from);}
 }

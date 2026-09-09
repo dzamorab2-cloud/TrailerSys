@@ -34,7 +34,7 @@
     vehiculos: ["administrador", "coordinador", "mantenimiento", "supervisor"],
     conductores: ["administrador", "coordinador"],
     cargas: ["administrador", "coordinador"],
-    viajes: ["administrador", "coordinador", "conductor", "supervisor"],
+    viajes: ["administrador", "coordinador", "supervisor"],
     mantenimientos: ["administrador", "mantenimiento"],
     clientes: ["administrador", "coordinador"],
   };

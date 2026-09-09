@@ -986,21 +986,13 @@ class ViajeControllerTest {
     }
 
     @Test
-    void conductorPuedeConsultarPeroNoCrear() throws Exception {
-        if (usuarioRepository.findByUsernameIgnoreCase("conductorviajetest").isEmpty()) {
-            usuarioRepository.save(new Usuario(
-                    "conductorviajetest", passwordEncoder.encode("clave1234"), "Conductor Test", null, Rol.CONDUCTOR));
-        }
-
-        String body = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"conductorviajetest\",\"password\":\"clave1234\"}"))
-                .andReturn().getResponse().getContentAsString();
-        String tokenConductor = objectMapper.readTree(body).get("token").asText();
-
-        mockMvc.perform(get("/api/viajes")
-                        .header("Authorization", "Bearer " + tokenConductor))
-                .andExpect(status().isOk());
+    void conductorNoAccedeALaSuperficieInternaDeViajes() throws Exception {
+        // Regresion de seguridad: la superficie /api/viajes es de uso interno
+        // (Administrador/Coordinador/Supervisor) y NO filtra por conductor, asi
+        // que GET /api/viajes le entregaba a un CONDUCTOR el catalogo completo
+        // de la flota, con datos personales de otros conductores. El conductor
+        // usa /api/mis-viajes, acotado a sus propios viajes.
+        String tokenConductor = tokenPara("conductorviajetest", Rol.CONDUCTOR);
 
         Long vehiculoId = crearVehiculo("VJE-0004");
         Long conductorId = crearConductor("CI-VJE-0004");
@@ -1009,11 +1001,39 @@ class ViajeControllerTest {
                 {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,
                  "origen":"A","destino":"B","fechaSalida":"2026-08-15T08:30:00","estado":"Programado"}
                 """.formatted(vehiculoId, conductorId, clienteId);
+        String creado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(get("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenConductor))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/viajes/" + viajeId)
+                        .header("Authorization", "Bearer " + tokenConductor))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/viajes/por-carga/1")
+                        .header("Authorization", "Bearer " + tokenConductor))
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(post("/api/viajes")
                         .header("Authorization", "Bearer " + tokenConductor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(viaje))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void supervisorSiguePudiendoConsultarLaSuperficieInternaDeViajes() throws Exception {
+        String tokenSupervisor = tokenPara("supervisorviajetest", Rol.SUPERVISOR);
+
+        mockMvc.perform(get("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenSupervisor))
+                .andExpect(status().isOk());
     }
 }

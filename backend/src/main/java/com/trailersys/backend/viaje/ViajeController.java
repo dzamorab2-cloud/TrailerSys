@@ -24,17 +24,22 @@ import com.trailersys.backend.viaje.dto.ViajeResponse;
 import jakarta.validation.Valid;
 
 /**
- * Segun TRAILERSYS_ROLES (js/roles.js): Administrador, Coordinador,
- * Conductor y Supervisor tienen "viajes" en su lista de modulos, pero
- * solo Administrador y Coordinador lo tienen en "manage". Conductor y
- * Supervisor consultan en modo solo lectura (por ejemplo, el conductor ve
- * sus viajes pero no los crea ni edita).
+ * Superficie interna de viajes para Administrador, Coordinador y Supervisor.
+ * Administrador y Coordinador gestionan (crear/editar/eliminar); Supervisor
+ * consulta en modo solo lectura.
+ *
+ * El rol CONDUCTOR NO entra aqui: su "Mis viajes" usa
+ * {@code /api/mis-viajes/**} (ViajeConductorController), que acota cada
+ * operacion al conductor autenticado. Estos endpoints, en cambio, no filtran
+ * por conductor y {@code GET /api/viajes} devuelve el catalogo completo, asi
+ * que dejar entrar a CONDUCTOR exponia toda la flota (y datos personales de
+ * otros conductores) via API directa aunque su interfaz no muestre el modulo.
  */
 @RestController
 @RequestMapping("/api/viajes")
 public class ViajeController {
 
-    private static final String PUEDE_CONSULTAR = "hasAnyRole('ADMINISTRADOR','COORDINADOR','CONDUCTOR','SUPERVISOR')";
+    private static final String PUEDE_CONSULTAR = "hasAnyRole('ADMINISTRADOR','COORDINADOR','SUPERVISOR')";
     private static final String PUEDE_GESTIONAR = "hasAnyRole('ADMINISTRADOR','COORDINADOR')";
 
     private final ViajeService service;
