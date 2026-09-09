@@ -49,21 +49,30 @@
     }
   }
 
+  // Se reusa tanto desde el boton "Elegir carpeta de guardado" (elegirla por
+  // adelantado, ej. para que los respaldos AUTOMATICOS programados de
+  // madrugada tambien tengan copia local, sin nadie presente para responder
+  // un selector) como, mas abajo, desde dispararRespaldo() la primera vez
+  // que se genera un respaldo manual sin ninguna carpeta elegida todavia.
+  async function elegirCarpeta() {
+    try {
+      // "readwrite": sin este modo explicito el permiso queda solo de
+      // lectura y getFileHandle(..., {create:true})/createWritable() del
+      // paso b) fallarian con NotAllowedError al intentar escribir.
+      carpetaHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+      actualizarCarpetaInfo();
+      return true;
+    } catch (e) {
+      // AbortError: el usuario cerro el selector sin elegir nada - no es un error real.
+      if (e?.name !== "AbortError") toast(e.message || "No se pudo seleccionar la carpeta.", true);
+      return false;
+    }
+  }
+
   if (!soportaDirectoryPicker) {
     btnElegirCarpeta.disabled = true;
   } else {
-    btnElegirCarpeta.addEventListener("click", async () => {
-      try {
-        // "readwrite": sin este modo explicito el permiso queda solo de
-        // lectura y getFileHandle(..., {create:true})/createWritable() del
-        // paso b) fallarian con NotAllowedError al intentar escribir.
-        carpetaHandle = await window.showDirectoryPicker({ mode: "readwrite" });
-        actualizarCarpetaInfo();
-      } catch (e) {
-        // AbortError: el usuario cerro el selector sin elegir nada - no es un error real.
-        if (e?.name !== "AbortError") toast(e.message || "No se pudo seleccionar la carpeta.", true);
-      }
-    });
+    btnElegirCarpeta.addEventListener("click", elegirCarpeta);
   }
   actualizarCarpetaInfo();
 
@@ -143,7 +152,7 @@
   });
 
   async function cargarHistorial() {
-    body.innerHTML = '<tr class="loading-row"><td colspan="7">Cargando respaldos…</td></tr>';
+    body.innerHTML = '<tr class="loading-row"><td colspan="8">Cargando respaldos…</td></tr>';
     try {
       const respaldos = await trailersysApiRequest("GET", "/respaldos");
       body.innerHTML = respaldos.length ? respaldos.map((r) => `
@@ -154,10 +163,11 @@
           <td>${r.registrosCapturados ?? "—"}</td>
           <td><span class="badge ${ESTADO_BADGE[r.estado] || "badge-neutral"}" title="${esc(r.mensajeError || "")}">${ESTADO_LABEL[r.estado] || r.estado}</span></td>
           <td>${esc(r.generadoPor)}</td>
+          <td class="respaldo-ruta" title="${esc(r.archivoRuta || "")}">${esc(r.archivoRuta || "—")}</td>
           <td>${r.estado === "COMPLETADO" ? `<div class="table-actions"><button class="icon-btn" data-download-respaldo="${r.id}" title="Descargar" aria-label="Descargar respaldo #${r.id}"><i class="bi bi-download"></i></button></div>` : "—"}</td>
-        </tr>`).join("") : '<tr class="loading-row"><td colspan="7">Todavía no se ha generado ningún respaldo.</td></tr>';
+        </tr>`).join("") : '<tr class="loading-row"><td colspan="8">Todavía no se ha generado ningún respaldo.</td></tr>';
     } catch (e) {
-      body.innerHTML = `<tr class="loading-row"><td colspan="7">${esc(e.message)}</td></tr>`;
+      body.innerHTML = `<tr class="loading-row"><td colspan="8">${esc(e.message)}</td></tr>`;
     }
   }
 
@@ -189,7 +199,18 @@
     }
   }
 
+  // Solo se pregunta una vez por sesion (recargar la pagina la resetea, ver
+  // el comentario de carpetaHandle mas arriba): si el admin cierra el
+  // selector sin elegir nada porque no le interesa una copia local, no tiene
+  // sentido volver a interrumpirlo en cada respaldo que dispare despues -
+  // siempre puede elegirla mas tarde a mano con "Elegir carpeta de guardado".
+  let carpetaPreguntada = false;
+
   async function dispararRespaldo(tipo, boton) {
+    if (!carpetaHandle && !carpetaPreguntada && soportaDirectoryPicker) {
+      carpetaPreguntada = true;
+      await elegirCarpeta();
+    }
     boton.disabled = true;
     const textoOriginal = boton.innerHTML;
     const etiquetaTipo = tipo === "completo" ? "completo" : "incremental";

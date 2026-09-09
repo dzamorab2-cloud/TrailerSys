@@ -28,6 +28,11 @@
 .audit-diff-table .audit-campo { font-weight:600; width:34%; }
 .audit-diff-table .audit-antes { color:var(--color-danger); width:33%; }
 .audit-diff-table .audit-despues { color:var(--color-success); font-weight:600; }
+/* La ruta real de un .dump puede pasar los 80 caracteres (carpeta configurada
+   + nombre con fecha) - una celda que la mostrara entera empujaria a las
+   demas columnas fuera de pantalla. Se trunca con ellipsis y el path
+   completo queda en el title (tooltip nativo) para quien lo necesite copiar. */
+.respaldo-ruta { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:12px/1.4 Consolas,monospace; color:var(--color-text-muted); }
 .switch-row { display:flex; align-items:center; gap:10px; padding:12px 0; font-weight:600; }
 .switch-row input { width:18px; height:18px; accent-color:var(--color-primary); }
 .ui-toast { position:fixed; right:24px; bottom:24px; z-index:100; min-width:260px; max-width:420px; padding:13px 16px; border-radius:12px; background:#243239; color:#fff; box-shadow:var(--shadow-lg); transform:translateY(20px); opacity:0; pointer-events:none; transition:.2s ease; }

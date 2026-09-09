@@ -49,6 +49,22 @@
   color: var(--color-primary-darker);
 }
 
+/* Para una accion que hay que poder ubicar a simple vista sin que compita
+   con la accion principal de solid (.btn-primary) de al lado - ej. "Elegir
+   carpeta de guardado" junto a los botones de generar respaldo: el borde y
+   texto en el color de marca la hacen notoria, pero el fondo transparente
+   deja claro que no es la accion principal del grupo. */
+.btn-outline-primary {
+  background: transparent;
+  color: var(--color-primary-dark);
+  border: 1.5px solid var(--color-primary);
+}
+
+.btn-outline-primary:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
 .btn-block {
   width: 100%;
 }

@@ -15,11 +15,12 @@ public record RespaldoResponse(
         String mensajeError,
         Long respaldoAnteriorId,
         Integer registrosCapturados,
-        String generadoPor
+        String generadoPor,
+        String archivoRuta
 ) {
     public static RespaldoResponse from(Respaldo r) {
         return new RespaldoResponse(r.getId(), r.getTipo(), r.getFechaHora(), r.getTamanoBytes(),
                 r.getEstado(), r.getMensajeError(), r.getRespaldoAnteriorId(), r.getRegistrosCapturados(),
-                r.getGeneradoPor());
+                r.getGeneradoPor(), r.getArchivoRuta());
     }
 }
