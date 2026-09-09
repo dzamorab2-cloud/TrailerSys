@@ -1,41 +1,52 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { uiLogin, irAlModulo, evidencia, uid } = require('./helpers');
+const { uiLogin, irAlModulo, evidencia, uid, apiLogin, apiGet, limpiar } = require('./helpers');
 
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'admin1234';
 
 test.describe('Vehiculos', () => {
-  test('CP-03 Crear vehiculo con datos validos aparece en la lista en estado Disponible', async ({ page }) => {
+  test('CP-03 Crear vehiculo con datos validos aparece en la lista en estado Disponible', async ({ page, request }) => {
     const placa = `E2E${uid()}`;
+    // Token de API aparte del login por UI, solo para poder borrar el
+    // vehiculo creado al terminar (ver finally) - no interfiere con la
+    // sesion de "page", que sigue siendo la del login real por UI.
+    const adminToken = await apiLogin(request, ADMIN_USER, ADMIN_PASS);
 
-    await uiLogin(page, ADMIN_USER, ADMIN_PASS);
-    await irAlModulo(page, 'vehiculos');
+    try {
+      await uiLogin(page, ADMIN_USER, ADMIN_PASS);
+      await irAlModulo(page, 'vehiculos');
 
-    await page.locator('#btnNuevoVehiculo').click();
-    await expect(page.locator('#vehiculoModalOverlay')).toHaveClass(/open/);
+      await page.locator('#btnNuevoVehiculo').click();
+      await expect(page.locator('#vehiculoModalOverlay')).toHaveClass(/open/);
 
-    await page.locator('#vehiculoPlaca').fill(placa);
-    await page.locator('#vehiculoMarca').selectOption('Volvo Trucks');
-    // El select de modelo se puebla dinamicamente al cambiar de marca (actualizarModelos()).
-    await page.locator('#vehiculoModelo').selectOption({ index: 1 });
-    await page.locator('#vehiculoTipo').selectOption('Tráiler');
-    await page.locator('#vehiculoAnio').fill('2022');
-    await page.locator('#vehiculoColor').selectOption('Blanco');
-    // #vehiculoEstado ya queda en "Disponible" por defecto (openForm()).
-    await page.locator('#vehiculoKilometraje').fill('1500');
-    await page.locator('#vehiculoCapacidad').fill('20');
+      await page.locator('#vehiculoPlaca').fill(placa);
+      await page.locator('#vehiculoMarca').selectOption('Volvo Trucks');
+      // El select de modelo se puebla dinamicamente al cambiar de marca (actualizarModelos()).
+      await page.locator('#vehiculoModelo').selectOption({ index: 1 });
+      await page.locator('#vehiculoTipo').selectOption('Tráiler');
+      await page.locator('#vehiculoAnio').fill('2022');
+      await page.locator('#vehiculoColor').selectOption('Blanco');
+      // #vehiculoEstado ya queda en "Disponible" por defecto (openForm()).
+      await page.locator('#vehiculoKilometraje').fill('1500');
+      await page.locator('#vehiculoCapacidad').fill('20');
 
-    await page.locator('#vehiculoForm button[type="submit"]').click();
-    await expect(page.locator('#vehiculoModalOverlay')).not.toHaveClass(/open/);
+      await page.locator('#vehiculoForm button[type="submit"]').click();
+      await expect(page.locator('#vehiculoModalOverlay')).not.toHaveClass(/open/);
 
-    // Se busca por la placa unica para no depender de en que pagina/orden cae la tarjeta.
-    await page.locator('#vehiculoBuscar').fill(placa);
-    const card = page.locator('.vehicle-card', { hasText: placa });
-    await expect(card).toBeVisible();
-    await expect(card.locator('.badge')).toHaveText('Disponible');
+      // Se busca por la placa unica para no depender de en que pagina/orden cae la tarjeta.
+      await page.locator('#vehiculoBuscar').fill(placa);
+      const card = page.locator('.vehicle-card', { hasText: placa });
+      await expect(card).toBeVisible();
+      await expect(card.locator('.badge')).toHaveText('Disponible');
 
-    await evidencia(page, 'CP-03-crear-vehiculo');
+      await evidencia(page, 'CP-03-crear-vehiculo');
+    } finally {
+      // Se creo por la UI, asi que no se tiene el id a mano - se busca por
+      // la placa (unica) para poder borrarlo.
+      const [creado] = await apiGet(request, adminToken, `/vehiculos?search=${encodeURIComponent(placa)}`);
+      await limpiar(request, adminToken, { vehiculos: [creado?.id] });
+    }
   });
 
   test('CP-04 Crear vehiculo con anio invalido (1800) es rechazado y no se crea', async ({ page }) => {

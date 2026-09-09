@@ -41,6 +41,38 @@ async function apiGet(request, token, path) {
   return res.json();
 }
 
+/**
+ * DELETE tolerante, solo para la limpieza al final de un test: nunca debe
+ * tumbar un resultado que ya se evaluo. Un 404 (ya no existe) se ignora sin
+ * mas; cualquier otro codigo (ej. 409 si algo mas todavia lo referencia)
+ * solo se reporta por consola, nunca se relanza.
+ */
+async function apiDelete(request, token, path) {
+  const res = await request.delete(`${API_BASE}${path}`, { headers: authHeaders(token) });
+  if (!res.ok() && res.status() !== 404) {
+    console.warn(`[E2E limpieza] DELETE ${path} -> ${res.status()} (se ignora, no afecta el resultado del test)`);
+  }
+}
+
+/**
+ * Borra al final de un test lo que el propio test creo, en el orden que el
+ * backend exige: un Viaje/Usuario/Carga bloquea (409, restriccion de clave
+ * foranea) el borrado del Vehiculo/Conductor/Cliente al que esta vinculado
+ * hasta que se borra primero - por eso viajes/usuarios/cargas siempre antes
+ * que vehiculos/conductores/clientes. Sin esto, cada corrida de la suite
+ * dejaba esas filas reales en la base para siempre: una sola corrida llego a
+ * dejar 33 vehiculos y 5 clientes huerfanos (ver hallazgo real revisando la
+ * base en vivo, sesion del 9 de septiembre).
+ */
+async function limpiar(request, token, { viajes = [], usuarios = [], cargas = [], vehiculos = [], conductores = [], clientes = [] } = {}) {
+  for (const id of viajes) if (id) await apiDelete(request, token, `/viajes/${id}`);
+  for (const id of usuarios) if (id) await apiDelete(request, token, `/usuarios/${id}`);
+  for (const id of cargas) if (id) await apiDelete(request, token, `/cargas/${id}`);
+  for (const id of vehiculos) if (id) await apiDelete(request, token, `/vehiculos/${id}`);
+  for (const id of conductores) if (id) await apiDelete(request, token, `/conductores/${id}`);
+  for (const id of clientes) if (id) await apiDelete(request, token, `/clientes/${id}`);
+}
+
 /** Login por la UI real (index.html -> app.html), igual que hace un usuario. */
 async function uiLogin(page, username, password) {
   await page.goto('/index.html');
@@ -61,7 +93,13 @@ async function evidencia(page, nombre) {
   await page.screenshot({ path: `evidencias/${nombre}.png`, fullPage: true });
 }
 
-/** Crea un cliente vinculado a un usuario CLIENTE recien creado (via API, como admin) y devuelve sus credenciales + ids. */
+/**
+ * Crea un cliente vinculado a un usuario CLIENTE recien creado (via API,
+ * como admin) y devuelve sus credenciales + ids. El objeto devuelto trae
+ * ademas "usuarioId" (no lo tiene un Cliente normal) para que limpiar()
+ * pueda borrar el usuario ANTES que el cliente - el usuario lo referencia
+ * por clave foranea y bloquearia su borrado si se intenta al reves.
+ */
 async function crearClienteConUsuario(request, adminToken, { nombreCliente, identificacionCliente, username, password }) {
   const cliente = await apiPost(request, adminToken, '/clientes', {
     nombre: nombreCliente,
@@ -70,7 +108,7 @@ async function crearClienteConUsuario(request, adminToken, { nombreCliente, iden
     telefono: '0999999999',
     direccion: 'Direccion de prueba E2E',
   });
-  await apiPost(request, adminToken, '/usuarios', {
+  const usuario = await apiPost(request, adminToken, '/usuarios', {
     username,
     password,
     nombre: nombreCliente,
@@ -78,7 +116,7 @@ async function crearClienteConUsuario(request, adminToken, { nombreCliente, iden
     activo: true,
     clienteId: cliente.id,
   });
-  return cliente;
+  return { ...cliente, usuarioId: usuario.id };
 }
 
 /**
@@ -101,7 +139,7 @@ async function crearConductorConUsuario(request, adminToken, { nombresConductor,
     licenciaVencimiento: '2030-01-01',
     estado: 'Disponible',
   });
-  await apiPost(request, adminToken, '/usuarios', {
+  const usuario = await apiPost(request, adminToken, '/usuarios', {
     username,
     password,
     nombre: nombresConductor,
@@ -109,7 +147,10 @@ async function crearConductorConUsuario(request, adminToken, { nombresConductor,
     activo: true,
     conductorId: conductor.id,
   });
-  return conductor;
+  // "usuarioId" (igual que en crearClienteConUsuario): para que limpiar()
+  // pueda borrar primero el usuario y despues el conductor sin chocar con la
+  // clave foranea.
+  return { ...conductor, usuarioId: usuario.id };
 }
 
 module.exports = {
@@ -119,6 +160,8 @@ module.exports = {
   authHeaders,
   apiPost,
   apiGet,
+  apiDelete,
+  limpiar,
   uiLogin,
   irAlModulo,
   evidencia,

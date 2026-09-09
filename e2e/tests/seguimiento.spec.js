@@ -1,7 +1,7 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 const {
-  uid, apiLogin, apiPost, apiGet, uiLogin, irAlModulo, evidencia, crearConductorConUsuario,
+  uid, apiLogin, apiPost, apiGet, uiLogin, irAlModulo, evidencia, crearConductorConUsuario, limpiar,
 } = require('./helpers');
 
 const ADMIN_USER = 'admin';
@@ -33,7 +33,7 @@ async function crearViajeEnCurso(request, adminToken, sufijo) {
     vehiculoId: vehiculo.id, conductorId: conductor.id, clienteId: cliente.id,
     origen, destino, fechaSalida: '2026-01-01T08:00:00', estado: 'En Curso',
   });
-  return { viaje, origen, destino };
+  return { viaje, cliente, vehiculo, conductor, origen, destino };
 }
 
 test.describe('Seguimiento', () => {
@@ -49,32 +49,38 @@ test.describe('Seguimiento', () => {
     // Administrador/Coordinador, que es a quien se le prueba aqui.
     const sufijo = uid();
     const adminToken = await apiLogin(request, ADMIN_USER, ADMIN_PASS);
-    const { origen } = await crearViajeEnCurso(request, adminToken, sufijo);
+    const { viaje, cliente, vehiculo, conductor, origen } = await crearViajeEnCurso(request, adminToken, sufijo);
 
-    await uiLogin(page, COORDINADOR_USER, COORDINADOR_PASS);
-    await irAlModulo(page, 'seguimiento');
-    await page.locator('#seguimientoBuscar').fill(origen);
-    const card = page.locator('#seguimientoGrid .item-card', { hasText: origen });
-    await expect(card).toBeVisible();
-    await card.locator('button[data-action="detalle"]').click();
-    await expect(page.locator('#seguimientoModalOverlay')).toHaveClass(/open/);
+    try {
+      await uiLogin(page, COORDINADOR_USER, COORDINADOR_PASS);
+      await irAlModulo(page, 'seguimiento');
+      await page.locator('#seguimientoBuscar').fill(origen);
+      const card = page.locator('#seguimientoGrid .item-card', { hasText: origen });
+      await expect(card).toBeVisible();
+      await card.locator('button[data-action="detalle"]').click();
+      await expect(page.locator('#seguimientoModalOverlay')).toHaveClass(/open/);
 
-    const eventoRequests = [];
-    page.on('request', (req) => {
-      if (req.method() === 'POST' && req.url().includes('/api/seguimiento/eventos')) eventoRequests.push(req);
-    });
+      const eventoRequests = [];
+      page.on('request', (req) => {
+        if (req.method() === 'POST' && req.url().includes('/api/seguimiento/eventos')) eventoRequests.push(req);
+      });
 
-    // datetime-local muy en el futuro; el input tiene max=ahora pero el
-    // formulario tiene novalidate, asi que la validacion la hace el propio JS.
-    await page.locator('#seguimientoFecha').fill('2030-01-01T10:00');
-    await page.locator('#seguimientoUbicacion').fill('Km 10 via E2E');
-    await page.locator('#seguimientoEventoForm button[type="submit"]').click();
+      // datetime-local muy en el futuro; el input tiene max=ahora pero el
+      // formulario tiene novalidate, asi que la validacion la hace el propio JS.
+      await page.locator('#seguimientoFecha').fill('2030-01-01T10:00');
+      await page.locator('#seguimientoUbicacion').fill('Km 10 via E2E');
+      await page.locator('#seguimientoEventoForm button[type="submit"]').click();
 
-    await expect(page.locator('#fieldSeguimientoFecha')).toHaveClass(/has-error/);
-    await expect(page.locator('#fieldSeguimientoFecha .field-error')).toHaveText('La fecha y hora no pueden ser futuras.');
-    expect(eventoRequests, 'no deberia haberse llamado a POST /api/seguimiento/eventos').toHaveLength(0);
+      await expect(page.locator('#fieldSeguimientoFecha')).toHaveClass(/has-error/);
+      await expect(page.locator('#fieldSeguimientoFecha .field-error')).toHaveText('La fecha y hora no pueden ser futuras.');
+      expect(eventoRequests, 'no deberia haberse llamado a POST /api/seguimiento/eventos').toHaveLength(0);
 
-    await evidencia(page, 'CP-07-evento-fecha-futura-rechazado');
+      await evidencia(page, 'CP-07-evento-fecha-futura-rechazado');
+    } finally {
+      await limpiar(request, adminToken, {
+        viajes: [viaje.id], vehiculos: [vehiculo.id], conductores: [conductor.id], clientes: [cliente.id],
+      });
+    }
   });
 
   test('CP-08 Conductor confirma la llegada de un viaje En Curso: la llegada queda registrada pero el viaje sigue En Curso', async ({ page, request }) => {
@@ -117,33 +123,44 @@ test.describe('Seguimiento', () => {
     });
 
     const origen = `CPSEG08-Origen-${sufijo}`;
-    const viaje = await apiPost(request, adminToken, '/viajes', {
-      vehiculoId: vehiculo.id, conductorId: conductor.id, clienteId: cliente.id,
-      origen, destino: 'CPSEG08-Destino', fechaSalida: '2026-01-01T08:00:00', estado: 'En Curso',
-    });
+    let viaje;
+    try {
+      viaje = await apiPost(request, adminToken, '/viajes', {
+        vehiculoId: vehiculo.id, conductorId: conductor.id, clienteId: cliente.id,
+        origen, destino: 'CPSEG08-Destino', fechaSalida: '2026-01-01T08:00:00', estado: 'En Curso',
+      });
 
-    await uiLogin(page, username, password);
-    await irAlModulo(page, 'mis-viajes');
-    await page.locator('#misViajesBuscar').fill(origen);
-    const card = page.locator('#misViajesGrid .item-card', { hasText: origen });
-    await expect(card).toBeVisible();
-    await card.locator('button[data-action="detalle"]').click();
-    await expect(page.locator('#misViajesDetalleOverlay')).toHaveClass(/open/);
+      await uiLogin(page, username, password);
+      await irAlModulo(page, 'mis-viajes');
+      await page.locator('#misViajesBuscar').fill(origen);
+      const card = page.locator('#misViajesGrid .item-card', { hasText: origen });
+      await expect(card).toBeVisible();
+      await card.locator('button[data-action="detalle"]').click();
+      await expect(page.locator('#misViajesDetalleOverlay')).toHaveClass(/open/);
 
-    const btnConfirmar = page.locator('#misViajesReporteEntrega button[data-action="confirmar-entrega"]');
-    await expect(btnConfirmar).toBeVisible();
+      const btnConfirmar = page.locator('#misViajesReporteEntrega button[data-action="confirmar-entrega"]');
+      await expect(btnConfirmar).toBeVisible();
 
-    page.once('dialog', (dialog) => dialog.accept('Entrega confirmada por prueba E2E'));
-    await btnConfirmar.click();
+      page.once('dialog', (dialog) => dialog.accept('Entrega confirmada por prueba E2E'));
+      await btnConfirmar.click();
 
-    // Todavia no hay revision del cliente: el badge indica que se espera esa revision.
-    await expect(page.locator('#misViajesReporteEntrega .badge-warning')).toHaveText(/esperando revisión del cliente/i);
+      // Todavia no hay revision del cliente: el badge indica que se espera esa revision.
+      await expect(page.locator('#misViajesReporteEntrega .badge-warning')).toHaveText(/esperando revisión del cliente/i);
 
-    const viajeActualizado = await apiGet(request, adminToken, `/viajes/${viaje.id}`);
-    expect(viajeActualizado.estado).toBe('En Curso');
-    expect(viajeActualizado.entregaConfirmada).toBe(true);
-    expect(viajeActualizado.entregaConfirmadaCliente).toBe(false);
+      const viajeActualizado = await apiGet(request, adminToken, `/viajes/${viaje.id}`);
+      expect(viajeActualizado.estado).toBe('En Curso');
+      expect(viajeActualizado.entregaConfirmada).toBe(true);
+      expect(viajeActualizado.entregaConfirmadaCliente).toBe(false);
 
-    await evidencia(page, 'CP-08-conductor-confirma-llegada');
+      await evidencia(page, 'CP-08-conductor-confirma-llegada');
+    } finally {
+      await limpiar(request, adminToken, {
+        viajes: [viaje?.id],
+        usuarios: [conductor.usuarioId],
+        vehiculos: [vehiculo.id],
+        conductores: [conductor.id],
+        clientes: [cliente.id],
+      });
+    }
   });
 });
