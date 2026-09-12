@@ -282,7 +282,23 @@
       if (v?.ruta && window.L) {
         const mapa = document.createElement("div"); mapa.className = "pedido-detail-map";
         columnaMapa.appendChild(mapa);
-        setTimeout(() => {
+        setTimeout(async () => {
+          // Igual que renderMapa() en js/seguimiento.js: la inmensa mayoria
+          // de los viajes reales no tienen un path guardado (ver comentario
+          // en calcularPosicionSimulada), asi que sin esto el cliente veia
+          // una linea recta desde el primer momento mientras que el mismo
+          // viaje, visto por Administrador/Coordinador, ya mostraba la
+          // carretera real - se pide esa misma ruta real por OSRM al vuelo
+          // antes de dibujar el mapa. Si falla (sin internet, servidor OSRM
+          // caido) v.ruta.path sigue vacio y calcularPosicionSimulada ya
+          // sabe simular igual sobre la linea recta origen-destino.
+          if (!v.ruta.path?.length) {
+            const rutaCalculada = await trailersysGetRoute(
+              { lat: v.ruta.origenLat, lng: v.ruta.origenLng },
+              { lat: v.ruta.destinoLat, lng: v.ruta.destinoLng }
+            );
+            if (rutaCalculada) v.ruta.path = rutaCalculada.path;
+          }
           pedidoMapaInstance = L.map(mapa).setView([v.ruta.origenLat, v.ruta.origenLng], 7);
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(pedidoMapaInstance);
           const puntos = v.ruta.path?.length ? v.ruta.path : [[v.ruta.origenLat, v.ruta.origenLng], [v.ruta.destinoLat, v.ruta.destinoLng]];

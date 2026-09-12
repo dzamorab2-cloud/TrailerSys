@@ -440,7 +440,20 @@
   // normal, para que el marcador "salte" de inmediato a donde de verdad
   // esta en vez de ignorar el reporte.
   function calcularPosicionSimulada(viaje, ubicacionReportada) {
-    const path = viaje.ruta?.path;
+    // La inmensa mayoria de los viajes reales de esta base (los generados en
+    // volumen, no los pocos creados a mano desde Viajes con "Calcular ruta")
+    // tienen origen/destino/distancia/duracion pero NUNCA un "path" con la
+    // forma real de la carretera (ruta_path null en la base, visto
+    // consultandola en vivo) - exigir un path real dejaba el marcador sin
+    // aparecer NUNCA para casi ningun viaje real, aunque la linea recta
+    // origen-destino ya se dibujara bien en el mapa estatico (renderMapa,
+    // mas abajo, ya tenia este mismo fallback). De respaldo, sin path
+    // calculado, se simula sobre esa misma linea recta (2 puntos) en vez de
+    // no simular nada.
+    const path = viaje.ruta?.path?.length >= 2 ? viaje.ruta.path
+      : (viaje.ruta?.origenCoords && viaje.ruta?.destinoCoords)
+        ? [[viaje.ruta.origenCoords.lat, viaje.ruta.origenCoords.lng], [viaje.ruta.destinoCoords.lat, viaje.ruta.destinoCoords.lng]]
+        : null;
     if (!path || path.length < 2 || !viaje.fechaSalida || !viaje.ruta.duracionMin) {
       return null;
     }
