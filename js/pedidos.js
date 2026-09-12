@@ -124,7 +124,21 @@
     // Sin este mapeo, "punto[0]"/"punto[1]" salian undefined y el marcador se
     // intentaba poner en (NaN, NaN) - Leaflet lo rechaza y el marcador nunca
     // aparecia.
-    const pathRaw = viaje.ruta?.path;
+    // La inmensa mayoria de los viajes reales de esta base (los generados en
+    // volumen, no los creados a mano desde Viajes con "Calcular ruta") tienen
+    // origen/destino/distancia/duracion pero NUNCA un "path" con la forma
+    // real de la carretera - se ve al consultar la base en vivo (ruta_path
+    // null, el resto de columnas de ruta con datos). Exigir un path real
+    // aca dejaba a esos viajes con la linea recta ya dibujada en el mapa
+    // estatico de abajo, pero SIN marcador movil nunca (calcularPosicionSimulada
+    // devolvia null siempre) - el "seguimiento en vivo" simplemente no
+    // aparecia para casi ningun pedido real. De respaldo, sin un path
+    // calculado, se simula sobre la linea recta origen-destino (2 puntos) en
+    // vez de no simular nada.
+    const pathRaw = viaje.ruta?.path?.length >= 2 ? viaje.ruta.path
+      : (viaje.ruta?.origenLat != null && viaje.ruta?.destinoLat != null)
+        ? [{ lat: viaje.ruta.origenLat, lng: viaje.ruta.origenLng }, { lat: viaje.ruta.destinoLat, lng: viaje.ruta.destinoLng }]
+        : null;
     if (!pathRaw || pathRaw.length < 2 || !viaje.fechaSalida || !viaje.ruta.duracionMin) return null;
     const path = pathRaw.map((p) => Array.isArray(p) ? p : [p.lat, p.lng]);
     const salida = new Date(viaje.fechaSalida).getTime();
