@@ -239,6 +239,37 @@
             </div>
           </div>
 
+          <div id="dashboardClienteView" hidden>
+            <div class="module-header">
+              <div>
+                <h1 id="clienteDashboardSaludo">Hola</h1>
+                <p>Resumen de tus pedidos y envíos.</p>
+              </div>
+            </div>
+
+            <div class="stats-row" id="clienteDashboardStats"></div>
+
+            <div class="dashboard-panel card" id="clienteDashboardMapaPanel">
+              <div class="dashboard-panel-header"><i class="bi bi-truck"></i><h3>Tus envíos en ruta</h3></div>
+              <div class="cliente-dashboard-mapa" id="clienteDashboardMapa"></div>
+            </div>
+
+            <div class="dashboard-cards-grid">
+              <article class="card dashboard-chart-card">
+                <h3><i class="bi bi-pie-chart"></i> Pedidos por estado</h3>
+                <div class="dashboard-donut-wrap">
+                  <div class="dashboard-donut" id="clienteDonutChart"></div>
+                  <div class="dashboard-donut-legend" id="clienteDonutLegend"></div>
+                </div>
+              </article>
+
+              <article class="card dashboard-chart-card">
+                <h3><i class="bi bi-graph-up"></i> Pedidos por mes</h3>
+                <div id="clienteBarChart"></div>
+              </article>
+            </div>
+          </div>
+
           <div id="dashboardSupervisorView" hidden>
             <div class="module-header">
               <div>
@@ -1965,6 +1996,10 @@
       </div>
 
       <form id="pedidoForm" novalidate>
+        <div class="pedido-rutas-frecuentes" id="pedidoRutasFrecuentes" hidden>
+          <span class="pedido-rutas-frecuentes-label">Rutas frecuentes</span>
+          <div class="pedido-rutas-frecuentes-list" id="pedidoRutasFrecuentesList"></div>
+        </div>
         <div class="form-grid">
           <div class="field field-span-2" id="fieldPedidoDescripcion">
             <label for="pedidoDescripcion">Descripción</label>
@@ -2163,6 +2198,7 @@
   <script src="js/dashboard.js"></script>
   <script src="js/mis-viajes.js"></script>
   <script src="js/conductor-dashboard.js"></script>
+  <script src="js/cliente-dashboard.js"></script>
   <script src="js/supervisor-dashboard.js"></script>
   <script src="js/mantenimiento-dashboard.js"></script>
   <script src="js/configuracion.js"></script>

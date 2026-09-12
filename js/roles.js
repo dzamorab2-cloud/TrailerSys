@@ -52,12 +52,14 @@ const TRAILERSYS_ROLES = {
     modules: ["dashboard", "vehiculos", "viajes", "seguimiento", "reportes"],
     manage: [],
   },
-  // Autoservicio: el cliente solo ve "Mis pedidos" (crear pedidos = Cargas
-  // Pendientes a su propio nombre, y confirmar la recepcion de las que ya
-  // se entregaron). Nunca el resto de la operacion interna.
+  // Autoservicio: el cliente tiene su propio Dashboard (resumen de sus
+  // pedidos + mapa en vivo de los que estan en ruta) y "Mis pedidos"
+  // (crear pedidos = Cargas Pendientes a su propio nombre, y confirmar la
+  // recepcion de las que ya se entregaron). Nunca el resto de la
+  // operacion interna.
   cliente: {
     label: "Cliente",
-    modules: ["pedidos", "configuracion"],
+    modules: ["dashboard", "pedidos", "configuracion"],
     manage: ["pedidos"],
   },
 };

@@ -339,6 +339,43 @@
     w.document.write(`<!doctype html><html><head><title>Guía TS-${detalleActual.carga.id}</title><link rel="stylesheet" href="css/variables.css"><link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/components.css"><link rel="stylesheet" href="css/pedidos.css"><style>body{padding:32px}.pedido-detail{max-width:900px;margin:auto}</style></head><body><div class="pedido-detail"><h1>TrailerSys · Guía de transporte</h1>${$("pedidoDetalleContenido").innerHTML}<p>Documento generado el ${new Date().toLocaleString("es-EC")}</p></div><script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
   }
 
+  // Top 3 combinaciones origen->destino de los pedidos ya hechos por el
+  // cliente (cargar() ya trajo todos en "pedidos", sin paginar), ordenadas
+  // por cuantas veces las repitio y, en empate, por la mas reciente -
+  // pensado para el caso comun de un cliente que envia carga siempre entre
+  // las mismas dos ciudades y tiene que rearmar los mismos dos selects (65
+  // ciudades cada uno) cada vez que hace un pedido nuevo.
+  function rutasFrecuentes() {
+    const porRuta = new Map();
+    pedidos.forEach((c) => {
+      if (!c.origen || !c.destino) return;
+      const clave = `${c.origen}→${c.destino}`;
+      const previa = porRuta.get(clave);
+      const fecha = c.fechaCreacion || "";
+      if (previa) { previa.count++; if (fecha > previa.fecha) previa.fecha = fecha; }
+      else porRuta.set(clave, { origen: c.origen, destino: c.destino, count: 1, fecha });
+    });
+    return [...porRuta.values()].sort((a, b) => b.count - a.count || b.fecha.localeCompare(a.fecha)).slice(0, 3);
+  }
+
+  function renderRutasFrecuentes() {
+    const rutas = rutasFrecuentes();
+    $("pedidoRutasFrecuentes").hidden = rutas.length === 0;
+    $("pedidoRutasFrecuentesList").innerHTML = rutas.map((r, i) =>
+      `<button type="button" class="pedido-ruta-chip" data-indice="${i}"><i class="bi bi-signpost-split"></i>${esc(r.origen)} → ${esc(r.destino)}</button>`).join("");
+    $("pedidoRutasFrecuentesList").dataset.rutas = JSON.stringify(rutas);
+  }
+
+  $("pedidoRutasFrecuentesList").onclick = (e) => {
+    const b = e.target.closest("button[data-indice]"); if (!b) return;
+    const ruta = JSON.parse($("pedidoRutasFrecuentesList").dataset.rutas || "[]")[Number(b.dataset.indice)];
+    if (!ruta) return;
+    asegurarOpcionLugar($("pedidoOrigen"), ruta.origen);
+    asegurarOpcionLugar($("pedidoDestino"), ruta.destino);
+    $("pedidoOrigen").value = ruta.origen;
+    $("pedidoDestino").value = ruta.destino;
+  };
+
   const modal = $("pedidoModalOverlay"), form = $("pedidoForm");
   $("btnNuevoPedido").onclick = () => {
     form.reset(); unidadAnterior = "kg"; pedidoEditandoId = null;
@@ -348,6 +385,7 @@
     // opcion "extra" (ver asegurarOpcionLugar) de una edicion anterior.
     trailersysPoblarLugaresEcuador($("pedidoOrigen"));
     trailersysPoblarLugaresEcuador($("pedidoDestino"));
+    renderRutasFrecuentes();
     trailersysOpenModal(modal);
   };
   $("pedidoModalClose").onclick = $("pedidoCancelar").onclick = () => trailersysCloseModal(modal);
@@ -375,6 +413,10 @@
     pedidoEditandoId = c.id;
     $("pedidoModalTitulo").textContent = `Editar pedido #${c.id}`;
     $("pedidoSubmitTexto").textContent = "Guardar cambios";
+    // Las rutas frecuentes son solo un atajo para armar un pedido nuevo
+    // desde cero - editando uno ya existente los selects ya se precargan
+    // con su origen/destino actual, asi que no aportan nada aca.
+    $("pedidoRutasFrecuentes").hidden = true;
     $("pedidoDescripcion").value = c.descripcion || "";
     $("pedidoTipo").value = c.tipo || "";
     $("pedidoPesoUnidad").value = "kg"; unidadAnterior = "kg";
