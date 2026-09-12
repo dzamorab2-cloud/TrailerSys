@@ -211,15 +211,27 @@
       const fechaLlegadaEstimada = v?.fechaSalida && v?.ruta?.duracionMin
         ? new Date(new Date(v.fechaSalida).getTime() + v.ruta.duracionMin * 60000)
         : null;
-      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div><div><small>Llegada estimada</small><strong>${fechaLlegadaEstimada ? trailersysFormatDateTime(fechaLlegadaEstimada) : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}<h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
+      // Todo lo "de lectura" (cabecera, datos, reclamo) va en la columna
+      // angosta de la izquierda; el mapa ocupa el resto del ancho del modal,
+      // grande, en vez de una franja delgada apretada entre bloques de
+      // texto como antes. Mismo criterio que ya usa el mapa en vivo de
+      // Administrador/Coordinador (css/seguimiento.css, "seguimiento-layout"),
+      // aca aplicado siempre (no solo si el viaje esta En Curso: incluso una
+      // ruta estatica se ve mejor grande que angosta).
+      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-layout"><div class="pedido-detail-layout-info"><div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div><div><small>Llegada estimada</small><strong>${fechaLlegadaEstimada ? trailersysFormatDateTime(fechaLlegadaEstimada) : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}</div><div class="pedido-detail-layout-map"></div></div><h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
+
+      const columnaInfo = $("pedidoDetalleContenido").querySelector(".pedido-detail-layout-info");
+      const columnaMapa = $("pedidoDetalleContenido").querySelector(".pedido-detail-layout-map");
+
       if (v?.evidenciaRecepcionCliente) {
         const evidencia = document.createElement("img"); evidencia.className = "pedido-evidencia";
         evidencia.src = v.evidenciaRecepcionCliente; evidencia.alt = "Evidencia del reclamo";
-        $("pedidoDetalleContenido").querySelector("h3")?.before(evidencia);
+        columnaInfo.appendChild(evidencia);
       }
+
       if (v?.ruta && window.L) {
         const mapa = document.createElement("div"); mapa.className = "pedido-detail-map";
-        $("pedidoDetalleContenido").querySelector("h3")?.before(mapa);
+        columnaMapa.appendChild(mapa);
         setTimeout(() => {
           pedidoMapaInstance = L.map(mapa).setView([v.ruta.origenLat, v.ruta.origenLng], 7);
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(pedidoMapaInstance);
@@ -234,7 +246,14 @@
             actualizarMarcadorPedido(id);
             pedidoActualizacionIntervalId = setInterval(() => actualizarMarcadorPedido(id), 10000);
           }
+          // El contenedor nace con ancho 0 (todavia detras de la animacion
+          // de apertura del modal): sin este invalidateSize() los tiles de
+          // Leaflet quedan calculados para ese ancho equivocado y el mapa se
+          // ve cortado/gris hasta el primer resize de la ventana.
+          setTimeout(() => pedidoMapaInstance?.invalidateSize(), 200);
         }, 50);
+      } else {
+        columnaMapa.innerHTML = `<div class="pedido-detail-map"><div class="route-map-placeholder"><i class="bi bi-map"></i><p>${v ? "Este viaje todavía no tiene una ruta calculada." : "Este pedido todavía no tiene un viaje asignado: en cuanto Operación lo asigne, aquí aparecerá el mapa."}</p></div></div>`;
       }
     } catch (e) { $("pedidoDetalleContenido").innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`; }
   }

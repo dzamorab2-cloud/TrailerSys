@@ -16,7 +16,24 @@
 .pedido-detail-grid > div { background:var(--color-bg); border-radius:var(--radius-sm); padding:13px; }
 .pedido-detail-grid small, .pedido-detail-grid strong { display:block; }
 .pedido-detail-grid small { color:var(--color-text-muted); margin-bottom:4px; }
-.pedido-detail-map { height:300px; border-radius:var(--radius-sm); margin:18px 0; border:1px solid var(--color-border); }
+/* El mapa necesitaba mas presencia: antes era una franja de 300px de alto a
+   todo el ancho, apretujada entre bloques de texto. Ahora vive en su propia
+   columna grande al costado de todo lo demas (cabecera, datos, reclamo),
+   igual criterio que ya usa el mapa en vivo de Administrador/Coordinador
+   (ver "seguimiento-layout" en css/seguimiento.css) - la columna de info va
+   angosta y fija, y el mapa se lleva el resto del ancho del modal. */
+.pedido-detail-layout { display:grid; grid-template-columns:minmax(280px,360px) 1fr; gap:24px; align-items:start; margin:20px 0; }
+/* La cabecera (guia/titulo + badge) y la grilla de datos se pensaron para
+   todo el ancho del modal viejo (~800px): en la columna angosta de ahora
+   (280-360px) el layout de dos columnas de la grilla dejaba "11 sept 2026,
+   8:18 p. m." partido en dos lineas dentro de una caja chica, y el badge
+   flotando junto a un titulo de dos lineas se veia descolgado. Columna
+   unica + badge debajo del titulo en vez de al lado: cada dato usa todo el
+   ancho disponible. */
+.pedido-detail-layout-info .pedido-detail-head { flex-direction:column; align-items:flex-start; gap:10px; margin:0 0 4px; padding-bottom:0; border-bottom:none; }
+.pedido-detail-layout-info .pedido-detail-grid { grid-template-columns:1fr; gap:10px; }
+.pedido-detail-layout-map { position:sticky; top:0; }
+.pedido-detail-map { position:relative; height:540px; border-radius:var(--radius-sm); border:1px solid var(--color-border); }
 .pedido-evidencia { display:block; max-width:260px; max-height:180px; object-fit:cover; border-radius:var(--radius-sm); margin-top:10px; }
 .pedido-timeline { margin-top:14px; }
 .pedido-timeline-item { display:grid; grid-template-columns:18px 1fr; gap:10px; position:relative; padding-bottom:18px; }
@@ -24,7 +41,12 @@
 .pedido-timeline-item:not(:last-child) > span::after { content:""; position:absolute; left:5px; top:17px; bottom:1px; width:2px; background:var(--color-border); }
 .pedido-timeline-item p { margin:3px 0; color:var(--color-text-muted); font-size:.85rem; }
 .field textarea { width:100%; padding:12px; border:1px solid var(--color-border); border-radius:var(--radius-sm); font:inherit; resize:vertical; }
-.modal-lg { max-width:850px; }
+.modal-lg { max-width:1180px; }
 @media (max-width:900px) { .pedido-kpis { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:960px) {
+  .pedido-detail-layout { grid-template-columns:1fr; }
+  .pedido-detail-layout-map { position:static; }
+  .pedido-detail-map { height:320px; }
+}
 @media (max-width:560px) { .pedido-kpis,.pedido-detail-grid { grid-template-columns:1fr; } .pedido-detail-head { flex-direction:column; } .pedido-card-actions .btn { width:100%; } }
 @media print { .modal-footer,.btn,.pedido-detail-map { display:none!important; } .pedido-detail { color:#111; } .card { box-shadow:none; } }
