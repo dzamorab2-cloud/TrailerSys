@@ -34,6 +34,30 @@
 .pedido-detail-layout-info .pedido-detail-grid { grid-template-columns:1fr; gap:10px; }
 .pedido-detail-layout-map { position:sticky; top:0; }
 .pedido-detail-map { position:relative; height:540px; border-radius:var(--radius-sm); border:1px solid var(--color-border); }
+/* Mientras no hay ruta que mostrar (Pendiente, o Asignada/En Tránsito sin
+   ruta calculada todavia), este espacio -el mas grande del detalle- pasa a
+   mostrar en que paso del proceso esta el pedido en vez de un icono suelto
+   con una frase: le da al cliente la misma sensacion de "seguimiento" que
+   el mapa en vivo, incluso cuando todavia no hay nada que mover en un mapa.
+   Centrado igual que .route-map-placeholder (mismo patron ya usado en
+   Viajes/Seguimiento), pero con scroll propio por si el contenido no
+   entrara completo en una pantalla muy baja. */
+.pedido-progreso-wrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:32px; overflow-y:auto; background:var(--color-surface); border-radius:var(--radius-sm); }
+.pedido-progreso { width:100%; max-width:300px; }
+.pedido-progreso-item { display:grid; grid-template-columns:44px 1fr; gap:16px; position:relative; padding-bottom:30px; }
+.pedido-progreso-item:last-child { padding-bottom:0; }
+.pedido-progreso-icono { width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font-size:1.15rem; background:var(--color-bg); color:var(--color-text-muted); border:2px solid var(--color-border); z-index:1; }
+.pedido-progreso-item:not(:last-child)::after { content:""; position:absolute; left:21px; top:44px; bottom:0; width:2px; background:var(--color-border); }
+.pedido-progreso-item strong { display:block; margin-bottom:3px; }
+.pedido-progreso-item p { margin:0; color:var(--color-text-muted); font-size:.82rem; line-height:1.4; }
+.pedido-progreso-item.hecho .pedido-progreso-icono { background:var(--color-success); border-color:var(--color-success); color:#fff; }
+.pedido-progreso-item.hecho:not(:last-child)::after { background:var(--color-success); }
+.pedido-progreso-item.activo .pedido-progreso-icono { background:var(--color-primary-tint); border-color:var(--color-primary); color:var(--color-primary-dark); box-shadow:0 0 0 4px var(--color-primary-tint); }
+.pedido-progreso-item.activo strong { color:var(--color-primary-dark); }
+.pedido-progreso-item.pendiente strong { color:var(--color-text-muted); }
+.pedido-progreso-cancelado { display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; color:var(--color-text-muted); max-width:260px; }
+.pedido-progreso-cancelado i { font-size:2.4rem; color:var(--color-danger); }
+.pedido-progreso-cancelado strong { color:var(--color-text); font-size:1.05rem; }
 .pedido-evidencia { display:block; max-width:260px; max-height:180px; object-fit:cover; border-radius:var(--radius-sm); margin-top:10px; }
 .pedido-timeline { margin-top:14px; }
 .pedido-timeline-item { display:grid; grid-template-columns:18px 1fr; gap:10px; position:relative; padding-bottom:18px; }

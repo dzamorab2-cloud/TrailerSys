@@ -81,7 +81,7 @@
   }
 
   function lineaTiempo(d) {
-    const items = [{ titulo: "Pedido creado", detalle: `Carga #${d.carga.id} registrada` }];
+    const items = [{ titulo: "Pedido creado", detalle: `Carga #${d.carga.id} registrada${d.carga.fechaCreacion ? ` · ${trailersysFormatDateTime(d.carga.fechaCreacion)}` : ""}` }];
     if (d.viaje) items.push({ titulo: "Viaje asignado", detalle: `Viaje #${d.viaje.id} · ${d.viaje.vehiculoPlaca}` });
     [...(d.eventos || [])].reverse().forEach((e) => items.push({ titulo: e.evento, detalle: `${e.ubicacion} · ${trailersysFormatDateTime(e.fechaHora)}` }));
     if (d.viaje?.estado === "Finalizado") items.push({ titulo: "Entrega registrada", detalle: "El viaje fue finalizado" });
@@ -193,6 +193,33 @@
     pedidoVehiculoMarker = null;
   }
 
+  // Mientras el pedido no tiene una ruta que mostrar (Pendiente, o ya
+  // Asignada/En Tránsito pero sin ruta calculada todavia), el espacio grande
+  // del mapa mostraba solo un icono y una frase - se sentia vacio para el
+  // lugar mas grande del detalle. En su lugar, un progreso de 4 pasos
+  // (deriva directo de c.estado, sin depender de si ya hay viaje) le da al
+  // cliente la misma idea que un "seguimiento" real: en que parte del
+  // proceso esta su pedido ahora mismo, no solo "todavia no hay mapa".
+  function renderProgreso(c) {
+    if (c.estado === "Cancelada") {
+      return `<div class="pedido-progreso-cancelado"><i class="bi bi-x-circle"></i><strong>Pedido cancelado</strong><p>Este pedido fue cancelado y no continuará su proceso.</p></div>`;
+    }
+    const pasos = [
+      { titulo: "Pedido creado", icono: "bi-file-earmark-text", estado: "hecho",
+        detalle: c.fechaCreacion ? trailersysFormatDateTime(c.fechaCreacion) : "Tu pedido quedó registrado." },
+      { titulo: "Viaje asignado", icono: "bi-clipboard-check",
+        estado: c.estado === "Pendiente" ? "activo" : "hecho",
+        detalle: c.estado === "Pendiente" ? "Un coordinador está buscando vehículo y conductor disponibles." : "Vehículo y conductor ya asignados." },
+      { titulo: "En camino", icono: "bi-truck",
+        estado: c.estado === "Pendiente" ? "pendiente" : c.estado === "Asignada" ? "activo" : "hecho",
+        detalle: c.estado === "En Tránsito" || c.estado === "Entregada" ? "Tu carga va en camino." : "Todavía no ha salido." },
+      { titulo: "Entregado", icono: "bi-box-seam",
+        estado: c.estado === "Entregada" ? "hecho" : "pendiente",
+        detalle: c.estado === "Entregada" ? "Tu carga llegó a destino." : "Aquí verás la confirmación de entrega." },
+    ];
+    return `<div class="pedido-progreso">${pasos.map((p) => `<div class="pedido-progreso-item ${p.estado}"><div class="pedido-progreso-icono"><i class="bi ${p.estado === "hecho" ? "bi-check-lg" : p.icono}"></i></div><div><strong>${esc(p.titulo)}</strong><p>${esc(p.detalle)}</p></div></div>`).join("")}</div>`;
+  }
+
   async function abrirDetalle(id) {
     // Por si quedo un mapa/intervalo de un detalle anterior sin cerrar bien.
     destruirMapaPedido();
@@ -218,7 +245,16 @@
       // Administrador/Coordinador (css/seguimiento.css, "seguimiento-layout"),
       // aca aplicado siempre (no solo si el viaje esta En Curso: incluso una
       // ruta estatica se ve mejor grande que angosta).
-      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-layout"><div class="pedido-detail-layout-info"><div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div><div><small>Llegada estimada</small><strong>${fechaLlegadaEstimada ? trailersysFormatDateTime(fechaLlegadaEstimada) : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}</div><div class="pedido-detail-layout-map"></div></div><h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
+      // Sin viaje todavia, mostrar 5 campos "Por asignar/definir/calcular"
+      // (vehiculo, conductor, salida, distancia, llegada) es puro relleno -
+      // ese estado ya lo cuenta el progreso del mapa (renderProgreso). En su
+      // lugar, si el cliente dejo una observacion al crear el pedido, es lo
+      // unico realmente suyo que todavia no se mostraba en ningun lado del
+      // detalle.
+      const camposViaje = v
+        ? `<div><small>Vehículo</small><strong>${esc(v.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div><div><small>Llegada estimada</small><strong>${fechaLlegadaEstimada ? trailersysFormatDateTime(fechaLlegadaEstimada) : "Por calcular"}</strong></div>`
+        : c.observaciones ? `<div><small>Observaciones</small><strong>${esc(c.observaciones)}</strong></div>` : "";
+      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-layout"><div class="pedido-detail-layout-info"><div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div>${camposViaje}</div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}</div><div class="pedido-detail-layout-map"></div></div><h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
 
       const columnaInfo = $("pedidoDetalleContenido").querySelector(".pedido-detail-layout-info");
       const columnaMapa = $("pedidoDetalleContenido").querySelector(".pedido-detail-layout-map");
@@ -253,7 +289,7 @@
           setTimeout(() => pedidoMapaInstance?.invalidateSize(), 200);
         }, 50);
       } else {
-        columnaMapa.innerHTML = `<div class="pedido-detail-map"><div class="route-map-placeholder"><i class="bi bi-map"></i><p>${v ? "Este viaje todavía no tiene una ruta calculada." : "Este pedido todavía no tiene un viaje asignado: en cuanto Operación lo asigne, aquí aparecerá el mapa."}</p></div></div>`;
+        columnaMapa.innerHTML = `<div class="pedido-detail-map"><div class="pedido-progreso-wrap">${renderProgreso(c)}</div></div>`;
       }
     } catch (e) { $("pedidoDetalleContenido").innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`; }
   }
