@@ -453,6 +453,110 @@ class PedidoClienteControllerTest {
     }
 
     /**
+     * El mapa en vivo del detalle de "Mis pedidos" (js/pedidos.js) consulta
+     * este endpoint para corregir la posicion simulada del vehiculo con la
+     * ultima ubicacion que el Conductor marco a mano - misma idea que
+     * SeguimientoService.obtenerUbicacionReportada para Administrador/
+     * Coordinador (SeguimientoControllerTest), pero acotada al Cliente
+     * dueño del pedido en vez de al Conductor del viaje.
+     */
+    @Test
+    void ubicacionReportadaDaSinContenidoCuandoElPedidoNoTieneViajeAsignado() throws Exception {
+        Long clienteId = crearCliente("CI-PED-UBIC-SINVIAJE");
+        String tokenCliente = crearUsuarioClienteYToken("clientepedidoubicsinviaje", clienteId);
+
+        String pedido = """
+                {"descripcion":"Pedido sin viaje","tipo":"General","peso":100,"origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedido))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(get("/api/mis-cargas/" + cargaId + "/ubicacion-reportada")
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void clienteVeLaUbicacionReportadaDeSuPropioViajeCuandoElConductorLaMarco() throws Exception {
+        Long clienteId = crearCliente("CI-PED-UBIC");
+        String tokenCliente = crearUsuarioClienteYToken("clientepedidoubic", clienteId);
+        Long vehiculoId = crearVehiculo("PED-UBIC-01");
+        Long conductorId = crearConductor("CI-PED-UBIC-COND");
+
+        String pedido = """
+                {"descripcion":"Pedido con ubicacion","tipo":"General","peso":100,"origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenCliente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedido))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaId = objectMapper.readTree(creado).get("id").asLong();
+
+        String viaje = """
+                {"vehiculoId":%d,"conductorId":%d,"clienteId":%d,"cargaId":%d,
+                 "origen":"Quito","destino":"Guayaquil","fechaSalida":"2026-08-15T08:00:00","estado":"En Curso"}
+                """.formatted(vehiculoId, conductorId, clienteId, cargaId);
+        String viajeCreado = mockMvc.perform(post("/api/viajes")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(viaje))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long viajeId = objectMapper.readTree(viajeCreado).get("id").asLong();
+
+        // Todavia nada marcado: 204, no un error.
+        mockMvc.perform(get("/api/mis-cargas/" + cargaId + "/ubicacion-reportada")
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isNoContent());
+
+        String evento = """
+                {"viajeId":%d,"fechaHora":"2026-08-15T09:00:00","evento":"PARADA","ubicacion":"Km 20",
+                 "latitudReportada":-0.25,"longitudReportada":-78.55}
+                """.formatted(viajeId);
+        mockMvc.perform(post("/api/seguimiento/eventos")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(evento))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/mis-cargas/" + cargaId + "/ubicacion-reportada")
+                        .header("Authorization", "Bearer " + tokenCliente))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latitudReportada").value(-0.25))
+                .andExpect(jsonPath("$.longitudReportada").value(-78.55));
+    }
+
+    @Test
+    void clienteNoPuedeVerUbicacionReportadaDeUnPedidoDeOtroCliente() throws Exception {
+        Long clienteAId = crearCliente("CI-PED-UBIC-A");
+        Long clienteBId = crearCliente("CI-PED-UBIC-B");
+        String tokenA = crearUsuarioClienteYToken("clientepedidoubicA", clienteAId);
+        String tokenB = crearUsuarioClienteYToken("clientepedidoubicB", clienteBId);
+
+        String pedidoA = """
+                {"descripcion":"Pedido de A","tipo":"General","peso":100,"origen":"Quito","destino":"Guayaquil"}
+                """;
+        String creado = mockMvc.perform(post("/api/mis-cargas")
+                        .header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(pedidoA))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long cargaDeA = objectMapper.readTree(creado).get("id").asLong();
+
+        mockMvc.perform(get("/api/mis-cargas/" + cargaDeA + "/ubicacion-reportada")
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+    }
+
+    /**
      * Encontrado revisando en vivo el flujo de Cliente: /api/mis-cargas/{id}
      * existe como @PutMapping y @DeleteMapping, pero no como @GetMapping (el
      * detalle real es /api/mis-cargas/{id}/detalle). Antes, pedir esa misma

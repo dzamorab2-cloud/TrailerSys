@@ -2,6 +2,7 @@ package com.trailersys.backend.pedido;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import com.trailersys.backend.usuario.Usuario;
 import com.trailersys.backend.usuario.UsuarioRepository;
 import com.trailersys.backend.viaje.Viaje;
 import com.trailersys.backend.viaje.ViajeRepository;
+import com.trailersys.backend.seguimiento.SeguimientoEvento;
 import com.trailersys.backend.seguimiento.SeguimientoEventoRepository;
 import com.trailersys.backend.seguimiento.dto.SeguimientoEventoResponse;
 import com.trailersys.backend.pedido.dto.DetallePedidoResponse;
@@ -128,6 +130,23 @@ public class PedidoClienteService {
     public Viaje obtenerViajeDeMiCarga(String username, Long cargaId) {
         Carga carga = miCarga(username, cargaId);
         return viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId()).orElse(null);
+    }
+
+    /**
+     * Misma idea que SeguimientoService.obtenerUbicacionReportada (usada por
+     * el mapa en vivo de Administrador/Coordinador en js/seguimiento.js),
+     * pero acotada al Cliente dueño del pedido en vez de al Conductor del
+     * viaje - CLIENTE no esta en PUEDE_CONSULTAR de SeguimientoController
+     * (esa API expone el resto de la flota, no le corresponde) asi que el
+     * mapa de "Mis pedidos" necesita su propia via, ya scopeada por
+     * miCarga(). Vacio si el pedido todavia no tiene viaje asignado, o si el
+     * Conductor nunca marco su ubicacion a mano.
+     */
+    public Optional<SeguimientoEvento> obtenerUbicacionReportada(String username, Long cargaId) {
+        Carga carga = miCarga(username, cargaId);
+        return viajeRepository.findFirstByCarga_IdOrderByIdDesc(carga.getId())
+                .flatMap(viaje -> seguimientoRepository
+                        .findFirstByViajeIdAndLatitudReportadaIsNotNullAndLongitudReportadaIsNotNullOrderByFechaHoraDesc(viaje.getId()));
     }
 
     public PerfilClienteResponse perfil(String username) {

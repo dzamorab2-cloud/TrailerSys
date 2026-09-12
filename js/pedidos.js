@@ -11,6 +11,10 @@
   const $ = (id) => document.getElementById(id);
   const badge = { Pendiente: "badge-warning", Asignada: "badge-info", "En Tránsito": "badge-neutral", Entregada: "badge-success", Cancelada: "badge-danger" };
   let pedidos = [], viajes = {}, detalleActual = null, cargaRecepcionId = null, unidadAnterior = "kg", pedidoEditandoId = null;
+  // Estado del mapa en vivo del detalle (ver abrirDetalle/actualizarMarcadorPedido):
+  // vive fuera de abrirDetalle() porque iniciarSeguimientoEnVivo() sigue
+  // corriendo cada 10s despues de que esa funcion ya termino.
+  let pedidoMapaInstance = null, pedidoVehiculoMarker = null, pedidoActualizacionIntervalId = null;
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const peso = (kg) => `${Number(kg || 0).toLocaleString("es-EC")} kg / ${(Number(kg || 0) * 2.2046226218).toLocaleString("es-EC", { maximumFractionDigits: 2 })} lb`;
   const labelNovedad = (v) => ({ COMPLETO: "Completo", INCOMPLETO: "Incompleto", DANADO: "Dañado", INCORRECTO: "Incorrecto", OTRO: "Otro" }[v] || v || "—");
@@ -85,14 +89,129 @@
     return items.map((x) => `<div class="pedido-timeline-item"><span></span><div><strong>${esc(x.titulo)}</strong><p>${esc(x.detalle)}</p></div></div>`).join("");
   }
 
+  // Perezoso (no "const ... = L.divIcon(...)" al nivel del modulo): a
+  // diferencia de js/seguimiento.js, aca <script src="js/pedidos.js"> carga
+  // ANTES que js/vendor/leaflet.js (ver app.html) - evaluar L.divIcon() de
+  // una vez en cuanto se define este archivo rompia con "L is not defined",
+  // porque en ese momento Leaflet todavia no existe. Para cuando esto se
+  // llama de verdad (abrirDetalle, ya adentro del "if (v?.ruta && window.L)")
+  // Leaflet ya esta cargado.
+  let vehiculoIconCache = null;
+  const vehiculoIcon = () => vehiculoIconCache || (vehiculoIconCache = L.divIcon({ className: "vehicle-marker", html: '<i class="bi bi-truck"></i>', iconSize: [30, 30], iconAnchor: [15, 15] }));
+  const formatHaceTiempo = (fechaHoraIso) => { const f = new Date(fechaHoraIso); if (Number.isNaN(f.getTime())) return "hace un momento"; const min = Math.max(0, (Date.now() - f.getTime()) / 60000); return min < 1 ? "hace un momento" : `hace ${trailersysFormatDuration(min)}`; };
+
+  // Distancia euclidiana simple entre dos puntos [lat,lng] - no hace falta
+  // una proyeccion geodesica exacta solo para encontrar cual punto de la
+  // ruta ya calculada queda mas cerca de una ubicacion reportada a mano.
+  // Misma logica que indicePathMasCercano/calcularPosicionSimulada de
+  // js/seguimiento.js (mapa en vivo de Administrador/Coordinador): se
+  // duplica aca en vez de compartirse porque ese archivo esta envuelto en
+  // su propia IIFE (nada de lo suyo queda accesible desde afuera) y ademas
+  // Cliente no tiene acceso a ese modulo ni a su API (ver
+  // PedidoClienteController.ubicacionReportada, que es la version acotada
+  // al propio pedido que este archivo si puede usar).
+  function indicePathMasCercano(path, lat, lng) {
+    let mejorIndice = 0, mejorDistancia = Infinity;
+    path.forEach((punto, indice) => { const d = Math.hypot(punto[0] - lat, punto[1] - lng); if (d < mejorDistancia) { mejorDistancia = d; mejorIndice = indice; } });
+    return mejorIndice;
+  }
+
+  function calcularPosicionSimulada(viaje, ubicacionReportada) {
+    // ViajeResponse.ruta.path llega como [{lat,lng}, ...] (ver PuntoRuta.java) -
+    // Leaflet acepta ese formato tal cual para dibujar la polilinea (por eso
+    // el mapa estatico de mas abajo lo usa sin tocarlo), pero la aritmetica de
+    // aca abajo (punto[0]/punto[1], p1[0]-p2[0]...) necesita pares [lat,lng].
+    // Sin este mapeo, "punto[0]"/"punto[1]" salian undefined y el marcador se
+    // intentaba poner en (NaN, NaN) - Leaflet lo rechaza y el marcador nunca
+    // aparecia.
+    const pathRaw = viaje.ruta?.path;
+    if (!pathRaw || pathRaw.length < 2 || !viaje.fechaSalida || !viaje.ruta.duracionMin) return null;
+    const path = pathRaw.map((p) => Array.isArray(p) ? p : [p.lat, p.lng]);
+    const salida = new Date(viaje.fechaSalida).getTime();
+    if (Number.isNaN(salida)) return null;
+    const duracionMs = viaje.ruta.duracionMin * 60000;
+    if (duracionMs <= 0) return null;
+
+    let progreso;
+    if (ubicacionReportada) {
+      const indiceReportado = indicePathMasCercano(path, ubicacionReportada.lat, ubicacionReportada.lng);
+      const fraccionReal = indiceReportado / (path.length - 1);
+      const reportadoEn = new Date(ubicacionReportada.fechaHora).getTime();
+      const avanceDesdeElReporte = Number.isNaN(reportadoEn) ? 0 : (Date.now() - reportadoEn) / duracionMs;
+      progreso = Math.min(1, Math.max(0, fraccionReal + avanceDesdeElReporte));
+    } else {
+      progreso = Math.min(1, Math.max(0, (Date.now() - salida) / duracionMs));
+    }
+
+    const posicionExacta = progreso * (path.length - 1);
+    const indiceBase = Math.floor(posicionExacta);
+    const indiceSiguiente = Math.min(path.length - 1, indiceBase + 1);
+    const fraccionLocal = posicionExacta - indiceBase;
+    const p1 = path[indiceBase], p2 = path[indiceSiguiente];
+    return [p1[0] + (p2[0] - p1[0]) * fraccionLocal, p1[1] + (p2[1] - p1[1]) * fraccionLocal];
+  }
+
+  // Se re-consulta el viaje en cada tick (no solo la ubicacion reportada):
+  // si mientras el detalle esta abierto el viaje termina (Finalizado/
+  // Cancelado), el marcador debe desaparecer y el refresco detenerse solo,
+  // sin que el cliente tenga que cerrar y volver a abrir el detalle.
+  async function actualizarMarcadorPedido(id) {
+    if (!pedidoMapaInstance) return;
+    let viaje;
+    try { viaje = await trailersysApiRequest("GET", `/mis-cargas/${id}/viaje`); }
+    catch { viaje = null; }
+
+    if (!viaje || viaje.estado !== "En Curso") {
+      detenerSeguimientoEnVivo();
+      if (pedidoVehiculoMarker) { pedidoMapaInstance.removeLayer(pedidoVehiculoMarker); pedidoVehiculoMarker = null; }
+      return;
+    }
+
+    let ubicacionReportada = null;
+    try {
+      const evento = await trailersysApiRequest("GET", `/mis-cargas/${id}/ubicacion-reportada`);
+      if (evento) ubicacionReportada = { lat: evento.latitudReportada, lng: evento.longitudReportada, fechaHora: evento.fechaHora };
+    } catch { ubicacionReportada = null; }
+
+    const posicion = calcularPosicionSimulada(viaje, ubicacionReportada);
+    if (!posicion) return;
+    const popupTexto = ubicacionReportada
+      ? `Última ubicación reportada por el conductor ${formatHaceTiempo(ubicacionReportada.fechaHora)}`
+      : "Posición estimada (simulada)";
+
+    if (pedidoVehiculoMarker) { pedidoVehiculoMarker.setLatLng(posicion); pedidoVehiculoMarker.setPopupContent(popupTexto); }
+    else { pedidoVehiculoMarker = L.marker(posicion, { icon: vehiculoIcon() }).addTo(pedidoMapaInstance).bindPopup(popupTexto); }
+  }
+
+  function detenerSeguimientoEnVivo() {
+    if (pedidoActualizacionIntervalId) { clearInterval(pedidoActualizacionIntervalId); pedidoActualizacionIntervalId = null; }
+  }
+
+  function destruirMapaPedido() {
+    detenerSeguimientoEnVivo();
+    if (pedidoMapaInstance) { pedidoMapaInstance.remove(); pedidoMapaInstance = null; }
+    pedidoVehiculoMarker = null;
+  }
+
   async function abrirDetalle(id) {
+    // Por si quedo un mapa/intervalo de un detalle anterior sin cerrar bien.
+    destruirMapaPedido();
     $("pedidoDetalleContenido").innerHTML = `<p>Cargando detalle...</p>`; trailersysOpenModal($("pedidoDetalleOverlay"));
     try {
       const d = await trailersysApiRequest("GET", `/mis-cargas/${id}/detalle`); detalleActual = d; const c = d.carga, v = d.viaje;
       const estadoBadgeDetalle = estaVerificada(v)
         ? `<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Verificada</span>`
         : `<span class="badge ${badge[c.estado] || "badge-neutral"}">${esc(c.estado)}</span>`;
-      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}<h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
+      // "Llegada estimada" se calcula sobre el propio objeto Date (no se
+      // vuelve a serializar a ISO): fechaSalida llega sin zona horaria
+      // (hora local tal cual se guardo) y Date ya la interpreta como local,
+      // asi que sumarle la duracion y pasar el Date resultante directo a
+      // trailersysFormatDateTime mantiene esa misma hora local sin que un
+      // viaje por UTC de por medio la corra.
+      const fechaLlegadaEstimada = v?.fechaSalida && v?.ruta?.duracionMin
+        ? new Date(new Date(v.fechaSalida).getTime() + v.ruta.duracionMin * 60000)
+        : null;
+      $("pedidoDetalleContenido").innerHTML = `<div class="pedido-detail-head"><div><span class="eyebrow">GUÍA TS-${String(c.id).padStart(6, "0")}</span><h2>${esc(c.descripcion)}</h2><p>${esc(c.origen)} → ${esc(c.destino)}</p></div>${estadoBadgeDetalle}</div><div class="pedido-detail-grid"><div><small>Cliente</small><strong>${esc(c.clienteNombre)}</strong></div><div><small>Tipo y peso</small><strong>${esc(c.tipo)} · ${peso(c.peso)}</strong></div><div><small>Vehículo</small><strong>${esc(v?.vehiculoPlaca || "Por asignar")}</strong></div><div><small>Conductor</small><strong>${esc(v?.conductorNombres || "Por asignar")}</strong></div><div><small>Salida programada</small><strong>${v?.fechaSalida ? trailersysFormatDateTime(v.fechaSalida) : "Por definir"}</strong></div><div><small>Distancia / duración</small><strong>${v?.ruta ? `${Number(v.ruta.distanciaKm).toFixed(1)} km · ${Math.round(v.ruta.duracionMin)} min` : "Por calcular"}</strong></div><div><small>Llegada estimada</small><strong>${fechaLlegadaEstimada ? trailersysFormatDateTime(fechaLlegadaEstimada) : "Por calcular"}</strong></div></div>${v?.estadoReclamoCliente ? `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i><div><strong>Reclamo ${esc(labelEstadoReclamo(v.estadoReclamoCliente))}: ${esc(labelNovedad(v.novedadRecepcionCliente))}</strong><p>${esc(v.observacionConfirmacionCliente)}</p>${v.respuestaReclamoCliente ? `<p><b>Respuesta:</b> ${esc(v.respuestaReclamoCliente)}</p>` : ""}</div></div>` : ""}<h3>Historial del viaje</h3><div class="pedido-timeline">${lineaTiempo(d)}</div>`;
       if (v?.evidenciaRecepcionCliente) {
         const evidencia = document.createElement("img"); evidencia.className = "pedido-evidencia";
         evidencia.src = v.evidenciaRecepcionCliente; evidencia.alt = "Evidencia del reclamo";
@@ -102,11 +221,19 @@
         const mapa = document.createElement("div"); mapa.className = "pedido-detail-map";
         $("pedidoDetalleContenido").querySelector("h3")?.before(mapa);
         setTimeout(() => {
-          const m = L.map(mapa).setView([v.ruta.origenLat, v.ruta.origenLng], 7);
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(m);
+          pedidoMapaInstance = L.map(mapa).setView([v.ruta.origenLat, v.ruta.origenLng], 7);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(pedidoMapaInstance);
           const puntos = v.ruta.path?.length ? v.ruta.path : [[v.ruta.origenLat, v.ruta.origenLng], [v.ruta.destinoLat, v.ruta.destinoLng]];
-          const linea = L.polyline(puntos, { color: "#2563eb", weight: 5 }).addTo(m); m.fitBounds(linea.getBounds(), { padding: [25, 25] });
-          L.marker(puntos[0]).addTo(m).bindPopup("Origen"); L.marker(puntos[puntos.length - 1]).addTo(m).bindPopup("Destino");
+          const linea = L.polyline(puntos, { color: "#2563eb", weight: 5 }).addTo(pedidoMapaInstance); pedidoMapaInstance.fitBounds(linea.getBounds(), { padding: [25, 25] });
+          L.marker(puntos[0]).addTo(pedidoMapaInstance).bindPopup("Origen"); L.marker(puntos[puntos.length - 1]).addTo(pedidoMapaInstance).bindPopup("Destino");
+          // Solo un viaje En Curso tiene sentido "seguir": Programado
+          // todavia no salio y Finalizado/Cancelado ya no se mueve. Se
+          // refresca cada 10s, mismo intervalo que el mapa en vivo de
+          // Administrador/Coordinador (js/seguimiento.js).
+          if (v.estado === "En Curso") {
+            actualizarMarcadorPedido(id);
+            pedidoActualizacionIntervalId = setInterval(() => actualizarMarcadorPedido(id), 10000);
+          }
         }, 50);
       }
     } catch (e) { $("pedidoDetalleContenido").innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`; }
@@ -199,7 +326,7 @@
     else if (b.dataset.action === "cancelar") cancelarPedido(id);
     else { cargaRecepcionId = id; $("pedidoRecepcionForm").reset(); trailersysOpenModal($("pedidoRecepcionOverlay")); }
   };
-  $("pedidoDetalleClose").onclick = $("pedidoDetalleAceptar").onclick = () => trailersysCloseModal($("pedidoDetalleOverlay")); $("pedidoImprimirGuia").onclick = imprimirGuia;
+  $("pedidoDetalleClose").onclick = $("pedidoDetalleAceptar").onclick = () => { trailersysCloseModal($("pedidoDetalleOverlay")); destruirMapaPedido(); }; $("pedidoImprimirGuia").onclick = imprimirGuia;
   $("pedidoRecepcionClose").onclick = $("pedidoRecepcionCancelar").onclick = () => trailersysCloseModal($("pedidoRecepcionOverlay"));
   $("pedidoRecepcionForm").onsubmit = async (e) => { e.preventDefault(); const tipo = $("pedidoRecepcionTipo").value, obs = $("pedidoRecepcionObservacion").value.trim(), file = $("pedidoRecepcionEvidencia").files[0]; if (tipo !== "COMPLETO" && !obs) return alert("Describe el problema para registrar el reclamo."); if (file && file.size > 4 * 1024 * 1024) return alert("La imagen supera 4 MB."); const evidencia = file ? await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); }) : null; try { await trailersysApiRequest("POST", `/mis-cargas/${cargaRecepcionId}/confirmar-recepcion`, { observacion: obs, novedad: tipo, evidencia }); trailersysCloseModal($("pedidoRecepcionOverlay")); await cargar(); } catch (err) { alert(err.message); } };
   $("pedidoBuscar").oninput = filtrar; $("pedidoEstadoFiltro").onchange = filtrar; $("pedidoFechaFiltro").onchange = filtrar; cargar();

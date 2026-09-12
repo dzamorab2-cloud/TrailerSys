@@ -21,6 +21,7 @@ import com.trailersys.backend.pedido.dto.ConfirmarRecepcionClienteRequest;
 import com.trailersys.backend.pedido.dto.PedidoCargaRequest;
 import com.trailersys.backend.pedido.dto.DetallePedidoResponse;
 import com.trailersys.backend.pedido.dto.PerfilClienteResponse;
+import com.trailersys.backend.seguimiento.dto.SeguimientoEventoResponse;
 import com.trailersys.backend.viaje.Viaje;
 import com.trailersys.backend.viaje.dto.ViajeResponse;
 
@@ -77,6 +78,22 @@ public class PedidoClienteController {
     public ResponseEntity<ViajeResponse> obtenerViaje(@PathVariable Long id, Principal principal) {
         Viaje viaje = service.obtenerViajeDeMiCarga(principal.getName(), id);
         return viaje == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(ViajeResponse.from(viaje));
+    }
+
+    /**
+     * 204 mientras el Conductor no haya marcado su ubicacion a mano para
+     * este viaje (o el pedido todavia no tenga viaje asignado) - lo consume
+     * el mapa en vivo del detalle de "Mis pedidos" (js/pedidos.js) para
+     * decidir si corrige la posicion simulada del vehiculo o sigue con el
+     * calculo puro por tiempo, igual que ya hace js/seguimiento.js para
+     * Administrador/Coordinador.
+     */
+    @GetMapping("/{id}/ubicacion-reportada")
+    public ResponseEntity<SeguimientoEventoResponse> ubicacionReportada(@PathVariable Long id, Principal principal) {
+        return service.obtenerUbicacionReportada(principal.getName(), id)
+                .map(SeguimientoEventoResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @PostMapping("/{id}/confirmar-recepcion")
