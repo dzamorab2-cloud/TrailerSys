@@ -14,6 +14,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -127,6 +128,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
         String soportados = ex.getSupportedMethods() == null ? "" : " Metodos permitidos: " + String.join(", ", ex.getSupportedMethods()) + ".";
         return build(HttpStatus.METHOD_NOT_ALLOWED, "El metodo '" + ex.getMethod() + "' no esta permitido en esta ruta." + soportados, request);
+    }
+
+    /**
+     * Una ruta inexistente bajo un prefijo valido (ej. /api/viajes/no-existe)
+     * caia aqui por el manejo por defecto de recursos estaticos de Spring
+     * Boot y devolvia 500 "Ocurrio un error inesperado" (hallazgo H-02): no
+     * encontrar un endpoint no es un fallo del servidor, es un 404. Requiere
+     * spring.mvc.throw-exception-if-no-handler-found=true y
+     * spring.web.resources.add-mappings=false (ver application.properties);
+     * sin ellas, Spring Boot resuelve la ruta faltante el solo y esta
+     * excepcion nunca llega a lanzarse.
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<ApiError> handleNoHandlerFound(NoHandlerFoundException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "La ruta solicitada no existe.", request);
     }
 
     @ExceptionHandler(Exception.class)

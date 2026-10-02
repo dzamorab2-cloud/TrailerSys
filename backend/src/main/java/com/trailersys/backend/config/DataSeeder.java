@@ -3,8 +3,12 @@ package com.trailersys.backend.config;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.sql.SQLException;
+import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -42,6 +46,8 @@ import com.trailersys.backend.viaje.ViajeRepository;
  */
 @Component
 public class DataSeeder implements CommandLineRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
 
     private final UsuarioRepository usuarioRepository;
     private final VehiculoRepository vehiculoRepository;
@@ -232,15 +238,48 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
+    // Tal cual la normaliza pg_get_constraintdef() para un CHECK (rol IN (...))
+    // sobre una columna varchar: con espacio despues de cada coma del ARRAY.
+    private static final String DEFINICION_RESTRICCION_ROL =
+            "CHECK (((rol)::text = ANY ((ARRAY['ADMINISTRADOR'::character varying, "
+                    + "'COORDINADOR'::character varying, 'MANTENIMIENTO'::character varying, "
+                    + "'CONDUCTOR'::character varying, 'SUPERVISOR'::character varying, "
+                    + "'CLIENTE'::character varying])::text[])))";
+
+    /**
+     * Mantiene la restriccion CHECK de usuarios.rol sincronizada con el enum
+     * Rol, por si una base antigua se creo con menos valores. Antes volvia a
+     * crear la restriccion en cada arranque sin condicion, lo que exige ser
+     * dueno de la tabla (DDL) incluso cuando ya estaba al dia - y por eso el
+     * backend no podia correr con una cuenta de aplicacion de privilegios
+     * minimos (ver Tabla 8 del articulo / verificacion de roles de
+     * PostgreSQL). Ahora primero comprueba la definicion actual con una
+     * consulta de catalogo (requiere solo SELECT) y solo ejecuta el ALTER
+     * cuando de verdad cambio. Si aun asi la cuenta no tiene permiso de DDL,
+     * se registra una advertencia en vez de tumbar el arranque: es un ajuste
+     * de mantenimiento, no una operacion de negocio.
+     */
     private void actualizarRestriccionRolesPostgreSql() {
         try (var connection = jdbcTemplate.getDataSource().getConnection()) {
             if (!"PostgreSQL".equalsIgnoreCase(connection.getMetaData().getDatabaseProductName())) return;
         } catch (SQLException error) {
             throw new IllegalStateException("No se pudo verificar el motor de base de datos.", error);
         }
-        jdbcTemplate.execute("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check");
-        jdbcTemplate.execute("ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN "
-                + "('ADMINISTRADOR','COORDINADOR','MANTENIMIENTO','CONDUCTOR','SUPERVISOR','CLIENTE'))");
+        List<String> definicionActual = jdbcTemplate.queryForList(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                        + "WHERE conname = 'usuarios_rol_check' AND conrelid = 'usuarios'::regclass",
+                String.class);
+        if (!definicionActual.isEmpty() && DEFINICION_RESTRICCION_ROL.equals(definicionActual.get(0))) {
+            return;
+        }
+        try {
+            jdbcTemplate.execute("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check");
+            jdbcTemplate.execute("ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN "
+                    + "('ADMINISTRADOR','COORDINADOR','MANTENIMIENTO','CONDUCTOR','SUPERVISOR','CLIENTE'))");
+        } catch (DataAccessException error) {
+            log.warn("No se pudo actualizar la restriccion usuarios_rol_check (la cuenta de conexion no es "
+                    + "dueña de la tabla); continua con la definicion existente.", error);
+        }
     }
 
     /**

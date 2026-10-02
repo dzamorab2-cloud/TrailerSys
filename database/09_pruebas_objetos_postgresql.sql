@@ -47,8 +47,8 @@ CALL sp_registrar_carga(:cliente_prueba_id,'Carga invalida','General',-10,'Quito
 SELECT max(id) AS carga_prueba_id FROM cargas WHERE cliente_id=:cliente_prueba_id \gset
 
 -- PROCEDIMIENTO 3. Correcto e incorrecto al reutilizar la misma carga.
-CALL sp_asignar_carga_viaje(:carga_prueba_id,:vehiculo_prueba_id,:conductor_prueba_id,clock_timestamp()+interval '1 hour');
-CALL sp_asignar_carga_viaje(:carga_prueba_id,:vehiculo_prueba_id,:conductor_prueba_id,clock_timestamp()+interval '2 hours');
+CALL sp_asignar_carga_viaje(:carga_prueba_id,:vehiculo_prueba_id,:conductor_prueba_id,(clock_timestamp()+interval '1 hour')::timestamp);
+CALL sp_asignar_carga_viaje(:carga_prueba_id,:vehiculo_prueba_id,:conductor_prueba_id,(clock_timestamp()+interval '2 hours')::timestamp);
 SELECT max(id) AS viaje_prueba_id FROM viajes WHERE carga_id=:carga_prueba_id \gset
 
 -- PROCEDIMIENTO 4. Correcto y luego incorrecto por estado EN_CURSO.
@@ -76,7 +76,7 @@ CALL sp_registrar_mantenimiento(:vehiculo_prueba_id,'PREVENTIVO',current_date,50
 UPDATE vehiculos SET estado='DISPONIBLE' WHERE id=:vehiculo_prueba_id;
 CALL sp_registrar_carga(:cliente_prueba_id,'Carga para cancelar','General',500,'Quito','Cuenca','Practica SQL');
 SELECT max(id) AS carga_cancelar_id FROM cargas WHERE cliente_id=:cliente_prueba_id \gset
-CALL sp_asignar_carga_viaje(:carga_cancelar_id,:vehiculo_prueba_id,:conductor_prueba_id,clock_timestamp()+interval '1 day');
+CALL sp_asignar_carga_viaje(:carga_cancelar_id,:vehiculo_prueba_id,:conductor_prueba_id,(clock_timestamp()+interval '1 day')::timestamp);
 SELECT max(id) AS viaje_cancelar_id FROM viajes WHERE carga_id=:carga_cancelar_id \gset
 CALL sp_cancelar_viaje(:viaje_cancelar_id,'Cambio solicitado por el cliente');
 CALL sp_cancelar_viaje(:viaje_cancelar_id,'Intento duplicado');
@@ -88,7 +88,7 @@ SELECT id AS conductor_nuevo_id, identificacion AS conductor_nuevo_identificacio
 WHERE estado='DISPONIBLE' AND id<>:conductor_prueba_id ORDER BY id LIMIT 1 \gset
 CALL sp_registrar_carga(:cliente_prueba_id,'Carga para reasignar','General',600,'Manta','Loja','Practica SQL');
 SELECT max(id) AS carga_reasignar_id FROM cargas WHERE cliente_id=:cliente_prueba_id \gset
-CALL sp_asignar_carga_viaje(:carga_reasignar_id,:vehiculo_prueba_id,:conductor_prueba_id,clock_timestamp()+interval '2 days');
+CALL sp_asignar_carga_viaje(:carga_reasignar_id,:vehiculo_prueba_id,:conductor_prueba_id,(clock_timestamp()+interval '2 days')::timestamp);
 SELECT max(id) AS viaje_reasignar_id FROM viajes WHERE carga_id=:carga_reasignar_id \gset
 CALL sp_reasignar_viaje(:viaje_reasignar_id,:'vehiculo_nuevo_placa',:'conductor_nuevo_identificacion');
 CALL sp_reasignar_viaje(:viaje_reasignar_id,'PLACA-INEXISTENTE',:'conductor_nuevo_identificacion');
