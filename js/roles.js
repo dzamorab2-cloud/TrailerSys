@@ -11,11 +11,11 @@ const TRAILERSYS_ROLES = {
     label: "Administrador",
     modules: [
       "dashboard", "vehiculos", "conductores", "clientes", "cargas",
-      "viajes", "seguimiento", "mantenimientos", "reportes", "guias", "reclamos", "auditoria", "configuracion",
+      "viajes", "seguimiento", "mantenimientos", "facturacion", "reportes", "guias", "reclamos", "auditoria", "configuracion",
     ],
     manage: [
       "vehiculos", "conductores", "clientes", "cargas",
-      "viajes", "seguimiento", "mantenimientos", "reclamos", "configuracion",
+      "viajes", "seguimiento", "mantenimientos", "facturacion", "reclamos", "configuracion",
     ],
   },
   coordinador: {
@@ -26,8 +26,8 @@ const TRAILERSYS_ROLES = {
     // por este arreglo. Antes Coordinador era el unico rol interno sin
     // ningun lugar para subir su propia foto de perfil (Mantenimiento y
     // Supervisor la suben desde su Dashboard; Administrador, desde aqui).
-    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento", "guias", "reclamos", "configuracion"],
-    manage: ["vehiculos", "conductores", "cargas", "viajes", "seguimiento", "reclamos"],
+    modules: ["dashboard", "vehiculos", "conductores", "cargas", "viajes", "seguimiento", "facturacion", "guias", "reclamos", "configuracion"],
+    manage: ["vehiculos", "conductores", "cargas", "viajes", "seguimiento", "facturacion", "reclamos"],
   },
   mantenimiento: {
     label: "Responsable de Mantenimiento",
@@ -49,7 +49,7 @@ const TRAILERSYS_ROLES = {
     // "seguimiento" en modules (no en manage): el supervisor consulta el
     // detalle de cada viaje ahi mismo para poder validar una entrega ya
     // confirmada por el conductor, aunque no gestiona eventos manuales.
-    modules: ["dashboard", "vehiculos", "viajes", "seguimiento", "reportes"],
+    modules: ["dashboard", "vehiculos", "viajes", "seguimiento", "facturacion", "reportes"],
     manage: [],
   },
   // Autoservicio: el cliente tiene su propio Dashboard (resumen de sus
@@ -59,7 +59,7 @@ const TRAILERSYS_ROLES = {
   // operacion interna.
   cliente: {
     label: "Cliente",
-    modules: ["dashboard", "pedidos", "configuracion"],
+    modules: ["dashboard", "pedidos", "mis-facturas", "configuracion"],
     manage: ["pedidos"],
   },
 };

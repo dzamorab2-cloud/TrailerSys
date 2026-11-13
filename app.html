@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/reportes.css" />
   <link rel="stylesheet" href="css/dashboard.css" />
   <link rel="stylesheet" href="css/configuracion.css" />
+  <link rel="stylesheet" href="css/facturacion.css" />
   <link rel="stylesheet" href="css/admin.css" />
   <link rel="stylesheet" href="css/mantenimientos.css" />
   <link rel="stylesheet" href="css/pedidos.css" />
@@ -52,6 +53,7 @@
       <p class="nav-section-title">Gestión</p>
       <ul class="nav-list">
         <li><button class="nav-link" data-module="clientes"><i class="bi bi-people"></i><span class="nav-label">Clientes</span></button></li>
+        <li><button class="nav-link" data-module="facturacion"><i class="bi bi-receipt"></i><span class="nav-label">Facturación</span></button></li>
         <li><button class="nav-link" data-module="reportes"><i class="bi bi-bar-chart"></i><span class="nav-label">Reportes</span></button></li>
         <li><button class="nav-link" data-module="guias"><i class="bi bi-file-earmark-text"></i><span class="nav-label">Guías</span></button></li>
         <li><button class="nav-link" data-module="reclamos"><i class="bi bi-chat-square-text"></i><span class="nav-label">Reclamos</span></button></li>
@@ -63,6 +65,7 @@
       <ul class="nav-list">
         <li><button class="nav-link" data-module="pedidos"><i class="bi bi-bag-check"></i><span class="nav-label">Mis pedidos</span></button></li>
         <li><button class="nav-link" data-module="mis-viajes"><i class="bi bi-signpost-split"></i><span class="nav-label">Mis viajes</span></button></li>
+        <li><button class="nav-link" data-module="mis-facturas"><i class="bi bi-receipt"></i><span class="nav-label">Mis facturas</span></button></li>
       </ul>
 
       <div class="sidebar-footer">
@@ -801,6 +804,50 @@
           <div class="module-placeholder card" id="reclamosEmpty" hidden><i class="bi bi-check-circle"></i><h3>No hay reclamos</h3><p>Las entregas con novedades aparecerán aquí.</p></div>
         </section>
 
+        <section class="module" id="module-facturacion" data-module="facturacion" hidden>
+          <div class="module-header">
+            <div><h1>Facturación y cobros</h1><p>Factura los viajes finalizados, registra abonos y controla la cartera.</p></div>
+            <button class="btn btn-primary" id="btnNuevaFactura" hidden><i class="bi bi-plus-lg"></i>Nueva factura</button>
+          </div>
+          <div class="stats-row facturacion-stats" id="facturacionStats"></div>
+          <div class="toolbar">
+            <div class="toolbar-search"><i class="bi bi-search"></i><input id="facturasBuscar" type="search" placeholder="Buscar por número o cliente" /></div>
+            <div class="toolbar-filters">
+              <select id="facturasEstado" class="select-pill">
+                <option value="">Todos los estados</option>
+                <option>Pendiente</option><option>Parcial</option><option>Vencida</option><option>Pagada</option><option>Anulada</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap card admin-table-card">
+            <table class="report-table facturas-table">
+              <thead><tr><th>Número</th><th>Cliente</th><th>Emisión</th><th>Vence</th><th class="num">Total</th><th class="num">Saldo</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="facturasBody"></tbody>
+            </table>
+          </div>
+          <div class="module-placeholder card" id="facturasEmpty" hidden>
+            <i class="bi bi-receipt"></i>
+            <h3>Todavía no hay facturas</h3>
+            <p>Cuando un viaje termine, factúralo con "Nueva factura" para llevar el control de lo que te deben.</p>
+          </div>
+        </section>
+
+        <section class="module" id="module-mis-facturas" data-module="mis-facturas" hidden>
+          <div class="module-header"><div><h1>Mis facturas</h1><p>Facturas de tus servicios de transporte, pagos registrados y saldo pendiente.</p></div></div>
+          <div class="stats-row facturacion-stats" id="misFacturasStats"></div>
+          <div class="table-wrap card admin-table-card">
+            <table class="report-table facturas-table">
+              <thead><tr><th>Número</th><th>Emisión</th><th>Vence</th><th class="num">Total</th><th class="num">Saldo</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="misFacturasBody"></tbody>
+            </table>
+          </div>
+          <div class="module-placeholder card" id="misFacturasEmpty" hidden>
+            <i class="bi bi-receipt"></i>
+            <h3>No tienes facturas</h3>
+            <p>Aquí verás las facturas de tus pedidos entregados.</p>
+          </div>
+        </section>
+
         <section class="module" id="module-auditoria" data-module="auditoria" hidden>
           <div class="module-header">
             <div><h1>Auditoría</h1><p>Historial de operaciones importantes realizadas en el sistema.</p></div>
@@ -808,7 +855,7 @@
           <div class="toolbar">
             <div class="toolbar-search"><i class="bi bi-search"></i><input id="auditoriaBuscar" type="search" placeholder="Buscar usuario o ID de registro" /></div>
             <div class="toolbar-filters">
-              <select id="auditoriaTabla" class="select-pill"><option value="">Todas las tablas</option><option>usuarios</option><option>vehiculos</option><option>conductores</option><option>clientes</option><option>cargas</option><option>viajes</option><option>seguimiento_eventos</option><option>mantenimientos</option></select>
+              <select id="auditoriaTabla" class="select-pill"><option value="">Todas las tablas</option><option>usuarios</option><option>vehiculos</option><option>conductores</option><option>clientes</option><option>cargas</option><option>viajes</option><option>seguimiento_eventos</option><option>mantenimientos</option><option>facturas</option><option>pagos</option></select>
               <select id="auditoriaOperacion" class="select-pill"><option value="">Todas las operaciones</option><option>INSERT</option><option>UPDATE</option><option>DELETE</option></select>
             </div>
           </div>
@@ -1960,6 +2007,68 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="facturaModalOverlay">
+    <div class="modal-dialog factura-modal" role="dialog" aria-modal="true" aria-labelledby="facturaModalTitle">
+      <div class="modal-header">
+        <h3 id="facturaModalTitle">Nueva factura</h3>
+        <button type="button" class="modal-close" id="facturaModalClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <form id="facturaForm" novalidate>
+        <div class="form-grid">
+          <div class="field field-span-2" id="fieldFacturaCliente">
+            <label for="facturaClienteBuscar">Cliente *</label>
+            <div class="input-wrap autocomplete-wrap"><i class="bi bi-building"></i><input type="text" id="facturaClienteBuscar" placeholder="Escribe el nombre o RUC del cliente..." autocomplete="off" /><input type="hidden" id="facturaCliente" /><div class="autocomplete-results" id="facturaClienteResultados" hidden></div></div>
+            <span class="field-error"></span>
+          </div>
+          <div class="field">
+            <label for="facturaDiasCredito">Días de crédito</label>
+            <div class="input-wrap"><i class="bi bi-calendar-event"></i><input type="number" id="facturaDiasCredito" min="0" max="365" step="1" value="30" /></div>
+            <small class="field-help" id="facturaVenceTexto"></small>
+          </div>
+          <div class="field">
+            <label for="facturaIva">IVA (%)</label>
+            <div class="input-wrap"><i class="bi bi-percent"></i><input type="number" id="facturaIva" min="0" max="100" step="0.01" value="15" /></div>
+          </div>
+        </div>
+
+        <div class="factura-viajes">
+          <div class="factura-viajes-header">
+            <h4>Viajes a facturar</h4>
+            <span class="table-secondary" id="facturaViajesInfo">Elige un cliente para ver sus viajes finalizados.</span>
+          </div>
+          <div id="facturaViajesLista" class="factura-viajes-lista"></div>
+          <span class="field-error" id="facturaViajesError"></span>
+        </div>
+
+        <div class="field">
+          <label for="facturaObservaciones">Observaciones</label>
+          <div class="input-wrap"><i class="bi bi-chat-left-text"></i><input type="text" id="facturaObservaciones" maxlength="500" placeholder="Ej. Orden de compra 4512" /></div>
+        </div>
+
+        <div class="factura-totales">
+          <div><span>Subtotal</span><strong id="facturaSubtotal">$0,00</strong></div>
+          <div><span id="facturaIvaEtiqueta">IVA 15%</span><strong id="facturaIvaValor">$0,00</strong></div>
+          <div class="factura-total"><span>Total</span><strong id="facturaTotal">$0,00</strong></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="facturaCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="facturaGuardar"><i class="bi bi-check-lg"></i>Emitir factura</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="facturaDetalleOverlay">
+    <div class="modal-dialog factura-modal" role="dialog" aria-modal="true" aria-labelledby="facturaDetalleTitulo">
+      <div class="modal-header">
+        <h3 id="facturaDetalleTitulo">Factura</h3>
+        <button type="button" class="modal-close" id="facturaDetalleClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div id="facturaDetalleContenido"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModalOverlay">
     <div class="modal-dialog" style="max-width: 400px;">
       <div class="modal-header">
@@ -2212,6 +2321,7 @@
   <script src="js/supervisor-dashboard.js"></script>
   <script src="js/mantenimiento-dashboard.js"></script>
   <script src="js/configuracion.js"></script>
+  <script src="js/facturacion.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/respaldos.js"></script>
   <script src="js/configuracion-tabs.js"></script>

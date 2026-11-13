@@ -1,0 +1,315 @@
+/* Facturacion y cobros (js/facturacion.js) */
+
+/* auto-fit con un minimo mas ancho que el de Reportes: los montos en
+   dolares ($12.345,67) no deben cortarse. */
+.facturacion-stats {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  margin-bottom: 18px;
+}
+
+.facturacion-stats .stat-card-value {
+  font-size: 1.2rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.facturas-table .num,
+.factura-lineas .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.fila-clicable {
+  cursor: pointer;
+}
+
+.fila-clicable:hover td {
+  background: var(--color-primary-tint);
+}
+
+.factura-saldo {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.factura-vencida {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  gap: 6px;
+}
+
+.btn-danger-text {
+  color: var(--color-danger);
+}
+
+.btn-danger-text:hover {
+  background: var(--color-danger-tint);
+}
+
+/* --- Modales --- */
+.factura-modal {
+  max-width: 760px;
+}
+
+.factura-viajes {
+  margin: 4px 0 16px;
+}
+
+.factura-viajes-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.factura-viajes-header h4,
+.factura-subtitulo {
+  font-size: 0.95rem;
+  margin: 18px 0 8px;
+}
+
+.factura-viajes-header h4 {
+  margin: 0;
+}
+
+.factura-viajes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.factura-viaje {
+  display: grid;
+  grid-template-columns: auto 1fr 150px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.factura-viaje:hover {
+  border-color: var(--color-primary-light);
+}
+
+.factura-viaje.seleccionado {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+
+.factura-viaje-check {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.factura-viaje-info {
+  min-width: 0;
+}
+
+.factura-viaje-info .table-secondary {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.factura-viaje-monto input {
+  width: 100%;
+  padding: 9px 10px 9px 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font-size: 0.92rem;
+  text-align: right;
+}
+
+.factura-viaje-monto input:disabled {
+  opacity: 0.45;
+}
+
+.factura-viaje-monto i {
+  left: 10px;
+}
+
+.factura-sin-viajes,
+.factura-cargando {
+  padding: 18px;
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+
+.factura-totales {
+  margin: 8px 0 0 auto;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.factura-totales > div {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+}
+
+.factura-totales strong {
+  color: var(--color-text);
+}
+
+.factura-totales .factura-total {
+  border-top: 2px solid var(--color-text);
+  padding-top: 8px;
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+/* --- Detalle --- */
+.factura-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.factura-cliente {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.factura-datos {
+  margin-bottom: 14px;
+}
+
+.factura-progreso {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.factura-progreso-barra {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: inherit;
+  transition: width var(--transition);
+}
+
+.factura-progreso-texto {
+  margin-top: 6px;
+}
+
+.factura-lineas {
+  width: 100%;
+}
+
+.factura-lineas tfoot td {
+  border: none;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.factura-lineas tfoot td.num {
+  color: var(--color-text);
+}
+
+.factura-total-fila td {
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: var(--color-text) !important;
+  border-top: 2px solid var(--color-text) !important;
+}
+
+.factura-pago-form {
+  margin-top: 18px;
+  padding: 16px 18px;
+  background: var(--color-primary-tint);
+  border: 1px solid var(--color-primary-light);
+  box-shadow: none;
+}
+
+.factura-pago-form .factura-subtitulo {
+  margin-top: 0;
+}
+
+.factura-pago-form .modal-footer {
+  margin-top: 4px;
+}
+
+.factura-anulada {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-tint);
+  color: var(--color-danger);
+  font-size: 0.9rem;
+}
+
+.factura-obs {
+  margin-top: 12px;
+}
+
+.factura-acciones {
+  justify-content: flex-end;
+}
+
+/* Si el espacio del modulo es angosto (pantalla chica o menu lateral
+   abierto) se ocultan columnas secundarias para evitar el scroll
+   horizontal; el detalle de la factura las muestra igual. Se mide el
+   ancho del modulo (container query), no el de la ventana. */
+#module-facturacion,
+#module-mis-facturas {
+  container-type: inline-size;
+}
+
+@container (max-width: 820px) {
+  #module-facturacion .facturas-table th:nth-child(3),
+  #facturasBody td:nth-child(3),
+  #module-mis-facturas .facturas-table th:nth-child(2),
+  #misFacturasBody td:nth-child(2) {
+    display: none;
+  }
+}
+
+@container (max-width: 640px) {
+  #module-facturacion .facturas-table th:nth-child(5),
+  #facturasBody td:nth-child(5),
+  #module-facturacion .facturas-table th:nth-child(8),
+  #facturasBody td:nth-child(8),
+  #module-mis-facturas .facturas-table th:nth-child(7),
+  #misFacturasBody td:nth-child(7) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .factura-viaje {
+    grid-template-columns: auto 1fr;
+  }
+
+  .factura-viaje-monto {
+    grid-column: 2;
+  }
+
+  .factura-totales {
+    max-width: none;
+  }
+}
