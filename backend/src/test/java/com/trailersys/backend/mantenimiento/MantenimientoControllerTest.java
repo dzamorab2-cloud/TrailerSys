@@ -1,5 +1,7 @@
 package com.trailersys.backend.mantenimiento;
 
+import java.time.LocalDate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -78,10 +80,12 @@ class MantenimientoControllerTest {
     void crearConsultarYListarPorVehiculo() throws Exception {
         Long vehiculoId = crearVehiculo("MNT-CTRL-01");
 
+        // Fechas relativas a hoy: con una fecha fija, "proximoServicio" quedaba
+        // en el pasado al pasar el tiempo y la prueba empezaba a fallar sola.
         String mantenimiento = """
-                {"vehiculoId":%d,"tipo":"Preventivo","fecha":"2026-08-01","kilometraje":1000,
-                 "costo":85.50,"proximoServicio":"2026-11-01","descripcion":"Revisión general"}
-                """.formatted(vehiculoId);
+                {"vehiculoId":%d,"tipo":"Preventivo","fecha":"%s","kilometraje":1000,
+                 "costo":85.50,"proximoServicio":"%s","descripcion":"Revisión general"}
+                """.formatted(vehiculoId, LocalDate.now().minusDays(30), LocalDate.now().plusDays(90));
 
         mockMvc.perform(post("/api/mantenimientos")
                         .header("Authorization", "Bearer " + tokenAdmin)
