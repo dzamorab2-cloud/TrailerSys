@@ -13,13 +13,41 @@
 // misma sesion, asi que basta con cambiar "-5500." (frontend) por "-8080."
 // (backend) en el propio hostname para armar la URL del backend sin tener
 // que configurarla a mano cada vez que se genera un link nuevo.
+//
+// En PRODUCCION el backend sirve tambien el frontend (mismo dominio), asi
+// que la API esta en el mismo origen: https://tu-dominio/api. Si algun dia
+// se aloja el frontend en otro dominio, basta con definir
+// window.TRAILERSYS_API_BASE_URL antes de cargar este script.
 const TRAILERSYS_API_BASE_URL = (() => {
-  const { protocol, hostname } = window.location;
+  if (typeof window.TRAILERSYS_API_BASE_URL === "string" && window.TRAILERSYS_API_BASE_URL) {
+    return window.TRAILERSYS_API_BASE_URL.replace(/\/+$/, "");
+  }
+  const { protocol, hostname, port, origin } = window.location;
   if (hostname.endsWith(".devtunnels.ms")) {
     return `${protocol}//${hostname.replace(/-\d+\./, "-8080.")}/api`;
   }
-  return "http://localhost:8080/api";
+  const esLocal = hostname === "localhost" || hostname === "127.0.0.1";
+  // Desarrollo: frontend en :5173 (dev/server.js) y backend en :8080.
+  if (esLocal && port !== "8080") {
+    return "http://localhost:8080/api";
+  }
+  // Produccion (o backend sirviendo el frontend en local): mismo origen.
+  return `${origin}/api`;
 })();
+
+// Configuracion publica del servidor (GET /api/auth/config), pedida una
+// sola vez por pagina. Si falla, se asume el comportamiento de desarrollo
+// (simulacion encendida) para no romper nada.
+let trailersysConfigPublicaPromise = null;
+function trailersysObtenerConfigPublica() {
+  if (!trailersysConfigPublicaPromise) {
+    trailersysConfigPublicaPromise = fetch(`${TRAILERSYS_API_BASE_URL}/auth/config`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((data) => ({ simulacionHabilitada: data?.simulacionHabilitada !== false }));
+  }
+  return trailersysConfigPublicaPromise;
+}
 
 class TrailersysApiError extends Error {
   constructor(message, status) {

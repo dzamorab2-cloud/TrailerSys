@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,11 +44,18 @@ import com.trailersys.backend.viaje.ViajeRepository;
  * trailersysSeedIfEmpty() hace en el frontend con localStorage. Solo
  * siembra si las tablas estan vacias, para no duplicar datos en cada
  * reinicio.
+ *
+ * En PRODUCCION (trailersys.demo.sembrar=false, perfil "prod") no se crea
+ * ningun dato ni cuenta demo: las cuentas demo tienen contrasenas publicas
+ * en el README. En su lugar, si no existe ningun Administrador activo, se
+ * crea uno inicial con las credenciales de las variables de entorno
+ * ADMIN_USUARIO / ADMIN_PASSWORD (y nunca se vuelve a tocar su clave).
  */
 @Component
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
+    private static final int LONGITUD_MINIMA_PASSWORD_ADMIN = 10;
 
     private final UsuarioRepository usuarioRepository;
     private final VehiculoRepository vehiculoRepository;
@@ -59,6 +67,18 @@ public class DataSeeder implements CommandLineRunner {
     private final MantenimientoRepository mantenimientoRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
+
+    @Value("${trailersys.demo.sembrar:true}")
+    private boolean sembrarDemo;
+
+    @Value("${trailersys.admin-inicial.usuario:admin}")
+    private String adminInicialUsuario;
+
+    @Value("${trailersys.admin-inicial.password:}")
+    private String adminInicialPassword;
+
+    @Value("${trailersys.admin-inicial.correo:admin@trailersys.local}")
+    private String adminInicialCorreo;
 
     public DataSeeder(UsuarioRepository usuarioRepository, VehiculoRepository vehiculoRepository,
                        ConductorRepository conductorRepository, ClienteRepository clienteRepository,
@@ -81,6 +101,40 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         actualizarRestriccionRolesPostgreSql();
+        if (!sembrarDemo) {
+            crearAdministradorInicialSiFalta();
+            return;
+        }
+        sembrarDatosDemo();
+    }
+
+    /**
+     * Solo en produccion: garantiza que exista al menos un Administrador
+     * activo para poder entrar la primera vez. Si ya existe, no hace nada
+     * (no pisa la contrasena que el administrador haya cambiado).
+     */
+    private void crearAdministradorInicialSiFalta() {
+        if (usuarioRepository.countByRolAndActivoTrue(Rol.ADMINISTRADOR) > 0) {
+            return;
+        }
+        String password = adminInicialPassword == null ? "" : adminInicialPassword.trim();
+        if (password.length() < LONGITUD_MINIMA_PASSWORD_ADMIN) {
+            throw new IllegalStateException("No existe ningun Administrador activo. Define la variable de entorno "
+                    + "ADMIN_PASSWORD (minimo " + LONGITUD_MINIMA_PASSWORD_ADMIN
+                    + " caracteres) para crear el administrador inicial.");
+        }
+        String username = adminInicialUsuario == null || adminInicialUsuario.isBlank()
+                ? "admin" : adminInicialUsuario.trim();
+        if (usuarioRepository.existsByUsernameIgnoreCase(username)) {
+            throw new IllegalStateException("No existe ningun Administrador activo, pero el usuario '" + username
+                    + "' ya existe con otro rol o inactivo. Define ADMIN_USUARIO con otro nombre.");
+        }
+        usuarioRepository.save(new Usuario(username, passwordEncoder.encode(password),
+                "Administrador", adminInicialCorreo, Rol.ADMINISTRADOR));
+        log.info("Administrador inicial '{}' creado. Cambia su contrasena desde Configuracion.", username);
+    }
+
+    private void sembrarDatosDemo() {
         // Cada cuenta se siembra de forma independiente (no todo detras de un
         // solo count()==0) para que agregar una cuenta nueva a este metodo
         // tambien se aplique en una base de datos que ya tenia usuarios.

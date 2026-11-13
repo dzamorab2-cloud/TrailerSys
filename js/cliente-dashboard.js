@@ -175,6 +175,10 @@
     mapaInstance = L.map(contenedor, { scrollWheelZoom: true });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; colaboradores de OpenStreetMap", maxZoom: 18 }).addTo(mapaInstance);
 
+    // Con la simulacion apagada (produccion) no se inventa la posicion: el
+    // camion se dibuja solo donde el conductor reporto su ubicacion real.
+    const { simulacionHabilitada } = await trailersysObtenerConfigPublica();
+
     const todosLosPuntos = [];
     for (const { carga, viaje } of conRuta) {
       // Igual que renderMapa() en js/seguimiento.js/js/pedidos.js: si el
@@ -193,9 +197,20 @@
       L.polyline(puntos, { color: "#e8590c", weight: 4, opacity: 0.85 }).addTo(mapaInstance);
       L.marker(puntos[0], { icon: ORIGEN_ICON }).addTo(mapaInstance).bindTooltip(`Origen · ${esc(carga.origen)}`);
       L.marker(puntos[puntos.length - 1], { icon: DESTINO_ICON }).addTo(mapaInstance).bindTooltip(`Destino · ${esc(carga.destino)}`);
-      const posicion = calcularPosicionSimulada(viaje) || puntos[0];
-      const marker = L.marker(posicion, { icon: VEHICULO_ICON }).addTo(mapaInstance).bindTooltip(etiquetaRuta);
-      marcadores.push({ marker, viaje });
+      if (simulacionHabilitada) {
+        const posicion = calcularPosicionSimulada(viaje) || puntos[0];
+        const marker = L.marker(posicion, { icon: VEHICULO_ICON }).addTo(mapaInstance).bindTooltip(etiquetaRuta);
+        marcadores.push({ marker, viaje });
+      } else {
+        let evento = null;
+        try { evento = await trailersysApiRequest("GET", `/mis-cargas/${carga.id}/ubicacion-reportada`); }
+        catch { evento = null; }
+        if (evento) {
+          L.marker([evento.latitudReportada, evento.longitudReportada], { icon: VEHICULO_ICON })
+            .addTo(mapaInstance)
+            .bindTooltip(`${etiquetaRuta} · última ubicación reportada por el conductor`);
+        }
+      }
     }
 
     if (todosLosPuntos.length) mapaInstance.fitBounds(L.latLngBounds(todosLosPuntos), { padding: [30, 30] });

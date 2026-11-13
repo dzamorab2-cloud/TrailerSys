@@ -196,4 +196,63 @@ class AuthControllerTest {
                         .content("{\"username\":\"fuerzabruta3\",\"password\":\"claveNueva123\"}"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void unUsuarioCambiaSuPropiaContrasenaYLaAnteriorDejaDeFuncionar() throws Exception {
+        usuarioRepository.save(new Usuario(
+                "cambioclave1", passwordEncoder.encode("claveVieja1"), "Prueba Cambio", null, Rol.SUPERVISOR));
+        String token = login("cambioclave1", "claveVieja1");
+
+        mockMvc.perform(put("/api/auth/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwordActual\":\"claveVieja1\",\"passwordNueva\":\"claveNueva99\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"cambioclave1\",\"password\":\"claveVieja1\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"cambioclave1\",\"password\":\"claveNueva99\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void cambiarContrasenaConLaActualIncorrectaDevuelve409SinCambiarNada() throws Exception {
+        usuarioRepository.save(new Usuario(
+                "cambioclave2", passwordEncoder.encode("claveVieja2"), "Prueba Cambio 2", null, Rol.SUPERVISOR));
+        String token = login("cambioclave2", "claveVieja2");
+
+        mockMvc.perform(put("/api/auth/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwordActual\":\"incorrecta\",\"passwordNueva\":\"claveNueva99\"}"))
+                .andExpect(status().isConflict());
+
+        assertThat(passwordEncoder.matches("claveVieja2",
+                usuarioRepository.findByUsernameIgnoreCase("cambioclave2").orElseThrow().getPasswordHash())).isTrue();
+    }
+
+    @Test
+    void cambiarContrasenaMuyCortaDevuelve400() throws Exception {
+        usuarioRepository.save(new Usuario(
+                "cambioclave3", passwordEncoder.encode("claveVieja3"), "Prueba Cambio 3", null, Rol.SUPERVISOR));
+        String token = login("cambioclave3", "claveVieja3");
+
+        mockMvc.perform(put("/api/auth/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwordActual\":\"claveVieja3\",\"passwordNueva\":\"corta\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cambiarContrasenaSinTokenDevuelveNoAutorizado() throws Exception {
+        mockMvc.perform(put("/api/auth/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwordActual\":\"x\",\"passwordNueva\":\"claveNueva99\"}"))
+                .andExpect(status().isUnauthorized());
+    }
 }

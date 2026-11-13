@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,15 @@ public class ViajeSimulacionService {
     private final SeguimientoEventoRepository seguimientoEventoRepository;
     private final ViajeService viajeService;
 
+    /**
+     * En produccion (perfil "prod") se apaga: las paradas automaticas son
+     * inventadas y confundirian a un operador real. Iniciar los viajes
+     * programados cuya hora de salida ya paso SI sigue corriendo siempre,
+     * porque esa es logica real del negocio, no simulacion.
+     */
+    @Value("${trailersys.simulacion.habilitada:true}")
+    private boolean simulacionHabilitada;
+
     public ViajeSimulacionService(ViajeRepository viajeRepository,
                                    SeguimientoEventoRepository seguimientoEventoRepository,
                                    ViajeService viajeService) {
@@ -43,7 +53,9 @@ public class ViajeSimulacionService {
         // @Transactional aplica normalmente aca, sin el problema de
         // ejecutarSimulacion() de mas abajo.
         viajeService.iniciarViajesProgramadosVencidos();
-        ejecutarSimulacion();
+        if (simulacionHabilitada) {
+            ejecutarSimulacion();
+        }
     }
 
     /**

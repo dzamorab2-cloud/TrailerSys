@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -142,6 +143,17 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ApiError> handleNoHandlerFound(NoHandlerFoundException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "La ruta solicitada no existe.", request);
+    }
+
+    /**
+     * En produccion el backend SI sirve recursos estaticos (el frontend,
+     * spring.web.resources.add-mappings=true en application-prod), asi que
+     * una ruta inexistente llega como NoResourceFoundException en vez de
+     * NoHandlerFoundException: tambien es un 404, no un 500 (H-02).
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleNoResourceFound(NoResourceFoundException ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, "La ruta solicitada no existe.", request);
     }
 

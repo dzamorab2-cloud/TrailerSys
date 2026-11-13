@@ -2,6 +2,7 @@ package com.trailersys.backend.config;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -26,11 +27,17 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    private final List<String> origenesPermitidos;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                           RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
+                           RestAuthenticationEntryPoint restAuthenticationEntryPoint,
+                           @Value("${trailersys.cors.allowed-origins:http://localhost:*,https://*.devtunnels.ms}") List<String> origenesPermitidos) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
+        this.origenesPermitidos = origenesPermitidos.stream()
+                .map(String::trim)
+                .filter(o -> !o.isEmpty())
+                .toList();
     }
 
     @Bean
@@ -47,7 +54,13 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/**").authenticated()
+                        // Todo lo que no es /api es el frontend estatico
+                        // (index.html, app.html, css/, js/), que en
+                        // produccion sirve este mismo backend. Los datos
+                        // siguen protegidos: el frontend no muestra nada
+                        // sin un JWT valido contra /api.
+                        .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -55,8 +68,11 @@ public class SecurityConfig {
 
     /**
      * Permite que el frontend (servido en otro puerto, ej. localhost:5173)
-     * llame a esta API durante el desarrollo. Restringir a los origenes
-     * reales del despliegue cuando exista uno.
+     * llame a esta API durante el desarrollo. Los origenes permitidos se
+     * leen de trailersys.cors.allowed-origins (variable CORS_ORIGINS): en
+     * produccion el frontend lo sirve este mismo backend (mismo origen, sin
+     * CORS), asi que solo hace falta agregar dominios si el frontend se
+     * aloja aparte.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -66,7 +82,7 @@ public class SecurityConfig {
         // Publica) para que alguien fuera de esta maquina pueda probarla -
         // sin esto, el navegador de esa persona recibe el origen del tunel
         // (no localhost) y el backend lo rechaza antes de llegar al login.
-        config.setAllowedOriginPatterns(List.of("http://localhost:*", "https://*.devtunnels.ms"));
+        config.setAllowedOriginPatterns(origenesPermitidos);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

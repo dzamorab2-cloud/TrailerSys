@@ -511,8 +511,19 @@
       ubicacionReportada = null;
     }
 
-    const posicion = calcularPosicionSimulada(viaje, ubicacionReportada);
-    if (!posicion) return;
+    // Con la simulacion apagada (produccion) solo se muestra la ubicacion
+    // REAL que reporto el conductor, sin extrapolar por tiempo.
+    const config = await trailersysObtenerConfigPublica();
+    const posicion = config.simulacionHabilitada
+      ? calcularPosicionSimulada(viaje, ubicacionReportada)
+      : (ubicacionReportada ? [ubicacionReportada.lat, ubicacionReportada.lng] : null);
+    if (!posicion) {
+      if (vehiculoMarker && leafletMapInstance) {
+        leafletMapInstance.removeLayer(vehiculoMarker);
+        vehiculoMarker = null;
+      }
+      return;
+    }
 
     const popupTexto = ubicacionReportada
       ? `Última ubicación reportada por el conductor ${formatHaceTiempo(ubicacionReportada.fechaHora)}`

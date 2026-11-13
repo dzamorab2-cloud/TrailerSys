@@ -111,5 +111,48 @@
     }
   }
 
+  // Cambio de la contraseña propia (PUT /api/auth/me/password). El backend
+  // exige la contraseña actual y responde 409 si no coincide.
+  const passwordForm = document.getElementById("perfilPasswordForm");
+  const passwordMensaje = document.getElementById("perfilPasswordMensaje");
+  const passwordGuardar = document.getElementById("perfilPasswordGuardar");
+
+  function mostrarMensajePassword(texto, esError) {
+    passwordMensaje.hidden = false;
+    passwordMensaje.textContent = texto;
+    passwordMensaje.style.color = esError ? "var(--color-danger, #c0392b)" : "var(--color-success, #1e8449)";
+  }
+
+  passwordForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const actual = document.getElementById("perfilPasswordActual").value;
+    const nueva = document.getElementById("perfilPasswordNueva").value;
+    const confirmar = document.getElementById("perfilPasswordConfirmar").value;
+
+    if (!actual || !nueva) {
+      mostrarMensajePassword("Completa todos los campos.", true);
+      return;
+    }
+    if (nueva.length < 8) {
+      mostrarMensajePassword("La nueva contraseña debe tener al menos 8 caracteres.", true);
+      return;
+    }
+    if (nueva !== confirmar) {
+      mostrarMensajePassword("La confirmación no coincide con la nueva contraseña.", true);
+      return;
+    }
+
+    passwordGuardar.disabled = true;
+    try {
+      await trailersysApiRequest("PUT", "/auth/me/password", { passwordActual: actual, passwordNueva: nueva });
+      passwordForm.reset();
+      mostrarMensajePassword("Contraseña actualizada correctamente.", false);
+    } catch (error) {
+      mostrarMensajePassword(error.message || "No se pudo actualizar la contraseña.", true);
+    } finally {
+      passwordGuardar.disabled = false;
+    }
+  });
+
   render();
 })();

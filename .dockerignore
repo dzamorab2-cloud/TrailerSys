@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.*
+backend/target
+e2e
+dev
+database
+*.log
+*.md
+!backend/README.md

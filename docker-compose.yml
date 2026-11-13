@@ -1,0 +1,70 @@
+# TrailerSys en un servidor propio (VPS o servidor de la universidad).
+#   1. cp .env.ejemplo .env   y completa los valores
+#   2. docker compose up -d --build
+#   3. (opcional, HTTPS con dominio) docker compose --profile https up -d
+# Guia completa: DESPLIEGUE.md
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USUARIO:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+      TZ: America/Guayaquil
+    volumes:
+      - db-data:/var/lib/postgresql
+      # Solo la PRIMERA vez (volumen vacio): crea la base "trailersys" con
+      # tablas, auditoria, triggers, vistas y funciones.
+      - ./database/00_esquema_trailersys.sql:/docker-entrypoint-initdb.d/00_esquema_trailersys.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U ${DB_USUARIO:-postgres} -d trailersys"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NOMBRE: trailersys
+      DB_USUARIO: ${DB_USUARIO:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env}
+      ADMIN_USUARIO: ${ADMIN_USUARIO:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_CORREO: ${ADMIN_CORREO:-admin@trailersys.local}
+      SIMULACION_HABILITADA: ${SIMULACION_HABILITADA:-false}
+      TZ: America/Guayaquil
+    ports:
+      - "${PUERTO_APP:-8080}:8080"
+    volumes:
+      - backups:/app/backups
+
+  # HTTPS automatico (certificado gratuito de Let's Encrypt) cuando ya
+  # tienes un dominio apuntando a este servidor. Se activa con:
+  #   docker compose --profile https up -d
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMINIO: ${DOMINIO:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  db-data:
+  backups:
+  caddy-data:

@@ -879,6 +879,16 @@
             <div class="section-heading"><div><h2>Información de la empresa</h2><p>Datos asociados a tu cuenta de cliente.</p></div></div>
             <div class="route-summary-grid profile-detail-grid" id="perfilClienteEmpresaDatos"></div>
           </div>
+          <div class="card profile-card" id="perfilPasswordCard">
+            <div class="section-heading"><div><h2>Cambiar contraseña</h2><p>Por seguridad te pediremos tu contraseña actual.</p></div></div>
+            <form id="perfilPasswordForm" class="form-grid" novalidate>
+              <div class="field field-span-2"><label for="perfilPasswordActual">Contraseña actual *</label><div class="input-wrap"><i class="bi bi-lock"></i><input id="perfilPasswordActual" type="password" autocomplete="current-password" required /></div></div>
+              <div class="field"><label for="perfilPasswordNueva">Nueva contraseña *</label><div class="input-wrap"><i class="bi bi-key"></i><input id="perfilPasswordNueva" type="password" minlength="8" maxlength="100" autocomplete="new-password" required /></div><small class="field-help">Mínimo 8 caracteres.</small></div>
+              <div class="field"><label for="perfilPasswordConfirmar">Confirmar nueva contraseña *</label><div class="input-wrap"><i class="bi bi-key-fill"></i><input id="perfilPasswordConfirmar" type="password" minlength="8" maxlength="100" autocomplete="new-password" required /></div></div>
+              <p class="field-help field-span-2" id="perfilPasswordMensaje" role="status" hidden></p>
+              <div class="field-span-2"><button type="submit" class="btn btn-primary" id="perfilPasswordGuardar"><i class="bi bi-check-lg"></i>Actualizar contraseña</button></div>
+            </form>
+          </div>
           <div class="module-placeholder card" id="perfilEmptyState" hidden>
             <i class="bi bi-exclamation-circle"></i>
             <h3>No se pudo cargar tu perfil</h3>

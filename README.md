@@ -65,7 +65,15 @@ node dev/server.js . 5173
 
 Abre `http://localhost:5173` en el navegador.
 
+## Producción
+
+Para ponerla en un servidor real (Docker, HTTPS, sin cuentas demo ni
+simulación) sigue [`DESPLIEGUE.md`](DESPLIEGUE.md).
+
 ## Usuarios de prueba
+
+> Solo existen en **desarrollo**. En producción (perfil `prod`) no se
+> crean y se usa un administrador inicial definido por variables de entorno.
 
 | Usuario | Contraseña | Rol |
 |---|---|---|

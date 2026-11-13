@@ -1,5 +1,6 @@
 package com.trailersys.backend.auth;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +23,7 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -47,10 +49,25 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    private final boolean simulacionHabilitada;
+
+    public AuthController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+                          @Value("${trailersys.simulacion.habilitada:true}") boolean simulacionHabilitada) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.simulacionHabilitada = simulacionHabilitada;
+    }
+
+    /**
+     * Configuracion publica que el frontend necesita conocer (sin datos
+     * sensibles): por ahora solo si la posicion de los vehiculos se simula
+     * (desarrollo/demostracion) o solo se muestra la reportada por el
+     * conductor (produccion).
+     */
+    @GetMapping("/config")
+    public Map<String, Object> config() {
+        return Map.of("simulacionHabilitada", simulacionHabilitada);
     }
 
     @PostMapping("/login")
@@ -106,6 +123,33 @@ public class AuthController {
                 .filter(Usuario::isActivo)
                 .orElseThrow(() -> new BadCredentialsException("No autenticado."));
         return MeResponse.from(usuario);
+    }
+
+    /**
+     * Cualquier usuario autenticado cambia SU PROPIA contrasena (nunca se
+     * recibe un id: siempre es la cuenta del token). Exige la contrasena
+     * actual para que un token robado o una sesion abierta olvidada no
+     * baste para apoderarse de la cuenta. Una clave actual incorrecta se
+     * responde con 409 (no 401) para que el frontend no cierre la sesion.
+     */
+    @PutMapping("/me/password")
+    @Transactional
+    public ResponseEntity<Void> cambiarPassword(@Valid @RequestBody CambiarPasswordRequest request,
+                                                Principal principal) {
+        if (principal == null || "anonymousUser".equals(principal.getName())) {
+            throw new BadCredentialsException("No autenticado.");
+        }
+        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(principal.getName())
+                .filter(Usuario::isActivo)
+                .orElseThrow(() -> new BadCredentialsException("No autenticado."));
+        if (!passwordEncoder.matches(request.passwordActual(), usuario.getPasswordHash())) {
+            throw new ConflictException("La contraseña actual no es correcta.");
+        }
+        if (passwordEncoder.matches(request.passwordNueva(), usuario.getPasswordHash())) {
+            throw new ConflictException("La nueva contraseña debe ser distinta de la actual.");
+        }
+        usuario.setPasswordHash(passwordEncoder.encode(request.passwordNueva()));
+        return ResponseEntity.noContent().build();
     }
 
     /**
