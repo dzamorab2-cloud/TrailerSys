@@ -141,8 +141,13 @@ test.describe('Seguimiento', () => {
       const btnConfirmar = page.locator('#misViajesReporteEntrega button[data-action="confirmar-entrega"]');
       await expect(btnConfirmar).toBeVisible();
 
-      page.once('dialog', (dialog) => dialog.accept('Entrega confirmada por prueba E2E'));
       await btnConfirmar.click();
+      // La observacion se pide en un dialogo propio de la app (ya no con
+      // window.prompt del navegador).
+      const dialogo = page.locator('.dialog-overlay.open');
+      await expect(dialogo).toBeVisible();
+      await dialogo.locator('textarea').fill('Entrega confirmada por prueba E2E');
+      await dialogo.getByRole('button', { name: 'Confirmar llegada' }).click();
 
       // Todavia no hay revision del cliente: el badge indica que se espera esa revision.
       await expect(page.locator('#misViajesReporteEntrega .badge-warning')).toHaveText(/esperando revisión del cliente/i);

@@ -367,14 +367,20 @@
     const accion = button.dataset.action;
     let cuerpo = {};
     if (accion === "finalizar") {
-      if (!window.confirm("¿Finalizar este viaje? El vehículo y el conductor quedarán disponibles.")) return;
+      const ok = await trailersysAsk({
+        title: "Finalizar viaje",
+        text: "El vehículo y el conductor quedarán disponibles para otro viaje.",
+        acceptLabel: "Finalizar viaje",
+      });
+      if (!ok) return;
     } else {
-      const observacion = window.prompt(
-        accion === "confirmar-entrega"
-          ? "Observación de la llegada (opcional):"
-          : "Observación de la validación (opcional):",
-        ""
-      );
+      const esLlegada = accion === "confirmar-entrega";
+      const observacion = await trailersysPrompt({
+        title: esLlegada ? "Confirmar llegada" : "Validar entrega",
+        label: esLlegada ? "Observación de la llegada (opcional)" : "Observación de la validación (opcional)",
+        placeholder: "Ej. Entregado sin novedades",
+        acceptLabel: esLlegada ? "Confirmar llegada" : "Validar entrega",
+      });
       if (observacion === null) return;
       cuerpo = { observacion: observacion.trim() };
     }
@@ -389,7 +395,7 @@
         renderReporteEntrega(viajeActualizado);
       }
     } catch (error) {
-      alert(error.message || "No se pudo completar la acción.");
+      trailersysToast(error.message || "No se pudo completar la acción.", { type: "error" });
     } finally {
       button.disabled = false;
     }
@@ -648,7 +654,7 @@
           await renderTimeline(viajeActualId);
           render();
         } catch (error) {
-          alert(error.message || "No se pudo eliminar el evento.");
+          trailersysToast(error.message || "No se pudo eliminar el evento.", { type: "error" });
         }
       },
     });
@@ -788,7 +794,7 @@
       await renderTimeline(viajeActualId);
       await render();
     } catch (error) {
-      alert(error.message || "No se pudo registrar el evento.");
+      trailersysToast(error.message || "No se pudo registrar el evento.", { type: "error" });
     } finally {
       submitEventoBtn.disabled = false;
     }

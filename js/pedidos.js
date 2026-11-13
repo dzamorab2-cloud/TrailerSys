@@ -341,7 +341,7 @@
     // saber por que.
     const w = window.open("", "_blank", "width=900,height=700");
     if (!w) {
-      alert("El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.");
+      trailersysToast("El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.", { type: "warning" });
       return;
     }
     w.document.write(`<!doctype html><html><head><title>Guía TS-${detalleActual.carga.id}</title><link rel="stylesheet" href="css/variables.css"><link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/components.css"><link rel="stylesheet" href="css/pedidos.css"><style>body{padding:32px}.pedido-detail{max-width:900px;margin:auto}</style></head><body><div class="pedido-detail"><h1>TrailerSys · Guía de transporte</h1>${$("pedidoDetalleContenido").innerHTML}<p>Documento generado el ${new Date().toLocaleString("es-EC")}</p></div><script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
@@ -442,9 +442,15 @@
   }
 
   async function cancelarPedido(id) {
-    if (!window.confirm("¿Cancelar este pedido? Quedará registrado como \"Cancelada\" y ya no podrás editarlo.")) return;
+    const ok = await trailersysAsk({
+      title: "Cancelar pedido",
+      text: "El pedido quedará registrado como \"Cancelada\" y ya no podrás editarlo.",
+      acceptLabel: "Cancelar pedido",
+      variant: "danger",
+    });
+    if (!ok) return;
     try { await trailersysApiRequest("DELETE", `/mis-cargas/${id}`); await cargar(); }
-    catch (err) { alert(err.message || "No se pudo cancelar el pedido."); }
+    catch (err) { trailersysToast(err.message || "No se pudo cancelar el pedido.", { type: "error" }); }
   }
   $("pedidoPesoUnidad").onchange = () => { const input = $("pedidoPeso"), valor = Number(input.value); if (input.value) { const kg = unidadAnterior === "lb" ? valor / 2.2046226218 : valor; input.value = ($("pedidoPesoUnidad").value === "lb" ? kg * 2.2046226218 : kg).toFixed(2); } unidadAnterior = $("pedidoPesoUnidad").value; };
   // pesoTexto en vez de leer el peso ya convertido a Number directamente:
@@ -452,7 +458,7 @@
   // como un pedido de "0 kg" en vez de pedir el dato. Con este sentinel
   // (igual que en cargas.js/mantenimientos.js) un campo vacio se detecta
   // como tal en vez de convertirse en un numero valido por accidente.
-  form.onsubmit = async (e) => { e.preventDefault(); const pesoTexto = $("pedidoPeso").value; const valor = Number(pesoTexto), kg = $("pedidoPesoUnidad").value === "lb" ? valor / 2.2046226218 : valor; const data = { descripcion: $("pedidoDescripcion").value.trim(), tipo: $("pedidoTipo").value.trim(), peso: pesoTexto === "" ? "" : Math.round(kg), origen: $("pedidoOrigen").value, destino: $("pedidoDestino").value, observaciones: $("pedidoObservaciones").value.trim() }; if (!data.descripcion || !data.tipo || !data.origen || !data.destino || data.peso === "" || Number.isNaN(data.peso) || data.peso < 0) return alert("Completa los campos obligatorios."); try { if (pedidoEditandoId) await trailersysApiRequest("PUT", `/mis-cargas/${pedidoEditandoId}`, data); else await trailersysApiRequest("POST", "/mis-cargas", data); trailersysCloseModal(modal); await cargar(); } catch (err) { alert(err.message); } };
+  form.onsubmit = async (e) => { e.preventDefault(); const pesoTexto = $("pedidoPeso").value; const valor = Number(pesoTexto), kg = $("pedidoPesoUnidad").value === "lb" ? valor / 2.2046226218 : valor; const data = { descripcion: $("pedidoDescripcion").value.trim(), tipo: $("pedidoTipo").value.trim(), peso: pesoTexto === "" ? "" : Math.round(kg), origen: $("pedidoOrigen").value, destino: $("pedidoDestino").value, observaciones: $("pedidoObservaciones").value.trim() }; if (!data.descripcion || !data.tipo || !data.origen || !data.destino || data.peso === "" || Number.isNaN(data.peso) || data.peso < 0) return trailersysToast("Completa los campos obligatorios.", { type: "warning" }); try { if (pedidoEditandoId) await trailersysApiRequest("PUT", `/mis-cargas/${pedidoEditandoId}`, data); else await trailersysApiRequest("POST", "/mis-cargas", data); trailersysCloseModal(modal); await cargar(); } catch (err) { trailersysToast(err.message, { type: "error" }); } };
   $("pedidoGrid").onclick = (e) => {
     const b = e.target.closest("button[data-action]"); if (!b) return;
     const id = b.dataset.id;
@@ -463,6 +469,6 @@
   };
   $("pedidoDetalleClose").onclick = $("pedidoDetalleAceptar").onclick = () => { trailersysCloseModal($("pedidoDetalleOverlay")); destruirMapaPedido(); }; $("pedidoImprimirGuia").onclick = imprimirGuia;
   $("pedidoRecepcionClose").onclick = $("pedidoRecepcionCancelar").onclick = () => trailersysCloseModal($("pedidoRecepcionOverlay"));
-  $("pedidoRecepcionForm").onsubmit = async (e) => { e.preventDefault(); const tipo = $("pedidoRecepcionTipo").value, obs = $("pedidoRecepcionObservacion").value.trim(), file = $("pedidoRecepcionEvidencia").files[0]; if (tipo !== "COMPLETO" && !obs) return alert("Describe el problema para registrar el reclamo."); if (file && file.size > 4 * 1024 * 1024) return alert("La imagen supera 4 MB."); const evidencia = file ? await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); }) : null; try { await trailersysApiRequest("POST", `/mis-cargas/${cargaRecepcionId}/confirmar-recepcion`, { observacion: obs, novedad: tipo, evidencia }); trailersysCloseModal($("pedidoRecepcionOverlay")); await cargar(); } catch (err) { alert(err.message); } };
+  $("pedidoRecepcionForm").onsubmit = async (e) => { e.preventDefault(); const tipo = $("pedidoRecepcionTipo").value, obs = $("pedidoRecepcionObservacion").value.trim(), file = $("pedidoRecepcionEvidencia").files[0]; if (tipo !== "COMPLETO" && !obs) return trailersysToast("Describe el problema para registrar el reclamo.", { type: "warning" }); if (file && file.size > 4 * 1024 * 1024) return trailersysToast("La imagen supera 4 MB.", { type: "warning" }); const evidencia = file ? await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); }) : null; try { await trailersysApiRequest("POST", `/mis-cargas/${cargaRecepcionId}/confirmar-recepcion`, { observacion: obs, novedad: tipo, evidencia }); trailersysCloseModal($("pedidoRecepcionOverlay")); await cargar(); } catch (err) { trailersysToast(err.message, { type: "error" }); } };
   $("pedidoBuscar").oninput = filtrar; $("pedidoEstadoFiltro").onchange = filtrar; $("pedidoFechaFiltro").onchange = filtrar; cargar();
 })();

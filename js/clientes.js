@@ -258,12 +258,13 @@
         await trailersysApiRequest("POST", "/clientes", data);
       }
       closeForm();
+      trailersysToast(id ? "Cliente actualizado." : "Cliente registrado.");
       await render();
     } catch (error) {
       if (/identificaci/i.test(error.message || "")) {
         setFieldError("fieldClienteIdentificacion", error.message);
       } else {
-        alert(error.message || "No se pudo guardar el cliente.");
+        trailersysToast(error.message || "No se pudo guardar el cliente.", { type: "error" });
       }
     } finally {
       submitBtn.disabled = false;
@@ -289,8 +290,9 @@
           try {
             await trailersysApiRequest("DELETE", `/clientes/${id}`);
             await render();
+            trailersysToast("Cliente eliminado.");
           } catch (error) {
-            alert(error.message || "No se pudo eliminar el cliente.");
+            trailersysToast(error.message || "No se pudo eliminar el cliente.", { type: "error" });
           }
         },
       });

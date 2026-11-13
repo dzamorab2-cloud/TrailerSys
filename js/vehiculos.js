@@ -350,7 +350,7 @@
     const file = inputFoto.files[0];
     if (!file) return;
     if (file.size > MAX_PHOTO_BYTES) {
-      alert("La imagen es muy grande. El tamaño máximo permitido es 3 MB.");
+      trailersysToast("La imagen es muy grande. El tamaño máximo permitido es 3 MB.", { type: "warning" });
       inputFoto.value = "";
       return;
     }
@@ -441,12 +441,13 @@
         await trailersysApiRequest("POST", "/vehiculos", data);
       }
       closeForm();
+      trailersysToast(id ? "Vehículo actualizado." : "Vehículo registrado.");
       await render();
     } catch (error) {
       if (/placa/i.test(error.message || "")) {
         setFieldError("fieldVehiculoPlaca", error.message);
       } else {
-        alert(error.message || "No se pudo guardar el vehículo.");
+        trailersysToast(error.message || "No se pudo guardar el vehículo.", { type: "error" });
       }
     } finally {
       submitBtn.disabled = false;
@@ -462,7 +463,7 @@
     if (!vehiculo) return;
 
     if (action === "guia") {
-      showVehiculoGuide(vehiculo).catch((error) => alert(error.message || "No se pudo generar la guía."));
+      showVehiculoGuide(vehiculo).catch((error) => trailersysToast(error.message || "No se pudo generar la guía.", { type: "error" }));
     } else if (action === "editar") {
       openForm(vehiculo);
     } else if (action === "eliminar") {
@@ -474,8 +475,9 @@
           try {
             await trailersysApiRequest("DELETE", `/vehiculos/${id}`);
             await render();
+            trailersysToast("Vehículo eliminado.");
           } catch (error) {
-            alert(error.message || "No se pudo eliminar el vehículo.");
+            trailersysToast(error.message || "No se pudo eliminar el vehículo.", { type: "error" });
           }
         },
       });

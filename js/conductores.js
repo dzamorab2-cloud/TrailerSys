@@ -276,7 +276,7 @@
     const file = inputFoto.files[0];
     if (!file) return;
     if (file.size > MAX_PHOTO_BYTES) {
-      alert("La imagen es muy grande. El tamaño máximo permitido es 3 MB.");
+      trailersysToast("La imagen es muy grande. El tamaño máximo permitido es 3 MB.", { type: "warning" });
       inputFoto.value = "";
       return;
     }
@@ -350,6 +350,7 @@
         await trailersysApiRequest("POST", "/conductores", data);
       }
       closeForm();
+      trailersysToast(id ? "Conductor actualizado." : "Conductor registrado.");
       await render();
     } catch (error) {
       if (/identificaci/i.test(error.message || "")) {
@@ -357,7 +358,7 @@
       } else if (/vehículo ya está asignado/i.test(error.message || "")) {
         setFieldError("fieldConductorVehiculo", error.message);
       } else {
-        alert(error.message || "No se pudo guardar el conductor.");
+        trailersysToast(error.message || "No se pudo guardar el conductor.", { type: "error" });
       }
     } finally {
       submitBtn.disabled = false;
@@ -373,7 +374,7 @@
     if (!conductor) return;
 
     if (action === "guia") {
-      showConductorGuide(conductor).catch((error) => alert(error.message || "No se pudo generar la guía."));
+      showConductorGuide(conductor).catch((error) => trailersysToast(error.message || "No se pudo generar la guía.", { type: "error" }));
     } else if (action === "editar") {
       openForm(conductor);
     } else if (action === "eliminar") {
@@ -385,8 +386,9 @@
           try {
             await trailersysApiRequest("DELETE", `/conductores/${id}`);
             await render();
+            trailersysToast("Conductor eliminado.");
           } catch (error) {
-            alert(error.message || "No se pudo eliminar el conductor.");
+            trailersysToast(error.message || "No se pudo eliminar el conductor.", { type: "error" });
           }
         },
       });

@@ -51,13 +51,13 @@
         reader.readAsDataURL(file);
       });
       if (dataUrl.length > LIMITE_FOTO_CARACTERES) {
-        alert("La imagen es muy grande. Elige una foto más liviana o recórtala.");
+        trailersysToast("La imagen es muy grande. Elige una foto más liviana o recórtala.", { type: "warning" });
         return;
       }
       const actualizado = await trailersysApiRequest("PUT", "/auth/me/foto", { foto: dataUrl });
       renderAvatar({ username: usernameEl.textContent.replace(/^@/, ""), nombre: nombreEl.textContent, foto: actualizado.foto });
     } catch (error) {
-      alert(error.message || "No se pudo actualizar la foto.");
+      trailersysToast(error.message || "No se pudo actualizar la foto.", { type: "error" });
     } finally {
       fotoInput.value = "";
     }

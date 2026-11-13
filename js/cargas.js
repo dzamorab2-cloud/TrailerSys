@@ -439,12 +439,13 @@
         guardada = await trailersysApiRequest("POST", "/cargas", data);
       }
       closeForm();
+      trailersysToast(id ? "Carga actualizada." : "Carga registrada.");
       await render();
       if (!id && guardada) {
         await showCargaGuide(guardada);
       }
     } catch (error) {
-      alert(error.message || "No se pudo guardar la carga.");
+      trailersysToast(error.message || "No se pudo guardar la carga.", { type: "error" });
     } finally {
       submitBtn.disabled = false;
     }
@@ -459,7 +460,7 @@
     if (!carga) return;
 
     if (action === "guia") {
-      showCargaGuide(carga).catch((error) => alert(error.message || "No se pudo generar la guía."));
+      showCargaGuide(carga).catch((error) => trailersysToast(error.message || "No se pudo generar la guía.", { type: "error" }));
     } else if (action === "editar") {
       openForm(carga);
     } else if (action === "eliminar") {
@@ -471,8 +472,9 @@
           try {
             await trailersysApiRequest("DELETE", `/cargas/${id}`);
             await render();
+            trailersysToast("Carga eliminada.");
           } catch (error) {
-            alert(error.message || "No se pudo eliminar la carga.");
+            trailersysToast(error.message || "No se pudo eliminar la carga.", { type: "error" });
           }
         },
       });

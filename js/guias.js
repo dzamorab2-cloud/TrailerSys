@@ -95,7 +95,7 @@
     if (!guia) return;
     button.disabled = true;
     try { await (guia.tipo === "VIAJE" ? showViaje(guia.referenciaId) : showCarga(guia.referenciaId)); }
-    catch (error) { alert(error.message || "No se pudo abrir la guía."); }
+    catch (error) { trailersysToast(error.message || "No se pudo abrir la guía.", { type: "error" }); }
     finally { button.disabled = false; }
   });
 

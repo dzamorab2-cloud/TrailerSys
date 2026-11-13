@@ -81,6 +81,18 @@
     const viaje = cache.find((item) => String(item.id) === b.dataset.id);
     if (!viaje) return;
     if (b.dataset.action === "guia") { showReclamoGuide(viaje); return; }
-    const respuesta = prompt("Escribe la respuesta que verá el cliente:"); if (!respuesta?.trim()) return; const resolver = confirm("¿Marcar el reclamo como resuelto? (Cancelar lo deja en revisión)"); try { await trailersysApiRequest("PUT", `/reclamos/${b.dataset.id}`, { respuesta: respuesta.trim(), estado: resolver ? "RESUELTO" : "EN_REVISION" }); await render(); } catch (err) { alert(err.message); } };
+    const datos = await trailersysFormDialog({
+      title: "Responder reclamo",
+      acceptLabel: "Enviar respuesta",
+      fields: [
+        { name: "respuesta", label: "Respuesta para el cliente", type: "textarea", required: true, placeholder: "El cliente verá este mensaje en su pedido." },
+        { name: "estado", label: "Estado del reclamo", type: "select", options: [
+          { value: "RESUELTO", label: "Resuelto" },
+          { value: "EN_REVISION", label: "En revisión" },
+        ] },
+      ],
+    });
+    if (!datos) return;
+    try { await trailersysApiRequest("PUT", `/reclamos/${b.dataset.id}`, { respuesta: datos.respuesta, estado: datos.estado }); await render(); trailersysToast(datos.estado === "RESUELTO" ? "Reclamo resuelto." : "Respuesta enviada; el reclamo sigue en revisión."); } catch (err) { trailersysToast(err.message, { type: "error" }); } };
   window.addEventListener("trailersys:module-activated", (e) => { if (e.detail.module === "reclamos") render(); });
 })();

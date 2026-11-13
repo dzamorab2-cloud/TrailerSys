@@ -610,13 +610,14 @@
         guardado = await trailersysApiRequest("POST", "/viajes", data);
       }
       closeForm();
+      trailersysToast(id ? "Viaje actualizado." : "Viaje registrado.");
       await render();
       if (!id && guardado) {
         guardado.ruta = fromApiRuta(guardado.ruta);
         await showViajeGuide(guardado);
       }
     } catch (error) {
-      alert(error.message || "No se pudo guardar el viaje.");
+      trailersysToast(error.message || "No se pudo guardar el viaje.", { type: "error" });
     } finally {
       submitBtn.disabled = false;
     }
@@ -631,7 +632,7 @@
     if (!viaje) return;
 
     if (action === "guia") {
-      showViajeGuide(viaje).catch((error) => alert(error.message || "No se pudo generar la guía."));
+      showViajeGuide(viaje).catch((error) => trailersysToast(error.message || "No se pudo generar la guía.", { type: "error" }));
     } else if (action === "historial") {
       openHistorial(viaje).catch((error) => { historialContent.innerHTML = `<div class="dashboard-empty">${escapeHtml(error.message)}</div>`; });
     } else if (action === "editar") {
@@ -647,8 +648,9 @@
           try {
             await trailersysApiRequest("DELETE", `/viajes/${id}`);
             await render();
+            trailersysToast("Viaje eliminado.");
           } catch (error) {
-            alert(error.message || "No se pudo eliminar el viaje.");
+            trailersysToast(error.message || "No se pudo eliminar el viaje.", { type: "error" });
           }
         },
       });
@@ -834,7 +836,7 @@
 
   btnMapaVerGuia.addEventListener("click", () => {
     const viaje = viajesCache.find((v) => String(v.id) === String(mapaViajeActualId));
-    if (viaje) showViajeGuide(viaje).catch((error) => alert(error.message || "No se pudo generar la guía."));
+    if (viaje) showViajeGuide(viaje).catch((error) => trailersysToast(error.message || "No se pudo generar la guía.", { type: "error" }));
   });
 
   session = trailersysGetSession();

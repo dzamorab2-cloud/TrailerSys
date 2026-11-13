@@ -352,9 +352,9 @@
     const url=URL.createObjectURL(blob); const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);
   }
 
-  evidenciaForm.addEventListener("submit",async event=>{event.preventDefault();const id=document.getElementById("evidenciaMantenimientoId").value;const file=document.getElementById("evidenciaArchivo").files[0];if(!file)return;if(file.size>10*1024*1024){alert("El archivo supera 10 MB.");return;}const fd=new FormData();fd.append("categoria",document.getElementById("evidenciaCategoria").value);fd.append("archivo",file);const btn=evidenciaForm.querySelector("button");btn.disabled=true;try{const response=await fetch(`${TRAILERSYS_API_BASE_URL}/mantenimientos/${id}/evidencias`,{method:"POST",headers:apiHeaders(),body:fd});if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.message||"No se pudo adjuntar.");}evidenciaForm.reset();await loadEvidencias(id);}catch(e){alert(e.message);}finally{btn.disabled=false;}});
+  evidenciaForm.addEventListener("submit",async event=>{event.preventDefault();const id=document.getElementById("evidenciaMantenimientoId").value;const file=document.getElementById("evidenciaArchivo").files[0];if(!file)return;if(file.size>10*1024*1024){trailersysToast("El archivo supera 10 MB.", { type: "warning" });return;}const fd=new FormData();fd.append("categoria",document.getElementById("evidenciaCategoria").value);fd.append("archivo",file);const btn=evidenciaForm.querySelector("button");btn.disabled=true;try{const response=await fetch(`${TRAILERSYS_API_BASE_URL}/mantenimientos/${id}/evidencias`,{method:"POST",headers:apiHeaders(),body:fd});if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.message||"No se pudo adjuntar.");}evidenciaForm.reset();await loadEvidencias(id);}catch(e){trailersysToast(e.message, { type: "error" });}finally{btn.disabled=false;}});
   [document.getElementById("evidenciaModalClose"),document.getElementById("evidenciaCerrarBtn")].forEach(b=>b.addEventListener("click",()=>trailersysCloseModal(evidenciaOverlay)));
-  evidenciaList.addEventListener("click",async event=>{const id=document.getElementById("evidenciaMantenimientoId").value;const download=event.target.closest("[data-evidence-download]");const del=event.target.closest("[data-evidence-delete]");try{if(download)await downloadEvidence(id,download.dataset.evidenceDownload);if(del){await trailersysApiRequest("DELETE",`/mantenimientos/${id}/evidencias/${del.dataset.evidenceDelete}`);await loadEvidencias(id);}}catch(e){alert(e.message);}});
+  evidenciaList.addEventListener("click",async event=>{const id=document.getElementById("evidenciaMantenimientoId").value;const download=event.target.closest("[data-evidence-download]");const del=event.target.closest("[data-evidence-delete]");try{if(download)await downloadEvidence(id,download.dataset.evidenceDownload);if(del){await trailersysApiRequest("DELETE",`/mantenimientos/${id}/evidencias/${del.dataset.evidenceDelete}`);await loadEvidencias(id);}}catch(e){trailersysToast(e.message, { type: "error" });}});
 
   async function renderCalendar() {
     const year=calendarDate.getFullYear(),month=calendarDate.getMonth();
@@ -376,7 +376,7 @@
   function bars(items,label,value,formatter=v=>v){const max=Math.max(1,...items.map(value));return items.map(x=>`<div class="metric-row"><span>${escapeHtml(label(x))}</span><div class="metric-bar"><span style="width:${value(x)*100/max}%"></span></div><strong>${formatter(value(x))}</strong></div>`).join("")||'<div class="dashboard-empty">Sin datos.</div>';}
   async function renderReports(){const d=await trailersysApiRequest("GET","/mantenimientos/reportes");const money=n=>formatCosto(n);document.getElementById("maintenanceStats").innerHTML=[stat("bi-tools",Number(d.total).toLocaleString("es-EC"),"Mantenimientos"),stat("bi-cash-coin",money(d.costoTotal),"Costo total"),stat("bi-receipt",money(d.costoPromedio),"Costo promedio"),stat("bi-exclamation-triangle",Number(d.vencidos).toLocaleString("es-EC"),"Servicios vencidos")].join("");document.getElementById("maintenanceCosts").innerHTML=bars(d.costosPorVehiculo,x=>x.placa,x=>x.costo,money)+bars(d.costosPorVehiculo,x=>`${x.placa} · días fuera`,x=>x.diasFueraServicio);document.getElementById("maintenanceFrequency").innerHTML=bars(d.mantenimientosFrecuentes,x=>x.tipo,x=>x.cantidad,v=>Number(v).toLocaleString("es-EC"));const fleet=[{name:"Disponibles",v:d.vehiculosDisponibles},{name:"Mantenimiento",v:d.vehiculosMantenimiento},{name:"Fuera de servicio",v:d.vehiculosFueraServicio}];document.getElementById("maintenanceAvailability").innerHTML=bars(fleet,x=>x.name,x=>x.v,v=>Number(v).toLocaleString("es-EC"));}
 
-  tabs.addEventListener("click",async event=>{const btn=event.target.closest("[data-view]");if(!btn)return;tabs.querySelectorAll(".maintenance-tab").forEach(x=>x.classList.toggle("active",x===btn));listadoView.hidden=btn.dataset.view!=="listado";calendarioView.hidden=btn.dataset.view!=="calendario";reportesView.hidden=btn.dataset.view!=="reportes";try{if(btn.dataset.view==="calendario")await renderCalendar();if(btn.dataset.view==="reportes")await renderReports();}catch(e){alert(e.message);}});
+  tabs.addEventListener("click",async event=>{const btn=event.target.closest("[data-view]");if(!btn)return;tabs.querySelectorAll(".maintenance-tab").forEach(x=>x.classList.toggle("active",x===btn));listadoView.hidden=btn.dataset.view!=="listado";calendarioView.hidden=btn.dataset.view!=="calendario";reportesView.hidden=btn.dataset.view!=="reportes";try{if(btn.dataset.view==="calendario")await renderCalendar();if(btn.dataset.view==="reportes")await renderReports();}catch(e){trailersysToast(e.message, { type: "error" });}});
   function moveCalendar(direction){if(calendarMode==="day")calendarDate.setDate(calendarDate.getDate()+direction);else if(calendarMode==="week")calendarDate.setDate(calendarDate.getDate()+7*direction);else calendarDate.setMonth(calendarDate.getMonth()+direction);renderCalendar();}
   document.getElementById("calendarPrev").addEventListener("click",()=>moveCalendar(-1));document.getElementById("calendarNext").addEventListener("click",()=>moveCalendar(1));document.getElementById("calendarToday").addEventListener("click",()=>{calendarDate=new Date();renderCalendar();});
   document.querySelectorAll("[data-calendar-mode]").forEach(button=>button.addEventListener("click",()=>{calendarMode=button.dataset.calendarMode;document.querySelectorAll("[data-calendar-mode]").forEach(x=>{x.classList.toggle("btn-primary",x===button);x.classList.toggle("btn-ghost",x!==button);});renderCalendar();}));
@@ -440,10 +440,11 @@
         await trailersysApiRequest("POST", "/mantenimientos", data);
       }
       closeForm();
+      trailersysToast(id ? "Mantenimiento actualizado." : "Mantenimiento registrado.");
       await refreshAllMaintenanceViews();
       notifyMaintenanceChanged(id ? "updated" : "created", id);
     } catch (error) {
-      alert(error.message || "No se pudo guardar el mantenimiento.");
+      trailersysToast(error.message || "No se pudo guardar el mantenimiento.", { type: "error" });
     } finally {
       submitBtn.disabled = false;
     }
@@ -458,7 +459,7 @@
     if (!mantenimiento) return;
 
     if (action === "guia") {
-      showMantenimientoGuide(mantenimiento).catch((error) => alert(error.message || "No se pudo generar la guía."));
+      showMantenimientoGuide(mantenimiento).catch((error) => trailersysToast(error.message || "No se pudo generar la guía.", { type: "error" }));
     } else if (action === "editar") {
       openForm(mantenimiento);
     } else if (action === "evidencias") {
@@ -472,9 +473,10 @@
           try {
             await trailersysApiRequest("DELETE", `/mantenimientos/${id}`);
             await refreshAllMaintenanceViews();
+            trailersysToast("Mantenimiento eliminado.");
             notifyMaintenanceChanged("deleted", id);
           } catch (error) {
-            alert(error.message || "No se pudo eliminar el mantenimiento.");
+            trailersysToast(error.message || "No se pudo eliminar el mantenimiento.", { type: "error" });
           }
         },
       });

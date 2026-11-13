@@ -35,7 +35,7 @@
     const file = input.files[0];
     if (!file) return;
     if (file.size > MAX_PHOTO_BYTES) {
-      alert("La imagen es muy grande. El tamaño máximo permitido es 3 MB.");
+      trailersysToast("La imagen es muy grande. El tamaño máximo permitido es 3 MB.", { type: "warning" });
       input.value = "";
       return;
     }
@@ -49,7 +49,7 @@
       const actualizado = await trailersysApiRequest("PUT", "/auth/me/foto", { foto: dataUrl });
       $("mantenimientoPerfilFotoPreview").innerHTML = `<img src="${esc(actualizado.foto)}" alt="Foto de perfil" />`;
     } catch (error) {
-      alert(error.message || "No se pudo actualizar la foto.");
+      trailersysToast(error.message || "No se pudo actualizar la foto.", { type: "error" });
     } finally {
       input.value = "";
     }

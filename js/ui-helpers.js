@@ -25,27 +25,247 @@ const trailersysConfirm = (function () {
     pendingAccept = null;
   }
 
+  let pendingCancel = null;
+
   acceptBtn.addEventListener("click", () => {
     const accept = pendingAccept;
+    pendingCancel = null;
     close();
     if (accept) accept();
   });
-  cancelBtn.addEventListener("click", close);
-  closeBtn.addEventListener("click", close);
+  function cancel() {
+    const onCancel = pendingCancel;
+    pendingCancel = null;
+    close();
+    if (onCancel) onCancel();
+  }
+  cancelBtn.addEventListener("click", cancel);
+  closeBtn.addEventListener("click", cancel);
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) close();
+    if (event.target === overlay) cancel();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && overlay.classList.contains("open")) cancel();
   });
 
-  return function trailersysConfirm({ title, text, acceptLabel = "Eliminar", variant = "danger", onAccept }) {
+  return function trailersysConfirm({ title, text, acceptLabel = "Eliminar", variant = "danger", onAccept, onCancel }) {
     titleEl.textContent = title;
     textEl.textContent = text;
     acceptBtn.textContent = acceptLabel;
     acceptBtn.classList.toggle("btn-danger", variant === "danger");
     acceptBtn.classList.toggle("btn-primary", variant !== "danger");
     pendingAccept = onAccept;
+    pendingCancel = onCancel || null;
     trailersysOpenModal(overlay);
+    acceptBtn.focus();
   };
 })();
+
+/**
+ * Igual que trailersysConfirm pero devuelve una Promise<boolean>, para usar
+ * con await donde antes habia un window.confirm() nativo.
+ */
+function trailersysAsk({ title, text, acceptLabel = "Aceptar", variant = "primary" }) {
+  return new Promise((resolve) => {
+    trailersysConfirm({
+      title, text, acceptLabel, variant,
+      onAccept: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
+}
+
+/**
+ * Notificaciones breves en la esquina (reemplazan al alert() nativo, que
+ * bloquea la pagina y se ve distinto en cada navegador).
+ * type: "success" | "error" | "warning" | "info".
+ */
+const trailersysToast = (function () {
+  const ICONOS = { success: "bi-check-circle-fill", error: "bi-x-circle-fill", warning: "bi-exclamation-triangle-fill", info: "bi-info-circle-fill" };
+  let contenedor = null;
+
+  function asegurarContenedor() {
+    if (contenedor && document.body.contains(contenedor)) return contenedor;
+    contenedor = document.createElement("div");
+    contenedor.className = "toast-stack";
+    contenedor.setAttribute("aria-live", "polite");
+    document.body.appendChild(contenedor);
+    return contenedor;
+  }
+
+  return function trailersysToast(message, { type = "success", duration } = {}) {
+    const tipo = ICONOS[type] ? type : "info";
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${tipo}`;
+    toast.setAttribute("role", tipo === "error" ? "alert" : "status");
+    const icono = document.createElement("i");
+    icono.className = `bi ${ICONOS[tipo]}`;
+    const texto = document.createElement("span");
+    texto.className = "toast-text";
+    texto.textContent = String(message ?? "");
+    const cerrar = document.createElement("button");
+    cerrar.type = "button";
+    cerrar.className = "toast-close";
+    cerrar.setAttribute("aria-label", "Cerrar notificación");
+    cerrar.innerHTML = '<i class="bi bi-x-lg"></i>';
+    toast.append(icono, texto, cerrar);
+    asegurarContenedor().appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("visible"));
+
+    let timer = null;
+    const quitar = () => {
+      clearTimeout(timer);
+      toast.classList.remove("visible");
+      setTimeout(() => toast.remove(), 250);
+    };
+    cerrar.addEventListener("click", quitar);
+    const ms = duration ?? (tipo === "error" ? 7000 : 4000);
+    const programar = () => { timer = setTimeout(quitar, ms); };
+    toast.addEventListener("mouseenter", () => clearTimeout(timer));
+    toast.addEventListener("mouseleave", programar);
+    programar();
+  };
+})();
+
+/**
+ * Dialogo con campos (reemplaza al prompt() nativo). Devuelve una Promise
+ * con un objeto {nombreCampo: valor} al aceptar, o null al cancelar.
+ *
+ * fields: [{ name, label, type: "text"|"textarea"|"select", options:[{value,label}],
+ *            required, placeholder, value, help }]
+ */
+function trailersysFormDialog({ title, text, fields = [], acceptLabel = "Aceptar", variant = "primary" }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    const modal = document.createElement("div");
+    overlay.classList.add("dialog-overlay");
+    modal.className = "modal-dialog dialog-sm";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+
+    const header = document.createElement("div");
+    header.className = "modal-header";
+    const h3 = document.createElement("h3");
+    h3.textContent = title;
+    const btnX = document.createElement("button");
+    btnX.type = "button";
+    btnX.className = "modal-close";
+    btnX.setAttribute("aria-label", "Cerrar");
+    btnX.innerHTML = '<i class="bi bi-x-lg"></i>';
+    header.append(h3, btnX);
+
+    const form = document.createElement("form");
+    form.className = "form-grid dialog-form";
+    form.noValidate = true;
+    if (text) {
+      const p = document.createElement("p");
+      p.className = "modal-text field-span-2";
+      p.textContent = text;
+      form.appendChild(p);
+    }
+    const inputs = {};
+    fields.forEach((f, i) => {
+      const id = `dlg-${Date.now()}-${i}`;
+      const wrap = document.createElement("div");
+      wrap.className = "field field-span-2";
+      const label = document.createElement("label");
+      label.htmlFor = id;
+      label.textContent = f.label + (f.required ? " *" : "");
+      let input;
+      if (f.type === "textarea") {
+        input = document.createElement("textarea");
+        input.rows = 3;
+      } else if (f.type === "select") {
+        input = document.createElement("select");
+        (f.options || []).forEach((o) => {
+          const opt = document.createElement("option");
+          opt.value = o.value;
+          opt.textContent = o.label;
+          input.appendChild(opt);
+        });
+      } else {
+        input = document.createElement("input");
+        input.type = "text";
+      }
+      input.id = id;
+      if (f.placeholder) input.placeholder = f.placeholder;
+      if (f.value !== undefined) input.value = f.value;
+      const inputWrap = document.createElement("div");
+      inputWrap.className = "input-wrap";
+      inputWrap.appendChild(input);
+      const error = document.createElement("span");
+      error.className = "field-error";
+      wrap.append(label, inputWrap);
+      if (f.help) {
+        const help = document.createElement("small");
+        help.className = "field-help";
+        help.textContent = f.help;
+        wrap.appendChild(help);
+      }
+      wrap.appendChild(error);
+      form.appendChild(wrap);
+      inputs[f.name] = { input, error, field: f, wrap };
+    });
+
+    const footer = document.createElement("div");
+    footer.className = "modal-footer field-span-2";
+    const btnCancel = document.createElement("button");
+    btnCancel.type = "button";
+    btnCancel.className = "btn btn-ghost";
+    btnCancel.textContent = "Cancelar";
+    const btnOk = document.createElement("button");
+    btnOk.type = "submit";
+    btnOk.className = `btn ${variant === "danger" ? "btn-danger" : "btn-primary"}`;
+    btnOk.textContent = acceptLabel;
+    footer.append(btnCancel, btnOk);
+    form.appendChild(footer);
+
+    modal.append(header, form);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add("open"));
+
+    const terminar = (valor) => {
+      document.removeEventListener("keydown", onKey);
+      overlay.classList.remove("open");
+      setTimeout(() => overlay.remove(), 200);
+      resolve(valor);
+    };
+    const onKey = (event) => { if (event.key === "Escape") terminar(null); };
+    document.addEventListener("keydown", onKey);
+    btnX.addEventListener("click", () => terminar(null));
+    btnCancel.addEventListener("click", () => terminar(null));
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) terminar(null); });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const resultado = {};
+      let valido = true;
+      Object.entries(inputs).forEach(([name, { input, error, field, wrap }]) => {
+        const valor = field.type === "select" ? input.value : input.value.trim();
+        const falta = field.required && !valor;
+        error.textContent = falta ? "Este campo es obligatorio." : "";
+        wrap.classList.toggle("has-error", falta);
+        if (falta) valido = false;
+        resultado[name] = valor;
+      });
+      if (valido) terminar(resultado);
+    });
+
+    const primero = Object.values(inputs)[0];
+    setTimeout(() => (primero ? primero.input.focus() : btnOk.focus()), 50);
+  });
+}
+
+/** Atajo de trailersysFormDialog para pedir un solo texto. Devuelve string o null. */
+async function trailersysPrompt({ title, label, text, placeholder, required = false, multiline = true, acceptLabel = "Aceptar" }) {
+  const r = await trailersysFormDialog({
+    title, text, acceptLabel,
+    fields: [{ name: "valor", label, placeholder, required, type: multiline ? "textarea" : "text" }],
+  });
+  return r ? r.valor : null;
+}
 
 /**
  * Convierte un input de texto en un buscador con autocompletado contra un

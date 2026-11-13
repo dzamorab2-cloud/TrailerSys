@@ -226,7 +226,12 @@
   reporteEntrega.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-action='confirmar-entrega']");
     if (!button || !viajeActualId) return;
-    const observacion = window.prompt("Observación de la llegada (opcional):", "");
+    const observacion = await trailersysPrompt({
+      title: "Confirmar llegada",
+      label: "Observación de la llegada (opcional)",
+      placeholder: "Ej. Carga entregada sin novedades",
+      acceptLabel: "Confirmar llegada",
+    });
     if (observacion === null) return;
     button.disabled = true;
     try {
@@ -235,7 +240,7 @@
       const actualizado = viajesCache.find((v) => String(v.id) === String(viajeActualId));
       if (actualizado) { renderResumen(actualizado); renderReporteEntrega(actualizado); }
     } catch (error) {
-      alert(error.message || "No se pudo confirmar la llegada.");
+      trailersysToast(error.message || "No se pudo confirmar la llegada.", { type: "error" });
     } finally {
       button.disabled = false;
     }
@@ -393,7 +398,7 @@
       const viaje = viajesCache.find((v) => String(v.id) === String(viajeActualId));
       if (viaje) prepararEventoForm(viaje);
     } catch (error) {
-      alert(error.message || "No se pudo registrar el evento.");
+      trailersysToast(error.message || "No se pudo registrar el evento.", { type: "error" });
     } finally {
       submitEventoBtn.disabled = false;
     }
@@ -455,7 +460,7 @@
       if (!viajesCache.some((v) => String(v.id) === String(id))) viajesCache.push(viaje);
       abrirDetalle(viaje);
     } catch (error) {
-      alert(error.message || "No se pudo cargar el viaje.");
+      trailersysToast(error.message || "No se pudo cargar el viaje.", { type: "error" });
     }
   }
 
