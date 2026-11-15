@@ -11,6 +11,10 @@ CREATE OR REPLACE TRIGGER trg_auditar AFTER INSERT OR DELETE OR UPDATE ON public
 CREATE OR REPLACE TRIGGER trg_auditar AFTER INSERT OR DELETE OR UPDATE ON public.pagos
     FOR EACH ROW EXECUTE FUNCTION public.trailersys_registrar_auditoria();
 
+-- Indice para "viajes por facturar" (filtra por cliente y estado, ordena por fecha)
+CREATE INDEX IF NOT EXISTS idx_viajes_cliente_estado_fecha
+    ON public.viajes (cliente_id, estado, fecha_salida DESC);
+
 -- Permisos de los roles de grupo (ver 01_roles_privileges.sql)
 GRANT SELECT ON public.facturas, public.factura_detalles, public.pagos TO trailersys_lectura;
 GRANT SELECT, INSERT, UPDATE ON public.facturas, public.factura_detalles, public.pagos TO trailersys_operacion;

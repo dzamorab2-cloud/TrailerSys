@@ -320,3 +320,14 @@
   color: var(--color-text-muted);
   text-decoration: line-through;
 }
+
+/* Celular: los 4 indicadores de cartera en 2 columnas compactas. */
+@media (max-width: 480px) {
+  .facturacion-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .facturacion-stats .stat-card-value {
+    font-size: 1.02rem;
+  }
+}

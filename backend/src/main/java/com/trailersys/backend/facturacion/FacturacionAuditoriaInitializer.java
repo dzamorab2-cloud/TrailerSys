@@ -16,7 +16,8 @@ import org.springframework.stereotype.Component;
  * disparador de auditoria. Este paso lo agrega al arrancar (solo en
  * PostgreSQL y solo si la funcion de auditoria existe), para que facturas,
  * lineas y pagos queden en la Auditoria igual que el resto de las tablas.
- * Equivalente manual: database/14_facturacion_auditoria.sql.
+ * Tambien crea el indice de viajes por cliente que usa "viajes por
+ * facturar". Equivalente manual: database/14_facturacion_auditoria.sql.
  */
 @Component
 public class FacturacionAuditoriaInitializer implements CommandLineRunner {
@@ -30,6 +31,20 @@ public class FacturacionAuditoriaInitializer implements CommandLineRunner {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * "Viajes por facturar" filtra por cliente y estado y ordena por fecha;
+     * sin este indice, con cientos de miles de viajes PostgreSQL recorre
+     * todos los finalizados para encontrar los de un cliente.
+     */
+    private void crearIndiceViajesPorCliente() {
+        try {
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_viajes_cliente_estado_fecha "
+                    + "ON public.viajes (cliente_id, estado, fecha_salida DESC)");
+        } catch (DataAccessException error) {
+            log.warn("No se pudo crear el indice de viajes por cliente: {}", error.getMostSpecificCause().getMessage());
+        }
+    }
+
     @Override
     public void run(String... args) {
         try (var connection = jdbcTemplate.getDataSource().getConnection()) {
@@ -38,6 +53,7 @@ public class FacturacionAuditoriaInitializer implements CommandLineRunner {
             log.warn("No se pudo verificar el motor de base de datos: {}", error.getMessage());
             return;
         }
+        crearIndiceViajesPorCliente();
         try {
             Integer funciones = jdbcTemplate.queryForObject(
                     "SELECT count(*) FROM pg_proc WHERE proname = 'trailersys_registrar_auditoria'", Integer.class);
