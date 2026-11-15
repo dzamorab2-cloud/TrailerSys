@@ -259,9 +259,9 @@ function trailersysFormDialog({ title, text, fields = [], acceptLabel = "Aceptar
 }
 
 /** Atajo de trailersysFormDialog para pedir un solo texto. Devuelve string o null. */
-async function trailersysPrompt({ title, label, text, placeholder, required = false, multiline = true, acceptLabel = "Aceptar" }) {
+async function trailersysPrompt({ title, label, text, placeholder, required = false, multiline = true, acceptLabel = "Aceptar", variant = "primary" }) {
   const r = await trailersysFormDialog({
-    title, text, acceptLabel,
+    title, text, acceptLabel, variant,
     fields: [{ name: "valor", label, placeholder, required, type: multiline ? "textarea" : "text" }],
   });
   return r ? r.valor : null;

@@ -22,7 +22,7 @@
     const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
     return new Date(y, m - 1, d).toLocaleDateString("es-EC", { day: "2-digit", month: "short", year: "numeric" });
   };
-  const BADGE = { Pendiente: "badge-info", Parcial: "badge-warning", Pagada: "badge-success", Vencida: "badge-danger", Anulada: "badge-neutral" };
+  const BADGE = { Pendiente: "badge-info", Parcial: "badge-warning", Pagada: "badge-success", Vencida: "badge-danger", Anulada: "badge-anulada" };
   const badge = (estado) => `<span class="badge ${BADGE[estado] || "badge-neutral"}">${esc(estado)}</span>`;
   const statCard = (icon, valor, label, tone = "") =>
     `<div class="stat-card stat-card-action ${tone}"><div class="stat-card-icon"><i class="bi ${icon}"></i></div><div><div class="stat-card-value">${valor}</div><div class="stat-card-label">${esc(label)}</div></div></div>`;
@@ -47,7 +47,8 @@
   function renderDetalle(f, { soloLectura }) {
     facturaAbierta = f;
     $("facturaDetalleTitulo").textContent = `Factura ${f.numero}`;
-    const abierta = f.estado !== "Pagada" && f.estado !== "Anulada";
+    const anulada = f.estado === "Anulada";
+    const abierta = f.estado !== "Pagada" && !anulada;
     const progreso = Number(f.total) > 0 ? Math.min(100, (Number(f.pagado) / Number(f.total)) * 100) : 0;
     const vencimientoTxt = f.estado === "Vencida"
       ? `<span class="factura-vencida">Vencida hace ${f.diasVencida} día${f.diasVencida === 1 ? "" : "s"}</span>`
@@ -66,12 +67,13 @@
         <div class="route-stat"><div class="route-stat-label">Emisión</div><div class="route-stat-value">${fecha(f.fechaEmision)}</div></div>
         <div class="route-stat"><div class="route-stat-label">Vencimiento</div><div class="route-stat-value">${vencimientoTxt}</div></div>
         <div class="route-stat"><div class="route-stat-label">Total</div><div class="route-stat-value">${dinero(f.total)}</div></div>
-        <div class="route-stat"><div class="route-stat-label">Saldo</div><div class="route-stat-value ${Number(f.saldo) > 0 ? "factura-saldo" : ""}">${dinero(f.saldo)}</div></div>
+        <div class="route-stat"><div class="route-stat-label">Saldo</div><div class="route-stat-value ${Number(f.saldo) > 0 && !anulada ? "factura-saldo" : ""}">${anulada ? "—" : dinero(f.saldo)}</div></div>
       </div>
+      ${anulada ? "" : `
       <div class="factura-progreso" title="Pagado ${dinero(f.pagado)} de ${dinero(f.total)}">
         <div class="factura-progreso-barra" style="width:${progreso.toFixed(1)}%"></div>
       </div>
-      <div class="table-secondary factura-progreso-texto">Pagado ${dinero(f.pagado)} de ${dinero(f.total)}</div>
+      <div class="table-secondary factura-progreso-texto">Pagado ${dinero(f.pagado)} de ${dinero(f.total)}</div>`}
 
       <h4 class="factura-subtitulo">Detalle</h4>
       <table class="report-table factura-lineas">
@@ -163,6 +165,7 @@
       placeholder: "Ej. Valor mal digitado",
       required: true,
       acceptLabel: "Anular factura",
+      variant: "danger",
     });
     if (motivo === null) return;
     try {
@@ -259,7 +262,7 @@
           <td>${fecha(f.fechaEmision)}</td>
           <td>${fecha(f.fechaVencimiento)}${f.estado === "Vencida" ? `<div class="table-secondary factura-vencida">hace ${f.diasVencida} d</div>` : ""}</td>
           <td class="num">${dinero(f.total)}</td>
-          <td class="num ${Number(f.saldo) > 0 && f.estado !== "Anulada" ? "factura-saldo" : ""}">${dinero(f.saldo)}</td>
+          <td class="num ${Number(f.saldo) > 0 && f.estado !== "Anulada" ? "factura-saldo" : ""}">${f.estado === "Anulada" ? '<span class="table-secondary">—</span>' : dinero(f.saldo)}</td>
           <td>${badge(f.estado)}</td>
           <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-id="${f.id}"><i class="bi bi-eye"></i>Ver</button></td>
         </tr>`).join("") : '<tr class="loading-row"><td colspan="8">No hay facturas con esos filtros.</td></tr>';

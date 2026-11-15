@@ -313,3 +313,10 @@
     max-width: none;
   }
 }
+
+/* Anulada: gris y tachada, para que no parezca un estado "bueno". */
+.badge-anulada {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
